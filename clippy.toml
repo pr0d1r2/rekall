@@ -1,0 +1,40 @@
+# Code limits. One file, repo root, no per-crate dialect.
+#
+# PROVENANCE, named rather than cited: these are Sandi Metz's rules, adapted,
+# and they match the numbers the sibling crates in this fleet were written
+# against. Every number is a REVIEWED decision, not a default. Raising one to
+# make a build pass is the reflex these limits exist to catch.
+#
+# This crate starts at ZERO code, so it can hold all of them from commit one
+# with no allow-list and no lint-debt file. A limit adopted before the code
+# exists costs nothing; the same limit adopted after ratifies whatever is
+# already there (SPEC.md V12, V22).
+
+# Sandi's "four parameters", verbatim. Past four, the call site stops being
+# readable and the argument order starts being memorized.
+too-many-arguments-threshold = 4
+
+# Sandi's "five lines per method", adapted to 15 because Rust spends lines on
+# signatures, match arms and closing braces that Ruby does not.
+too-many-lines-threshold = 15
+
+# The companion to the line limit, and the more important half: 15 short lines
+# of straight-line code are fine, 15 lines of nested branching are not.
+cognitive-complexity-threshold = 7
+
+# Clippy's own default here is 0, which DISABLES the lint rather than
+# forbidding all nesting -- worth stating, because 0 reads like the strictest
+# possible setting and is the opposite.
+excessive-nesting-threshold = 4
+
+type-complexity-threshold = 150
+
+# A bool parameter is a hidden mode switch: the call site reads `f(x, true)`
+# and says nothing about what is true. One is tolerable, two means the
+# function is really two functions.
+max-fn-params-bools = 1
+max-struct-bools = 3
+
+# SOLID's interface-segregation principle: a caller should not have to satisfy
+# bounds it does not use.
+max-trait-bounds = 3

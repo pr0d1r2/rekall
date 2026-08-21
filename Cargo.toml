@@ -1,0 +1,69 @@
+# Self-specified, not workspace-inherited: `rekall` develops inside a larger
+# workspace but is designed to leave it standalone (SPEC.md, V14), so it
+# carries its own package metadata and its own lints from commit one.
+[package]
+# repo = crate = bin = theme, ONE word. §C records why there is no short
+# form and which three names were rejected; the reasons are load-bearing and
+# live there rather than being restated here.
+name = "rekall"
+# A minor is a level of GUARANTEE, not a feature count. 0.1.0 is the
+# scaffold rung: the crate builds reproducibly on every supported platform
+# and the gate runs. No verb does its job yet.
+version = "0.1.0"
+edition = "2024"
+# The FLEET PIN, not a local choice: `nixpkgs-lock` pins nixos-26.05 for
+# every repo in the fleet, and 1.95 is what it carries (SPEC.md R8). A crate
+# that picks its own floor is a crate whose `nix build` reproduces only on
+# its author's box. MEASURED here regardless -- the gate proves it rather
+# than inheriting the claim.
+rust-version = "1.95"
+license = "MIT"
+description = "mine agent memory and CLAUDE.md for rules and skills, extract them, and gate that the extraction stayed honest. CPU only, offline"
+readme = "README.md"
+repository = "https://github.com/pr0d1r2/rekall"
+keywords = ["agents", "context", "skills", "memory", "spec"]
+categories = ["command-line-utilities", "development-tools"]
+# What NOT to ship: the dev environment and the gate machinery, which only
+# mean anything inside the git repo. A `.crate` is source a consumer builds,
+# not a clone of how it is developed.
+exclude = [
+  ".envrc",
+  ".github/",
+  ".gitignore",
+  "flake.nix",
+  "flake.lock",
+  "hk.pkl",
+  "pkl/",
+]
+
+[[bin]]
+name = "rekall"
+path = "src/main.rs"
+
+# Zero dependencies today. The core is CPU-only and offline by law (V5), so
+# most of what this crate does is derivable without one. The exception is
+# already decided and is NOT a dependency yet: token counts are delegated to
+# `itok` (V8) when T16 lands, deliberately after the shape is proven.
+[dependencies]
+
+# The deny list runs with NO allow-list and NO lint-debt file, which is
+# affordable exactly once: at zero lines of code. Adopting these after the
+# code exists would mean measuring a debt and ratcheting it down instead
+# (V12, V27).
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+arithmetic_side_effects = "deny"
+too_many_lines = "deny"
+cognitive_complexity = "deny"
+excessive_nesting = "deny"
+fn_params_excessive_bools = "deny"
+struct_excessive_bools = "deny"
+
+[lints.rust]
+unsafe_code = "forbid"

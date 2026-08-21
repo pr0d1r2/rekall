@@ -1,0 +1,15 @@
+# Layout. Root-only, no per-crate dialect.
+#
+# 80 columns is a REVIEWED number, not a default: rustfmt's own is 100. Narrow
+# lines keep a side-by-side diff readable and stop a signature drifting off
+# the right edge of a review pane.
+#
+# It also pairs with the 15-line function limit in `clippy.toml`: at 80
+# columns a deeply nested function runs out of width before it runs out of
+# lines, so the two limits catch the same shape from opposite directions.
+max_width = 80
+# MUST track `edition` in Cargo.toml. rustfmt takes its edition from here, not
+# from the manifest, so a mismatch means the formatter and the compiler are
+# reading two different dialects -- and `cargo fmt --check` starts reporting a
+# diff nobody asked for.
+edition = "2024"
