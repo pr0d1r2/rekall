@@ -117,7 +117,7 @@ T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
-T22|.|`rekall show <id>`: full statement + signal weights|§I,V10
+T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
 T23|.|`rekall plan`: extraction DIFF + `--out FILE` plan artifact|§I,V7
 T24|.|plan corpus FINGERPRINT; `apply <PLAN>` refuses a stale plan|V19
 T25|.|confirm gate for `apply`/`revert`: tty prompt, `--auto-approve` off-tty|V20
@@ -128,6 +128,7 @@ T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
 T30|.|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
 T31|.|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & SAY SO|V26
 T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
+T33|.|`[signals]` WEIGHTS: config table + weighted classifier + weight in `show`|§C,§I,V10,V22
 
 ## §B BUGS
 

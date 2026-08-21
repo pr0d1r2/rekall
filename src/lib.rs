@@ -11,4 +11,5 @@ pub mod config;
 pub mod corpus;
 pub mod init;
 pub mod scan;
+pub mod show;
 pub mod statement;
