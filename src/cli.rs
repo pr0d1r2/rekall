@@ -7,6 +7,7 @@
 
 use crate::{config, scan};
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
 pub const USAGE_EXIT: u8 = 2;
 
@@ -124,6 +125,132 @@ fn load_optional(path: Option<&Path>) -> Result<config::Config, String> {
         return Ok(config::Config::default());
     }
     config::load_file(path).map_err(|error| error.to_string())
+}
+
+/// Every verb SPEC.md section I defines, in the order it lists them.
+pub const VERBS: [&str; 11] = [
+    "init", "scan", "show", "plan", "apply", "check", "recall", "hook", "log",
+    "catch", "revert",
+];
+
+pub const USAGE: &str = "\
+rekall -- extract always-on agent prose into rules and skills
+
+usage: rekall <verb> [args]
+
+verbs:
+  init    detect corpus roots and write rekall.toml
+  scan    inventory the corpus, one row per statement
+  show    one statement or artifact in full
+  plan    diff an extraction, optionally into a plan file
+  apply   execute an extraction; confirms before it mutates
+  check   the gate -- exit 1 on drift
+  recall  which situational skills load here
+  hook    harness hook JSON on stdin, decision JSON on stdout
+  log     read the ledger
+  catch   mine a transcript for candidate statements
+  revert  reverse one extraction, verbatim
+
+exit: 0 ok, 1 drift or violation, 2 usage
+";
+
+/// What the binary should do, decided without performing any of it.
+///
+/// Separating the DECISION from the printing is what makes the dispatch
+/// testable: a test asserts on this value, while `dispatch` does the
+/// unavoidable side effects in three lines nothing can cover.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Action {
+    PrintUsage {
+        code: u8,
+    },
+    PrintVersion,
+    Scan(Vec<String>),
+    /// A verb section I defines that this build cannot perform.
+    Unimplemented(String),
+    /// A verb the binary has never heard of -- a typo, not a backlog row.
+    Unknown(String),
+}
+
+/// Decide what a command line asks for.
+///
+/// An unimplemented verb and an unknown one carry DIFFERENT messages and
+/// the SAME exit code. Section I fixes the exit set at 0 ok, 1 drift, 2
+/// usage, and neither case is drift -- inventing a fourth code to make a
+/// scaffold more expressive would change a published contract for a state
+/// that stops existing once the verbs land.
+#[must_use]
+pub fn decide(args: &[String]) -> Action {
+    match args.first().map(String::as_str) {
+        None | Some("-h" | "--help") => Action::PrintUsage { code: 0 },
+        Some("-V" | "--version") => Action::PrintVersion,
+        Some("scan") => {
+            Action::Scan(args.get(1..).unwrap_or_default().to_vec())
+        }
+        Some(verb) if VERBS.contains(&verb) => {
+            Action::Unimplemented(verb.to_string())
+        }
+        Some(other) => Action::Unknown(other.to_string()),
+    }
+}
+
+/// Perform the decided action and return the EXIT CODE as a value.
+///
+/// A value rather than an `ExitCode` so tests can assert on it: `ExitCode`
+/// is deliberately opaque and implements no comparison, which would leave
+/// every arm here exercised but unasserted. `dispatch` converts once.
+#[must_use]
+pub fn perform(action: Action) -> u8 {
+    match action {
+        Action::PrintUsage { code } => show_usage(code),
+        Action::PrintVersion => show_version(),
+        Action::Scan(flags) => run_scan(&flags),
+        Action::Unimplemented(verb) => say_unimplemented(&verb),
+        Action::Unknown(other) => say_unknown(&other),
+    }
+}
+
+fn show_usage(code: u8) -> u8 {
+    print!("{USAGE}");
+    code
+}
+
+fn show_version() -> u8 {
+    println!("rekall {}", env!("CARGO_PKG_VERSION"));
+    0
+}
+
+fn say_unimplemented(verb: &str) -> u8 {
+    eprintln!(
+        "rekall: `{verb}` is specified but not implemented in this build"
+    );
+    USAGE_EXIT
+}
+
+fn say_unknown(other: &str) -> u8 {
+    eprintln!("rekall: unknown verb `{other}`\n");
+    show_usage(USAGE_EXIT)
+}
+
+/// The whole binary, in one line of side effect.
+pub fn dispatch(args: &[String]) -> ExitCode {
+    ExitCode::from(perform(decide(args)))
+}
+
+fn run_scan(flags: &[String]) -> u8 {
+    match scan_command(flags) {
+        Ok(output) => {
+            for warning in &output.warnings {
+                eprintln!("rekall: {warning}");
+            }
+            print!("{}", output.text);
+            0
+        }
+        Err(message) => {
+            eprintln!("rekall: {message}");
+            USAGE_EXIT
+        }
+    }
 }
 
 /// What a scan produced for a caller to print.
@@ -381,5 +508,100 @@ mod tests {
             working_dir(Some(Path::new("/tmp/x"))).ok(),
             Some(PathBuf::from("/tmp/x"))
         );
+    }
+    #[test]
+    fn no_arguments_prints_usage_and_succeeds() {
+        assert_eq!(decide(&args(&[])), Action::PrintUsage { code: 0 });
+    }
+
+    #[test]
+    fn help_flags_print_usage() {
+        assert_eq!(decide(&args(&["-h"])), Action::PrintUsage { code: 0 });
+        assert_eq!(decide(&args(&["--help"])), Action::PrintUsage { code: 0 });
+    }
+
+    #[test]
+    fn version_flags_are_recognized() {
+        assert_eq!(decide(&args(&["-V"])), Action::PrintVersion);
+        assert_eq!(decide(&args(&["--version"])), Action::PrintVersion);
+    }
+
+    #[test]
+    fn scan_carries_its_remaining_flags() {
+        assert_eq!(
+            decide(&args(&["scan", "--top", "3"])),
+            Action::Scan(args(&["--top", "3"]))
+        );
+    }
+
+    /// A verb the spec defines but this build cannot perform is a BACKLOG
+    /// ROW, and says so. A verb nobody has heard of is a typo. Same exit
+    /// code, different message -- the distinction is the message's job.
+    #[test]
+    fn a_specified_verb_is_unimplemented_not_unknown() {
+        for verb in VERBS {
+            if verb == "scan" {
+                continue;
+            }
+            assert_eq!(
+                decide(&args(&[verb])),
+                Action::Unimplemented(verb.to_string()),
+                "{verb} should be recognized"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unrecognized_verb_is_unknown() {
+        assert_eq!(
+            decide(&args(&["scna"])),
+            Action::Unknown("scna".to_string())
+        );
+    }
+
+    /// The usage text and the verb list must not drift apart. They are the
+    /// same eleven verbs section I defines, so the text is checked against
+    /// the const rather than proof-read.
+    #[test]
+    fn usage_text_names_every_verb() {
+        for verb in VERBS {
+            assert!(USAGE.contains(verb), "usage text is missing {verb}");
+        }
+    }
+
+    #[test]
+    fn usage_text_states_the_exit_codes() {
+        assert!(USAGE.contains("0 ok, 1 drift or violation, 2 usage"));
+    }
+    #[test]
+    fn usage_exits_zero_when_asked_for() {
+        assert_eq!(perform(Action::PrintUsage { code: 0 }), 0);
+    }
+
+    #[test]
+    fn version_exits_zero() {
+        assert_eq!(perform(Action::PrintVersion), 0);
+    }
+
+    /// Both are usage errors -- section I fixes the exit set, and neither
+    /// an unknown verb nor an unimplemented one is drift.
+    #[test]
+    fn unknown_and_unimplemented_both_exit_two() {
+        assert_eq!(
+            perform(Action::Unimplemented("plan".to_string())),
+            USAGE_EXIT
+        );
+        assert_eq!(perform(Action::Unknown("scna".to_string())), USAGE_EXIT);
+        assert_eq!(USAGE_EXIT, 2);
+    }
+
+    #[test]
+    fn usage_shown_after_an_unknown_verb_still_reports_failure() {
+        assert_eq!(perform(Action::Unknown("nope".to_string())), 2);
+    }
+
+    #[test]
+    fn a_scan_that_cannot_run_exits_two() {
+        assert_eq!(perform(Action::Scan(args(&["--nope"]))), USAGE_EXIT);
     }
 }
