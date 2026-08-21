@@ -58,6 +58,12 @@ path = "src/main.rs"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
+# Globs and directory walking, both from the ripgrep ecosystem: specified
+# behaviour, offline, and heavily exercised. `walkdir` is here for symlink
+# loop detection specifically -- a hand-rolled recursion over a memory
+# directory containing a self-referential link would hang rather than fail.
+globset = "0.4"
+walkdir = "2"
 
 # The deny list runs with NO allow-list and NO lint-debt file, which is
 # affordable exactly once: at zero lines of code. Adopting these after the

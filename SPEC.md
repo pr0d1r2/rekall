@@ -100,7 +100,7 @@ id|status|task|cites
 T1|x|scaffold: root `flake.nix`, `Cargo.toml`, `hk.pkl` (vendored schema), rustfmt/clippy, MIT, ASCII gate, `mth` in gate|§C,V23,V24,V25
 T2|x|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
 T3|x|`rekall.toml` loader, `[sources]`, 2 scopes merged|§I,R6
-T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
+T4|x|corpus reader: roots (file or dir) × globs, sorted & deduped|I.scan,V13,V15,V16
 T5|x|statement splitter: prose -> statements, path-scoped hash ids, spans|V13,§I
 T6|.|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
 T7|.|`rekall scan` human + json|I.scan,V7,V17

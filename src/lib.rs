@@ -6,4 +6,5 @@
 //! formatted output.
 
 pub mod config;
+pub mod corpus;
 pub mod statement;
