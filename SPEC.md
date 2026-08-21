@@ -1,6 +1,6 @@
 # SPEC -- rekall
 
-Self-contained spec. `rekall` develops inside a larger workspace but is designed to leave it standalone. It carries its own law: no load-bearing reference outside this directory (V14). Lineage (`itok` - `microlith`) is SEE-ALSO, cited as evidence, never as authority. Both are PUBLIC ∴ an outside reader can CHECK a §R row. A row an outsider cannot check is marked `internal` & carries no name.
+Self-contained spec. `rekall` develops inside a larger workspace but is designed to leave it standalone. It carries its own law: no load-bearing reference outside this directory (V14). Lineage (`itok` - `microlith`) is SEE-ALSO, cited as evidence, never as authority. Both are PUBLIC ∴ an outside reader can CHECK a §R row. A row an outsider cannot check is marked `internal` & carries no name (V21).
 
 ## §G GOAL
 
@@ -49,9 +49,9 @@ R3|name `rekall`|FREE on crates.io @ 2026-08-21 ∴ repo · crate · bin collaps
 R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING on a 24GB M-series box @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware|MEASURED, internal
 R5|conditional load|~50% of a repo never loads for impl work; conditional slicing brings one node to ~6% of the whole ∴ trigger-gated load is MEASURED, ⊥ hoped|MEASURED, internal
 R6|config sprawl|`itok` main carries FOUR dotfiles LIVE -- `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts` ∴ the sprawl is the SHIPPED state, ⊥ a near miss. A unification to `itok.toml` (project root wins, `~/.config` the fallback) exists on an UNLANDED branch ∴ EVIDENCE OF INTENT, ⊥ of outcome. Unify from commit one & pay ⊥ the migration|github.com/pr0d1r2/itok SPEC.md @ main
-R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|../microlith/SPEC.md §I
-R8|MSRV|`itok` & `microlith` both DECLARE `rust-version = "1.95"` @ 2026-08-21 ∴ 1.95 is the fleet floor & is CHECKABLE in two public manifests. MEASURE it here regardless: a DECLARED floor mirrors the pin until a build PROVES it|../itok/Cargo.toml, ../microlith/Cargo.toml
-R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|../itok/SPEC.md §V
+R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|github.com/pr0d1r2/microlith SPEC.md §I @ main
+R8|MSRV|`itok` & `microlith` both DECLARE `rust-version = "1.95"` @ 2026-08-21 ∴ 1.95 is the fleet floor & is CHECKABLE in two public manifests. MEASURE it here regardless: a DECLARED floor mirrors the pin until a build PROVES it|github.com/pr0d1r2/itok + /microlith Cargo.toml @ main
+R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|github.com/pr0d1r2/itok SPEC.md §V @ main
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
 
 ## §V INVARIANTS
@@ -76,6 +76,7 @@ V17: ∀ verb -> BOTH `--format human` & `--format json`, SAME anatomy, ⊥ a ve
 V18: `recall` & `hook` share ONE matcher. `hook` = `recall` + `M`-rule firing + a stdin/stdout adapter; `recall` is the HUMAN & DEBUG view of the SAME decision. Two matchers is two rule sets (V8), & the INVISIBLE kind: each looks correct alone, & the divergence only shows where a skill fails to load in production but `recall` swears it would.
 V19: a PLAN carries a corpus FINGERPRINT: a content hash per source file it touches. `apply <PLAN>` REHASHES & REFUSES on mismatch, exit 1, ⊥ an override flag. Spans are addressed `file:line-line` & the corpus is LIVE prose a human edits between the two commands ∴ a stale plan deletes the WRONG lines from the user's private memory. `revert` restores the BYTES but ⊥ the trust: the artifact was materialized from text that was never the rule, & the ledger records the mistake as if it were intended. V16 makes memory dirs near-sacred; a plan is the only place the promise can be CHECKED.
 V20: `apply` CONFIRMS before it mutates: PROMPTS on a tty, DEMANDS `--auto-approve` off-tty & exits 2 without it. ⊥ prompting into a pipe -- that hangs a CI job until someone kills it -- & ⊥ proceeding silently -- that makes the DESTRUCTIVE path the QUIET one. The corpus is the user's private memory ∴ the single verb that deletes from it ! be deliberate, & "deliberate" ! survive being run by a machine.
+V21: ∀ §R src is either PUBLICLY RESOLVABLE (a URL, pinned at a ref) or marked `internal` & carrying ⊥ a name. This crate SHIPS ∴ a src an outside reader cannot fetch is ⊥ evidence, it is an ASSERTION wearing a citation's clothes; & a src naming an unpublished repo is a LEAK. VERIFY against the REMOTE ref, ⊥ a local checkout: a checkout is one BRANCH at one MOMENT, & both drift.
 
 ## §T TASKS
 
