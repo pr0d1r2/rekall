@@ -45,6 +45,7 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - `rekall catch [<session>]` -- `--format human|json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only FOR THE CORPUS: it writes CANDIDATE rows to the ledger (V7) & touches ⊥ a source file, ⊥ an artifact. Promotion goes through `plan` then `apply`. A transcript is EPHEMERAL ∴ a violation seen at turn 200 is gone tomorrow unless the candidate outlives the session that produced it -- which is the whole reason this verb exists.
 - `rekall revert <id>` -- `--format human|json` · `--auto-approve`. Reverse one extraction from the ledger, verbatim (V9). MUTATES ∴ confirms like `apply` (V20).
 - Config: `rekall.toml` -- `[sources]` corpus roots & globs · `[signals]` classifier weights · `[triggers]` matcher defaults · `[budget]` ceilings.
+- CONFIG SCOPE: TWO files, ONE format, ONE parser ∴ ⊥ the sprawl R6 records (that was four files & four grammars). PROJECT `./rekall.toml`, found by walking UP from cwd to the repo root; USER `~/.config/rekall/rekall.toml`. Merge is PER KEY & project WINS -- except `[sources]` roots, which UNION. That exception is the whole reason two scopes exist: the corpus SPANS them (per-user memory dir & `~/.claude/CLAUDE.md`; per-project `./CLAUDE.md` & `./AGENTS.md`) ∴ letting a project file REPLACE the roots would silently stop scanning the user's memory -- the largest half of the corpus, gone with no error. `init` writes the PROJECT file & names which scope each root came from.
 - Exit: 0 ok · 1 drift/violation · 2 usage. ⊥ a network code ∵ ⊥ a network path.
 
 ## §R RESEARCH
@@ -121,7 +122,7 @@ T23|.|`rekall plan`: extraction DIFF + `--out FILE` plan artifact|§I,V7
 T24|.|plan corpus FINGERPRINT; `apply <PLAN>` refuses a stale plan|V19
 T25|.|confirm gate for `apply`/`revert`: tty prompt, `--auto-approve` off-tty|V20
 T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
-T27|.|DECIDE config SCOPE: project-root-wins + `~/.config` fallback vs single scope. R6 is intent, ⊥ a landed precedent ∴ this decides on OUR reasoning. Corpus spans BOTH scopes ∴ ⊥ deferrable past T3|§C,R6
+T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
 T28|x|`id` shape DECIDED: path-scoped hash of normalized text, 7 hex, `.n` for repeats, prefix input|§I,T5,V13
 T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
 T30|.|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
