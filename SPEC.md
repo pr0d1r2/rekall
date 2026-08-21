@@ -35,7 +35,7 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - `rekall recall <situation>` -- `--format human|json` · `--tool X` · `--path P` · `--cwd D`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands. SAME matcher as `hook` (V18).
 - `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point. SAME matcher as `recall` (V18) ∴ what `recall` PRINTS is what `hook` DECIDES.
 - `rekall log` -- `--format human|json` · `--dead` · `--since D`. READS the ledger. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11). VERB is `log`, STORE is the ledger -- the store is a ledger & is called one everywhere it is described.
-- `rekall catch [<session>]` -- `--format human|json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only; promotion goes through `plan` then `apply`.
+- `rekall catch [<session>]` -- `--format human|json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only FOR THE CORPUS: it writes CANDIDATE rows to the ledger (V7) & touches ⊥ a source file, ⊥ an artifact. Promotion goes through `plan` then `apply`. A transcript is EPHEMERAL ∴ a violation seen at turn 200 is gone tomorrow unless the candidate outlives the session that produced it -- which is the whole reason this verb exists.
 - `rekall revert <id>` -- `--format human|json` · `--auto-approve`. Reverse one extraction from the ledger, verbatim (V9). MUTATES ∴ confirms like `apply` (V20).
 - Config: `rekall.toml` -- `[sources]` corpus roots & globs · `[signals]` classifier weights · `[triggers]` matcher defaults · `[budget]` ceilings.
 - Exit: 0 ok · 1 drift/violation · 2 usage. ⊥ a network code ∵ ⊥ a network path.
@@ -88,7 +88,7 @@ T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.sca
 T5|.|statement splitter: prose -> addressable statements, STABLE ids across edits|V13
 T6|.|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
 T7|.|`rekall scan` human + json|I.scan,V7,V17
-T8|.|ledger store: span · original text · artifact · fire count|V9,V11
+T8|.|ledger store: 2 row kinds -- CANDIDATE (from `catch`) & EXTRACTED (span · original text · artifact · fire count)|V7,V9,V11
 T9|.|`rekall apply` `M` -> script + runner wiring|V1,V2
 T10|.|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|.|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
