@@ -335,4 +335,31 @@ mod tests {
         );
         assert_eq!(found.ok(), Some(Vec::new()));
     }
+    #[test]
+    fn a_glob_error_names_the_pattern() {
+        let error = matcher(&["[".to_string()]);
+        let Some(error) = error.err() else {
+            unreachable!("bad glob")
+        };
+        let text = error.to_string();
+        assert!(text.contains("bad glob"), "message was {text}");
+    }
+
+    /// A root that exists but cannot be walked is an ERROR, unlike a root
+    /// that is simply absent. The two are different situations: absent is
+    /// a config that does not apply here, unwalkable is a corpus this run
+    /// cannot see, and reporting them the same way hides the second.
+    #[test]
+    fn a_file_used_as_a_glob_pattern_source_still_errors_clearly() {
+        let error = matcher(&["a[".to_string(), "**/*.md".to_string()]);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn an_empty_glob_list_matches_nothing_rather_than_everything() {
+        let Ok(set) = matcher(&[]) else {
+            unreachable!("an empty pattern list builds")
+        };
+        assert!(!set.is_match(Path::new("CLAUDE.md")));
+    }
 }

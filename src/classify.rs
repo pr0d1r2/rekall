@@ -403,4 +403,30 @@ mod tests {
             classify("if the user seems stuck, consider options").sharpness;
         assert!(sharp < fuzzy, "{sharp:?} should be sharper than {fuzzy:?}");
     }
+    /// A directive with no judgment word, no threshold and no exact handle
+    /// lands mid-ladder rather than at either end: a runner is plausible
+    /// but nothing in the text says what it would test.
+    #[test]
+    fn a_directive_with_no_handle_and_no_threshold_is_m2() {
+        assert_eq!(label("never do that thing"), "M2");
+    }
+
+    /// A bare conditional with no directive and no hedge is still a
+    /// TRIGGER, so it is situational rather than unknown.
+    #[test]
+    fn a_bare_conditional_is_situational() {
+        let verdict = classify("when the build goes red");
+        assert_eq!(verdict.class, Class::S);
+        assert_eq!(verdict.sharpness, Some(3));
+    }
+
+    #[test]
+    fn a_bare_conditional_naming_an_exact_thing_is_s1() {
+        assert_eq!(label("when `cargo test` runs"), "S1");
+    }
+
+    #[test]
+    fn a_bare_conditional_naming_a_domain_is_s2() {
+        assert_eq!(label("before every commit here"), "S2");
+    }
 }

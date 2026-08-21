@@ -522,4 +522,30 @@ mod tests {
             Some("project".to_string())
         );
     }
+    #[test]
+    fn sources_are_printed_only_when_asked_for() {
+        let report = Report {
+            rows: Vec::new(),
+            sources: vec![Source {
+                root: "~/.claude".to_string(),
+                scope: "user".to_string(),
+                files: 3,
+            }],
+        };
+        assert!(render_human(&report, true).contains("~/.claude"));
+        assert!(render_human(&report, false).is_empty());
+    }
+
+    #[test]
+    fn a_user_scope_root_is_labelled_user() {
+        let source = source_of("~/.claude", config::Scope::User, 2);
+        assert_eq!(source.scope, "user");
+        assert_eq!(source.files, 2);
+    }
+
+    #[test]
+    fn a_row_with_no_tokens_renders_a_dash() {
+        let row = row_of("- never commit to `main`\n");
+        assert!(render_row(&row).contains("  -  "), "{}", render_row(&row));
+    }
 }

@@ -112,12 +112,27 @@ pub fn find_project(start: &Path) -> Option<PathBuf> {
 /// The user-scope path: `$XDG_CONFIG_HOME/rekall/rekall.toml`, falling back
 /// to `$HOME/.config/rekall/rekall.toml`.
 pub fn user_path() -> Option<PathBuf> {
-    if let Some(xdg) = non_empty_var("XDG_CONFIG_HOME") {
+    user_path_from(
+        non_empty_var("XDG_CONFIG_HOME").as_deref(),
+        non_empty_var("HOME").as_deref(),
+    )
+}
+
+/// The pure half, so the precedence is testable.
+///
+/// Split out because `std::env::set_var` is unsafe in edition 2024 and
+/// mutating process environment races other tests anyway -- a rule that
+/// only holds when tests run single-threaded is not a rule.
+#[must_use]
+pub fn user_path_from(
+    xdg: Option<&str>,
+    home: Option<&str>,
+) -> Option<PathBuf> {
+    if let Some(xdg) = xdg {
         return Some(PathBuf::from(xdg).join("rekall").join(FILE_NAME));
     }
-    let home = non_empty_var("HOME")?;
     Some(
-        PathBuf::from(home)
+        PathBuf::from(home?)
             .join(".config")
             .join("rekall")
             .join(FILE_NAME),
@@ -326,5 +341,71 @@ mod tests {
         // mutating process environment, which would race other tests.
         let empty = Some(String::new()).filter(|value| !value.is_empty());
         assert_eq!(empty, None);
+    }
+    #[test]
+    fn xdg_config_home_wins_over_home() {
+        assert_eq!(
+            user_path_from(Some("/xdg"), Some("/home/u")),
+            Some(PathBuf::from("/xdg/rekall/rekall.toml"))
+        );
+    }
+
+    #[test]
+    fn home_is_the_fallback_and_adds_dot_config() {
+        assert_eq!(
+            user_path_from(None, Some("/home/u")),
+            Some(PathBuf::from("/home/u/.config/rekall/rekall.toml"))
+        );
+    }
+
+    #[test]
+    fn with_neither_there_is_no_user_config() {
+        assert_eq!(user_path_from(None, None), None);
+    }
+
+    #[test]
+    fn find_project_finds_a_config_in_the_starting_directory() {
+        let dir = std::path::PathBuf::from("target").join("cfg-here");
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join(FILE_NAME), "[sources]\n");
+        assert_eq!(find_project(&dir), Some(dir.join(FILE_NAME)));
+    }
+
+    #[test]
+    fn find_project_walks_upwards() {
+        let root = std::path::PathBuf::from("target").join("cfg-up");
+        let nested = root.join("a").join("b");
+        let _ = std::fs::create_dir_all(&nested);
+        let _ = std::fs::write(root.join(FILE_NAME), "[sources]\n");
+        assert_eq!(find_project(&nested), Some(root.join(FILE_NAME)));
+    }
+
+    /// A repository boundary is where "this project" ends. Walking past it
+    /// would let a config in a parent checkout govern an unrelated repo.
+    #[test]
+    fn find_project_stops_at_a_git_boundary() {
+        let root = std::path::PathBuf::from("target").join("cfg-boundary");
+        let inner = root.join("repo");
+        let _ = std::fs::create_dir_all(inner.join(".git"));
+        let _ = std::fs::write(root.join(FILE_NAME), "[sources]\n");
+        assert_eq!(find_project(&inner), None);
+    }
+
+    #[test]
+    fn a_read_error_says_which_file_it_could_not_read() {
+        let error = load_file(Path::new("target/definitely-absent.toml"));
+        let Some(error) = error.err() else {
+            unreachable!("absent file")
+        };
+        assert!(error.to_string().contains("definitely-absent.toml"));
+    }
+
+    #[test]
+    fn a_parse_error_says_which_file_it_could_not_parse() {
+        let error = parse("not = = toml", Path::new("broken.toml"));
+        let Some(error) = error.err() else {
+            unreachable!("invalid toml")
+        };
+        assert!(error.to_string().contains("broken.toml"));
     }
 }
