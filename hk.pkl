@@ -181,9 +181,23 @@ local all = (fast) {
     check = "cargo package --quiet --allow-dirty"
   }
 
-  /// THE RATCHET (V27). The floor may RISE, never fall. `.coverage` carries
-  /// the number; the margin absorbs measurement jitter without absorbing a
-  /// real regression.
+  /// THE RATCHET (V27). The floor may RISE, never fall, and it MUST rise
+  /// when coverage does. `.coverage` carries the number.
+  ///
+  /// Two margins, and they are not symmetric on purpose. A fall of up to
+  /// 0.3 is tolerated as measurement jitter. A rise of more than 0.5 is a
+  /// FAILURE, cleared by `hk fix --all`, which records it.
+  ///
+  /// That second half was missing and the gate was quietly broken by it.
+  /// hk runs a step's `fix` only when its `check` FAILS, so a rise -- which
+  /// passed -- never reached the code that records it, and the printed
+  /// advice named a command (`hk run fix`) that does not exist. The floor
+  /// would have drifted further below reality with every well-tested
+  /// commit, protecting less and less while reporting green.
+  ///
+  /// Failing on a stale floor is the same shape as `cargo fmt --check`
+  /// failing on an unformatted file: not a complaint about the work, just
+  /// a record that has not caught up. One command fixes it.
   ///
   /// It starts at the scaffold's own figure rather than at an aspirational
   /// one: a floor nobody can pay gates every commit red for weeks, and the
@@ -197,7 +211,7 @@ local all = (fast) {
       was=$(awk '/^lines /{print $2}' .coverage)
       [ -n "$now" ] || { echo 'hk: could not read a coverage total -- that is an ERROR, not a floor breach' >&2; exit 1; }
       awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 < w+0 - 0.3)}' && { echo "hk: coverage FELL, $was% -> $now% (margin 0.3). A line that stopped being covered is a test that stopped asserting. Cover it, or say why in .coverage with the drop." >&2; exit 1; }
-      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 > w+0)}' && echo "hk: coverage rose $was% -> $now%. Run: hk run fix"
+      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 > w+0 + 0.5)}' && { echo "hk: coverage ROSE, $was% -> $now%, and the floor was not raised. An unrecorded rise is a floor that lies about what is protected -- it would let every one of those lines go uncovered again in silence. Run: hk fix --all" >&2; exit 1; }
       echo "coverage $now% (floor $was%)"
       """
     /// `fix` may only RAISE. A ratchet that writes down whatever it measures

@@ -29,7 +29,17 @@
 #     handling existed that no test could reach. Removing the unreachable
 #     branch beat explaining it.
 #
-# Raise this when new code lands with tests. Do not raise it by excluding
-# files.
+# The floor RISES WITH THE CODE, and the gate enforces that rather than
+# asking politely (V27). A rise of more than 0.5 above this number FAILS
+# the coverage step; `hk fix --all` records it and clears the failure.
+#
+# That enforcement was missing until it was tested. hk runs a step's `fix`
+# only when its `check` FAILS, so a rise -- which passed -- never reached
+# the code that records it, and the message printed on a rise named a
+# command that does not exist. The floor would have drifted further below
+# reality with every well-tested commit, protecting less and less while
+# reporting green.
+#
+# Do not raise this by excluding files.
 
 lines 99.17

@@ -91,7 +91,7 @@ V23: ONE gate DEFINITION, many callers. `hk.pkl` holds the ops; CI CALLS it, ⊥
 V24: a gate step is a PLAIN command a human can PASTE. `hk` decides WHEN a step runs -- which files changed, which hook, what order -- & NEVER what it means to pass. A verdict that rests on the runner's own logic is ⊥ reproducible without the runner.
 V25: the GATE is NETWORKLESS, extending V6 to the RUNNER. Its schema is VENDORED, ⊥ fetched at eval. A gate that resolves a URL to decide anything goes soft on a plane, in a locked-down CI, & on the day that host is down.
 V26: a MISSING runner is ⊥ a pass. A step this crate OWNS -> FAIL. An OPTIONAL third-party tool -> SKIP, NAMED IN OUTPUT. A silent skip is a pass nobody earned, & it reads GREEN.
-V27: a RATCHET moves ONE WAY, & its `fix` half REFUSES to record a regression. A ratchet that writes down whatever it measures is ⊥ a ratchet -- it files down its own teeth on the commit it should have refused.
+V27: a RATCHET moves ONE WAY & its floor TRACKS REALITY. Its `fix` half REFUSES to record a regression -- a ratchet that writes down whatever it measures files down its own teeth on the commit it should have refused. & an UNRECORDED RISE is a FAILURE too: a floor below what the code actually reaches is a floor LYING about what it protects, & every line above it may silently go uncovered again. ∴ new code RAISES the floor, & the gate ⊥ green until it does -- the same shape as `cargo fmt --check` red on an unformatted file, cleared by ONE command.
 V28: success is SILENCE; a FAILING gate NAMES THE FIX. Output that ALWAYS appears is output nobody reads ∴ the one real failure hides in noise everyone learned to scroll past.
 
 ## §T TASKS
