@@ -21,7 +21,10 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - Token accounting is `itok`'s, TOKENIZER-backed ∴ counts are MEASURED & deterministic, ⊥ estimated by a model & ⊥ a char/4 heuristic. ⊥ reimplemented here (V8).
 - `SPEC.md` FORMAT owned by `microlith`, enforced by `mth` in the gate.
 - Zero host-project internals ∴ extraction of THIS crate is a move.
-- Gate = `hk` (`hk.pkl`), same definition local & CI. Coverage floor RATCHETS.
+- Gate = `hk` (`hk.pkl`), ONE definition, local & CI (V23). Coverage floor RATCHETS (V27).
+- GATE SET, tiered by COST. COMMIT: `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` · `mth fmt --check` · `mth check` · ASCII gate · the `.context-limits` runner (V22). PUSH: coverage · doctest · rustdoc · `--no-default-features` · `cargo package`. A ~60s step on COMMIT is a step someone learns to bypass, & a bypassed hook is worse than none.
+- `-D warnings` goes AFTER `--`, ⊥ in `RUSTFLAGS`: RUSTFLAGS reaches PATH DEPS, & `itok` is one (V8) ∴ a sibling's stray warning would redden THIS gate for code this crate ⊥ owns.
+- ⊥ a lint-debt file & ⊥ an allow-list: this crate starts at ZERO code ∴ `-D warnings` runs CLEAN from commit one. An allow added later NAMES what it exempts & why -- an exemption is ⊥ a suppression.
 
 ## §I INTERFACES
 
@@ -78,11 +81,17 @@ V19: a PLAN carries a corpus FINGERPRINT: a content hash per source file it touc
 V20: `apply` CONFIRMS before it mutates: PROMPTS on a tty, DEMANDS `--auto-approve` off-tty & exits 2 without it. ⊥ prompting into a pipe -- that hangs a CI job until someone kills it -- & ⊥ proceeding silently -- that makes the DESTRUCTIVE path the QUIET one. The corpus is the user's private memory ∴ the single verb that deletes from it ! be deliberate, & "deliberate" ! survive being run by a machine.
 V21: ∀ §R src is either PUBLICLY RESOLVABLE (a URL, pinned at a ref) or marked `internal` & carrying ⊥ a name. This crate SHIPS ∴ a src an outside reader cannot fetch is ⊥ evidence, it is an ASSERTION wearing a citation's clothes; & a src naming an unpublished repo is a LEAK. VERIFY against the REMOTE ref, ⊥ a local checkout: a checkout is one BRANCH at one MOMENT, & both drift.
 V22: ⊥ SHIP A DECLARATION NO RUNNER READS. A ceiling, a registry, a budget, a limit file: if nothing EXITS NONZERO on it, it is a WISH, & wishes drift silently ∵ nothing reports them. The runner lands in the SAME COMMIT as the declaration, ⊥ a task later -- "later" is how a limit file sits unread while every number under it goes over. A command someone REMEMBERS to type is the same defect one step on.
+V23: ONE gate DEFINITION, many callers. `hk.pkl` holds the ops; CI CALLS it, ⊥ COPIES it. A second copy in a workflow file is a second rule set that passes review ∵ both halves look right alone -- & the copy is the one that rots, ∵ the local one is the one anybody runs.
+V24: a gate step is a PLAIN command a human can PASTE. `hk` decides WHEN a step runs -- which files changed, which hook, what order -- & NEVER what it means to pass. A verdict that rests on the runner's own logic is ⊥ reproducible without the runner.
+V25: the GATE is NETWORKLESS, extending V6 to the RUNNER. Its schema is VENDORED, ⊥ fetched at eval. A gate that resolves a URL to decide anything goes soft on a plane, in a locked-down CI, & on the day that host is down.
+V26: a MISSING runner is ⊥ a pass. A step this crate OWNS -> FAIL. An OPTIONAL third-party tool -> SKIP, NAMED IN OUTPUT. A silent skip is a pass nobody earned, & it reads GREEN.
+V27: a RATCHET moves ONE WAY, & its `fix` half REFUSES to record a regression. A ratchet that writes down whatever it measures is ⊥ a ratchet -- it files down its own teeth on the commit it should have refused.
+V28: success is SILENCE; a FAILING gate NAMES THE FIX. Output that ALWAYS appears is output nobody reads ∴ the one real failure hides in noise everyone learned to scroll past.
 
 ## §T TASKS
 
 id|status|task|cites
-T1|.|scaffold: flake, `Cargo.toml`, `hk.pkl`, rustfmt/clippy, MIT, ASCII gate, `mth` in gate|-
+T1|.|scaffold: root `flake.nix`, `Cargo.toml`, `hk.pkl` (vendored schema), rustfmt/clippy, MIT, ASCII gate, `mth` in gate|§C,V23,V24,V25
 T2|.|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
 T3|.|`rekall.toml` loader, `[sources]` only|§C,R6
 T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
@@ -110,6 +119,8 @@ T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
 T27|.|DECIDE config SCOPE: project-root-wins + `~/.config` fallback vs single scope. R6 is intent, ⊥ a landed precedent ∴ this decides on OUR reasoning. Corpus spans BOTH scopes ∴ ⊥ deferrable past T3|§C,R6
 T28|.|DECIDE `id` SHAPE: STABLE across edits (V13) ∴ ⊥ a content hash & ⊥ `file:line`. Blocks T5 & is the string a user types most|T5,V13
 T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
+T30|.|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
+T31|.|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & SAY SO|V26
 
 ## §B BUGS
 
