@@ -102,8 +102,8 @@ T2|x|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
 T3|x|`rekall.toml` loader, `[sources]`, 2 scopes merged|§I,R6
 T4|x|corpus reader: roots (file or dir) × globs, sorted & deduped|I.scan,V13,V15,V16
 T5|x|statement splitter: prose -> statements, path-scoped hash ids, spans|V13,§I
-T6|.|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
-T7|.|`rekall scan` human + json|I.scan,V7,V17
+T6|x|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
+T7|x|`rekall scan` human + json, filters, `--sources`, `-C`|I.scan,V7,V13,V17
 T8|.|ledger store: 2 row kinds -- CANDIDATE (from `catch`) & EXTRACTED (span · original text · artifact · fire count)|V7,V9,V11
 T9|.|`rekall apply` `M` -> script + runner wiring|V1,V2
 T10|.|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4

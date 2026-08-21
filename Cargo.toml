@@ -58,6 +58,9 @@ path = "src/main.rs"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
+# JSON output. V17 requires every verb to offer it with the same anatomy
+# as its human form, so this is contract surface rather than convenience.
+serde_json = "1"
 # Globs and directory walking, both from the ripgrep ecosystem: specified
 # behaviour, offline, and heavily exercised. `walkdir` is here for symlink
 # loop detection specifically -- a hand-rolled recursion over a memory

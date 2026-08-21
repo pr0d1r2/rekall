@@ -62,6 +62,22 @@ pub fn expand_home(raw: &str, home: Option<&str>) -> PathBuf {
     }
 }
 
+/// Resolve one root: expand `~`, then anchor a RELATIVE path to `base`.
+///
+/// `base` is what `-C` sets. Without this a relative root like
+/// `./CLAUDE.md` resolves against the PROCESS working directory while the
+/// config it came from was found under `-C`, so the two halves of one
+/// command disagree about where the project is. `git -C` anchors
+/// everything; so does this.
+#[must_use]
+pub fn resolve(raw: &str, home: Option<&str>, base: &Path) -> PathBuf {
+    let expanded = expand_home(raw, home);
+    if expanded.is_absolute() {
+        return expanded;
+    }
+    base.join(expanded)
+}
+
 /// Build a matcher from glob patterns.
 ///
 /// An unparsable pattern is an ERROR, never skipped: a typo'd glob that
@@ -89,6 +105,15 @@ pub fn matcher(patterns: &[String]) -> Result<GlobSet, Error> {
 fn from_root(root: &Path, globs: &GlobSet) -> Result<Vec<PathBuf>, Error> {
     if root.is_file() {
         return Ok(vec![root.to_path_buf()]);
+    }
+    // A root that does not exist is NOT fatal. A user-scope config naming
+    // `~/.claude` is correct on the machine that has it and wrong on the
+    // one that does not, and failing the whole inventory over an absent
+    // optional root would make the tool unusable across machines. The
+    // caller reports it BY NAME -- an absent root is a named skip, never a
+    // silent one (V26).
+    if !root.exists() {
+        return Ok(Vec::new());
     }
     let mut out = Vec::new();
     for entry in walkdir::WalkDir::new(root).follow_links(false) {
@@ -131,6 +156,7 @@ pub fn files(
     roots: &[String],
     globs: &[String],
     home: Option<&str>,
+    base: &Path,
 ) -> Result<Vec<PathBuf>, Error> {
     let patterns = if globs.is_empty() {
         DEFAULT_GLOBS.iter().map(|g| (*g).to_string()).collect()
@@ -140,7 +166,7 @@ pub fn files(
     let set = matcher(&patterns)?;
     let mut out = Vec::new();
     for raw in roots {
-        out.extend(from_root(&expand_home(raw, home), &set)?);
+        out.extend(from_root(&resolve(raw, home, base), &set)?);
     }
     out.sort();
     out.dedup();
@@ -222,23 +248,32 @@ mod tests {
 
     #[test]
     fn no_roots_is_an_empty_corpus_not_an_error() {
-        let found = files(&[], &[], None);
+        let found = files(&[], &[], None, Path::new("."));
         assert_eq!(found.ok(), Some(Vec::new()));
     }
 
     #[test]
     fn a_file_root_is_taken_whether_or_not_it_matches_the_globs() {
-        let found =
-            files(&["Cargo.toml".to_string()], &["**/*.md".to_string()], None);
-        assert_eq!(found.ok(), Some(vec![PathBuf::from("Cargo.toml")]));
+        let found = files(
+            &["Cargo.toml".to_string()],
+            &["**/*.md".to_string()],
+            None,
+            Path::new("."),
+        );
+        assert_eq!(found.ok(), Some(vec![PathBuf::from("./Cargo.toml")]));
     }
 
     #[test]
     fn a_directory_root_is_walked_and_filtered() {
-        let found = files(&["src".to_string()], &["**/*.rs".to_string()], None)
-            .unwrap_or_default();
+        let found = files(
+            &["src".to_string()],
+            &["**/*.rs".to_string()],
+            None,
+            Path::new("."),
+        )
+        .unwrap_or_default();
         assert!(
-            found.contains(&PathBuf::from("src/corpus.rs")),
+            found.contains(&PathBuf::from("./src/corpus.rs")),
             "found {found:?}"
         );
         assert!(
@@ -252,10 +287,52 @@ mod tests {
     fn results_are_sorted_and_deduplicated() {
         let roots = vec!["src".to_string(), "src".to_string()];
         let found =
-            files(&roots, &["**/*.rs".to_string()], None).unwrap_or_default();
+            files(&roots, &["**/*.rs".to_string()], None, Path::new("."))
+                .unwrap_or_default();
         let mut sorted = found.clone();
         sorted.sort();
         sorted.dedup();
         assert_eq!(found, sorted, "scan must not vary with filesystem order");
+    }
+    /// `-C` must anchor ROOTS, not only config discovery. Without this the
+    /// config found under `-C` and the roots read from it disagree about
+    /// where the project is.
+    #[test]
+    fn a_relative_root_is_anchored_to_the_base() {
+        assert_eq!(
+            resolve("CLAUDE.md", None, Path::new("/tmp/x")),
+            PathBuf::from("/tmp/x/CLAUDE.md")
+        );
+    }
+
+    #[test]
+    fn an_absolute_root_ignores_the_base() {
+        assert_eq!(
+            resolve("/etc/notes.md", None, Path::new("/tmp/x")),
+            PathBuf::from("/etc/notes.md")
+        );
+    }
+
+    #[test]
+    fn a_tilde_root_expands_before_it_is_anchored() {
+        assert_eq!(
+            resolve("~/.claude", Some("/home/u"), Path::new("/tmp/x")),
+            PathBuf::from("/home/u/.claude")
+        );
+    }
+
+    /// A configured root that does not exist is a NAMED skip, not a fatal
+    /// error: a user-scope config is right on one machine and wrong on the
+    /// next, and failing the whole inventory over it would make the tool
+    /// unusable across machines.
+    #[test]
+    fn a_missing_root_is_skipped_rather_than_fatal() {
+        let found = files(
+            &["definitely/not/here".to_string()],
+            &["**/*.md".to_string()],
+            None,
+            Path::new("."),
+        );
+        assert_eq!(found.ok(), Some(Vec::new()));
     }
 }

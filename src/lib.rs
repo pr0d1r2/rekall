@@ -5,6 +5,9 @@
 //! without shelling out and a test can assert on values rather than on
 //! formatted output.
 
+pub mod classify;
+pub mod cli;
 pub mod config;
 pub mod corpus;
+pub mod scan;
 pub mod statement;
