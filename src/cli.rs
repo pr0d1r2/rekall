@@ -604,4 +604,152 @@ mod tests {
     fn a_scan_that_cannot_run_exits_two() {
         assert_eq!(perform(Action::Scan(args(&["--nope"]))), USAGE_EXIT);
     }
+    /// A whole project on disk: a config plus a corpus file. Under
+    /// `target/` so `cargo clean` removes it, named after its test so two
+    /// never collide.
+    fn project(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("test-project").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = [\".\"]\n",
+        );
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "- never commit to `main`\n\n- when writing tests, prefer tables\n",
+        );
+        dir
+    }
+
+    fn run_in(dir: &Path, extra: &[&str]) -> Result<Output, String> {
+        let mut flags =
+            vec!["-C".to_string(), dir.to_string_lossy().to_string()];
+        flags.extend(extra.iter().map(|item| (*item).to_string()));
+        scan_command(&flags)
+    }
+
+    #[test]
+    fn a_configured_project_scans_end_to_end() {
+        let dir = project("end-to-end");
+        let Ok(output) = run_in(&dir, &[]) else {
+            unreachable!("a configured project scans")
+        };
+        assert!(output.text.contains("M1"), "text was {}", output.text);
+        assert!(output.warnings.is_empty());
+    }
+
+    /// Paths in the report are relative to the project, not to wherever the
+    /// process happened to start. This is what keeps ids findable later.
+    #[test]
+    fn output_paths_are_project_relative() {
+        let dir = project("relative");
+        let Ok(output) = run_in(&dir, &[]) else {
+            unreachable!("scans")
+        };
+        assert!(
+            output.text.contains("CLAUDE.md:1-1"),
+            "text was {}",
+            output.text
+        );
+        assert!(!output.text.contains("target/test-project"));
+    }
+
+    #[test]
+    fn json_output_parses_and_matches_the_human_row_count() {
+        let dir = project("json");
+        let Ok(human) = run_in(&dir, &[]) else {
+            unreachable!("scans")
+        };
+        let rows = json_rows(&dir);
+        assert_eq!(rows, human.text.lines().count());
+    }
+
+    fn json_rows(dir: &Path) -> usize {
+        let Ok(json) = run_in(dir, &["--format", "json"]) else {
+            unreachable!("scans")
+        };
+        let parsed: serde_json::Value = match serde_json::from_str(&json.text) {
+            Ok(value) => value,
+            Err(error) => unreachable!("json output must parse: {error}"),
+        };
+        parsed
+            .get("rows")
+            .and_then(|rows| rows.as_array())
+            .map_or(0, std::vec::Vec::len)
+    }
+
+    #[test]
+    fn the_sources_flag_adds_a_source_line() {
+        let dir = project("sources");
+        let Ok(plain) = run_in(&dir, &[]) else {
+            unreachable!("scans")
+        };
+        let Ok(with_sources) = run_in(&dir, &["--sources"]) else {
+            unreachable!("scans")
+        };
+        assert!(with_sources.text.lines().count() > plain.text.lines().count());
+        assert!(with_sources.text.contains("project"));
+    }
+
+    #[test]
+    fn filters_reach_through_the_command() {
+        let dir = project("filter");
+        let Ok(output) = run_in(&dir, &["--class", "S"]) else {
+            unreachable!("scans")
+        };
+        assert_eq!(output.text.lines().count(), 1);
+        assert!(output.text.contains("S2"));
+    }
+
+    #[test]
+    fn an_unreadable_corpus_file_becomes_a_named_warning() {
+        let dir = project("warned");
+        let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
+        let Ok(output) = run_in(&dir, &[]) else {
+            unreachable!("scans")
+        };
+        assert_eq!(output.warnings.len(), 1, "{:?}", output.warnings);
+        assert!(
+            output
+                .warnings
+                .first()
+                .is_some_and(|w| w.contains("bad.md")),
+            "{:?}",
+            output.warnings
+        );
+    }
+
+    /// A broken config is an error, not an empty scan. Treating it as "no
+    /// config" would scan a corpus the user never described.
+    #[test]
+    fn a_broken_project_config_stops_the_scan() {
+        let dir = project("broken");
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = \"not a list\"\n",
+        );
+        assert!(run_in(&dir, &[]).is_err());
+    }
+    /// The binary's SUCCESS path: a real project, printed, exit 0. This is
+    /// the arm every ordinary invocation takes, and it was the last part
+    /// of the command path never executed by the suite.
+    #[test]
+    fn a_successful_scan_exits_zero() {
+        let dir = project("exit-zero");
+        let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
+        assert_eq!(perform(Action::Scan(flags)), 0);
+    }
+
+    /// A corpus with an unreadable file still SUCCEEDS -- the warning is
+    /// printed, the readable statements are reported, and the exit code
+    /// stays 0. A partial corpus is not a failed run, but it must not be
+    /// a silent one either.
+    #[test]
+    fn a_scan_with_warnings_still_exits_zero() {
+        let dir = project("exit-zero-warned");
+        let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
+        let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
+        assert_eq!(perform(Action::Scan(flags)), 0);
+    }
 }

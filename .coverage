@@ -1,1 +1,33 @@
-lines 95.89
+# Coverage floor. May only RISE; the gate's `fix` half refuses to record a
+# drop (SPEC.md V27). Raised in five rounds from 0.0 at the scaffold:
+#
+#   63.68  the config loader arrived with tests
+#   85.99  splitter and corpus reader
+#   91.99  scan pipeline tested against a real directory
+#   93.93  dispatch moved out of main.rs, exit codes made assertable
+#   95.89  error paths, config discovery, classifier fallbacks
+#   96.64  the command path end to end
+#   97.07  binary success path, ordered-marker rejection
+#
+# PRACTICAL CEILING, measured rather than guessed. The ~51 lines still
+# uncovered are, in order of size:
+#
+#   ~27  `unreachable!`/`panic!` arms inside TEST fixtures. They execute
+#        only when a fixture is itself broken, so covering them means
+#        deliberately breaking one.
+#     4  `fn main` -- a binary entry point cannot be called by a unit test.
+#     3  `dispatch`, the one-line shim main calls. Covering it would assert
+#        nothing: `ExitCode` implements no comparison, which is why
+#        `perform` returns a u8 instead.
+#     ~7  walk-error construction and its Display. Reachable only with a
+#        directory that exists but cannot be read, which needs a chmod that
+#        does nothing when tests run as root -- a test that passes silently
+#        in one environment is worse than an uncovered line.
+#     ~4  `current_dir()` failing, `GlobSet::build()` failing: error paths
+#        with no portable way to provoke them.
+#
+# So ~97-98% is the real ceiling for this shape of crate, and chasing 100
+# would mean testing the test harness. Raise this when new code lands with
+# tests, not by finding ways to execute the lines above.
+
+lines 97.07

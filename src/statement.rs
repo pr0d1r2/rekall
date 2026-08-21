@@ -400,4 +400,18 @@ mod tests {
         let text = "# H\n\n- one\n\npara\n\n- two\n";
         assert_eq!(split(text, "CLAUDE.md"), split(text, "CLAUDE.md"));
     }
+    /// `strip_ordered_marker` must reject a non-numeric prefix. "e.g. never
+    /// commit" is prose, not a numbered list item, and stripping "e." from
+    /// the front would change the statement's normalized text and so its
+    /// ID -- silently, for one sentence shape.
+    #[test]
+    fn a_non_numeric_dotted_prefix_is_not_a_list_marker() {
+        assert_eq!(normalize("e.g. never commit"), "e.g. never commit");
+        assert_eq!(normalize("Fig. 3 shows it"), "Fig. 3 shows it");
+    }
+
+    #[test]
+    fn a_numeric_prefix_without_a_space_is_not_a_marker() {
+        assert_eq!(normalize("3.5 releases"), "3.5 releases");
+    }
 }
