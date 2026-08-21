@@ -41,5 +41,14 @@
 # reporting green.
 #
 # Do not raise this by excluding files.
+#
+# Besides `fn main`, THREE lines in the crate are uncovered, all in
+# `ledger.rs`: the `Encode` error arm and its Display. `toml::to_string_pretty`
+# is fallible, and on a fixed struct of Strings and integers it cannot fail.
+# Unlike the `GlobSet` case -- where swapping to an infallible API deleted the
+# branch -- there is no infallible TOML serializer to swap to, and swallowing
+# the error would mean writing an empty ledger over a real one. So it stays,
+# and the floor sits fractionally above measured coverage rather than being
+# hand-lowered to match. The 0.3 fall margin absorbs that.
 
 lines 99.26

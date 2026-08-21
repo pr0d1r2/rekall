@@ -104,7 +104,7 @@ T4|x|corpus reader: roots (file or dir) × globs, sorted & deduped|I.scan,V13,V1
 T5|x|statement splitter: prose -> statements, path-scoped hash ids, spans|V13,§I
 T6|x|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
 T7|x|`rekall scan` human + json, filters, `--sources`, `-C`|I.scan,V7,V13,V17
-T8|.|ledger store: 2 row kinds -- CANDIDATE (from `catch`) & EXTRACTED (span · original text · artifact · fire count)|V7,V9,V11
+T8|x|ledger store `.rekall/ledger.toml`: CANDIDATE & EXTRACTED rows, prefix lookup, fire count|V7,V9,V11,V13
 T9|.|`rekall apply` `M` -> script + runner wiring|V1,V2
 T10|.|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|.|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6

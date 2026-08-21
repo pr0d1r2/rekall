@@ -10,6 +10,7 @@ pub mod cli;
 pub mod config;
 pub mod corpus;
 pub mod init;
+pub mod ledger;
 pub mod scan;
 pub mod show;
 pub mod statement;
