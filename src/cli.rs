@@ -5,7 +5,7 @@
 //! 1 drift, 2 usage -- so the mapping from argument to exit stays visible
 //! here instead of inside a macro.
 
-use crate::{config, init, plan, scan, show, statement};
+use crate::{apply, config, init, ledger, plan, scan, show, statement};
 use std::path::{Path, PathBuf};
 
 pub const USAGE_EXIT: u8 = 2;
@@ -168,6 +168,7 @@ pub enum Action {
     Init(Vec<String>),
     Show(Vec<String>),
     Plan(Vec<String>),
+    Apply(Vec<String>),
     /// A verb section I defines that this build cannot perform.
     Unimplemented(String),
     /// A verb the binary has never heard of -- a typo, not a backlog row.
@@ -194,6 +195,7 @@ pub fn decide(args: &[String]) -> Action {
         Some("init") => Action::Init(rest(args)),
         Some("show") => Action::Show(rest(args)),
         Some("plan") => Action::Plan(rest(args)),
+        Some("apply") => Action::Apply(rest(args)),
         Some(verb) if VERBS.contains(&verb) => {
             Action::Unimplemented(verb.to_string())
         }
@@ -228,6 +230,7 @@ pub fn perform(action: Action, env: &Env) -> u8 {
         Action::Init(flags) => run_init(&flags, env),
         Action::Show(flags) => run_show(&flags, env),
         Action::Plan(flags) => run_plan(&flags, env),
+        Action::Apply(flags) => run_apply(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
     }
@@ -597,6 +600,408 @@ fn run_plan(flags: &[String], env: &Env) -> u8 {
     }
 }
 
+/// `apply` takes ids OR a plan file, plus `--auto-approve`.
+#[derive(Debug, Default)]
+pub struct ApplyArgs {
+    pub ids: Vec<String>,
+    /// A positional that names an EXISTING FILE is read as a plan; anything
+    /// else is an id. Section I writes the two as alternatives, and an id is
+    /// seven hex characters, so the collision is a file literally named
+    /// `95bae35` -- at which point reading it as a plan and failing to parse
+    /// is a better outcome than silently treating a plan path as an id.
+    pub plan_file: Option<PathBuf>,
+    pub auto_approve: bool,
+    pub cwd: Option<PathBuf>,
+    pub json: bool,
+}
+
+pub fn parse_apply(args: &[String]) -> Result<ApplyArgs, String> {
+    let mut out = ApplyArgs::default();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        apply_apply_arg(&mut out, arg, &mut rest)?;
+    }
+    Ok(out)
+}
+
+fn apply_apply_arg<'a>(
+    out: &mut ApplyArgs,
+    arg: &str,
+    rest: &mut impl Iterator<Item = &'a String>,
+) -> Result<(), String> {
+    match arg {
+        "--auto-approve" => out.auto_approve = true,
+        "--format" => {
+            out.json = parse_format(&need(arg, rest)?)? == Format::Json
+        }
+        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
+        other if other.starts_with('-') => {
+            return Err(format!("unknown flag `{other}`"));
+        }
+        positional if Path::new(positional).is_file() => {
+            out.plan_file = Some(PathBuf::from(positional));
+        }
+        id => out.ids.push(id.to_string()),
+    }
+    Ok(())
+}
+
+/// How consent for a mutating run was obtained.
+///
+/// An enum rather than two booleans, because `approved(true, false)` at a
+/// call site says nothing about which is which -- the two-bool limit in
+/// clippy.toml exists for exactly this, and the three states here are a
+/// KIND rather than a pair of flags.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Consent {
+    /// `--auto-approve` was passed.
+    Flag,
+    /// A terminal was present and the user answered.
+    Answered(String),
+    /// No terminal and no flag. Silence is NOT consent: prompting into a
+    /// pipe hangs a CI job until someone kills it, and proceeding without
+    /// asking makes the DESTRUCTIVE path the quiet one (V20).
+    Unattended,
+}
+
+/// Whether this run may mutate.
+pub fn approved(consent: &Consent) -> Result<(), String> {
+    match consent {
+        Consent::Flag => Ok(()),
+        Consent::Unattended => Err(NEEDS_APPROVAL.to_string()),
+        Consent::Answered(answer) => match answer.trim() {
+            "y" | "Y" | "yes" => Ok(()),
+            _ => Err("cancelled".to_string()),
+        },
+    }
+}
+
+pub const NEEDS_APPROVAL: &str = "this would edit your corpus and stdin is not a terminal. \
+Re-run with --auto-approve if that is what you want";
+
+/// Run `apply` end to end.
+///
+/// Order matters and is the point: resolve the plan, CHECK IT IS FRESH
+/// (V19), name every file (V7), ask (V20), and only then write.
+pub fn apply_command(flags: &[String], env: &Env) -> Result<Output, String> {
+    let args = parse_apply(flags)?;
+    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
+    let loaded = load_corpus(&base, env)?;
+    let path = ledger::path_in(&base);
+    let held = ledger::load(&path).map_err(|error| error.to_string())?;
+    let requested = resolve_plan(&args, &loaded, &held)?;
+    refuse_if_stale(&requested.plan, &loaded)?;
+    let outcome = staged_outcome(&requested, &held);
+    let staged = Staged {
+        held,
+        outcome,
+        path,
+    };
+    commit(&args, &requested.plan, &base, staged)
+}
+
+fn staged_outcome(
+    requested: &Requested,
+    held: &ledger::Ledger,
+) -> apply::Outcome {
+    let mut outcome = apply::preview(&requested.plan.steps, held);
+    outcome.skipped.extend(requested.already.clone());
+    outcome
+}
+
+/// A plan, plus the requested ids that were ALREADY extracted.
+///
+/// Those come back together because an already-extracted id has no
+/// statement left in the corpus to plan from -- `apply` replaced it with a
+/// pointer -- so looking it up fails, and failing is exactly what V13 says
+/// must not happen.
+struct Requested {
+    plan: plan::Plan,
+    already: Vec<String>,
+}
+
+struct Staged {
+    held: ledger::Ledger,
+    outcome: apply::Outcome,
+    path: PathBuf,
+}
+
+/// Either the plan file the user handed us, or one built from ids.
+fn resolve_plan(
+    args: &ApplyArgs,
+    loaded: &scan::Loaded,
+    held: &ledger::Ledger,
+) -> Result<Requested, String> {
+    if let Some(path) = args.plan_file.as_deref() {
+        return from_file(path);
+    }
+    if args.ids.is_empty() {
+        return Err(NO_APPLY_INPUT.to_string());
+    }
+    let split = split_requested(&args.ids, loaded, held)?;
+    let plan = plan::build(&split.chosen, &loaded.sources)
+        .map_err(|error| error.to_string())?;
+    Ok(Requested {
+        plan,
+        already: split.already,
+    })
+}
+
+fn from_file(path: &Path) -> Result<Requested, String> {
+    let text =
+        std::fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let plan = toml::from_str(&text).map_err(|error| error.to_string())?;
+    Ok(Requested {
+        plan,
+        already: Vec::new(),
+    })
+}
+
+/// Sort requested ids into "still in the corpus" and "already extracted".
+///
+/// An id the corpus does not hold but the LEDGER does is not an error: it
+/// is work already done. `apply` replaced that statement with a pointer,
+/// so there is nothing left to look up -- and V13 makes re-applying a
+/// no-op at exit 0, not an "unknown id" at exit 2.
+fn split_requested(
+    ids: &[String],
+    loaded: &scan::Loaded,
+    held: &ledger::Ledger,
+) -> Result<Split, String> {
+    let mut out = Split::default();
+    for id in ids {
+        match one(&loaded.statements, id) {
+            Ok(found) => out.chosen.push(found),
+            Err(message) => out.already.push(known_or_fail(id, held, message)?),
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Default)]
+struct Split {
+    chosen: Vec<statement::Statement>,
+    already: Vec<String>,
+}
+
+fn known_or_fail(
+    id: &str,
+    held: &ledger::Ledger,
+    message: String,
+) -> Result<String, String> {
+    match held.find(id) {
+        Some(row) => Ok(row.id.clone()),
+        None => Err(message),
+    }
+}
+
+pub const NO_APPLY_INPUT: &str =
+    "`apply` needs ids or a plan file -- run `rekall plan` first";
+
+/// V19. A plan whose sources moved would delete the wrong lines, so it is
+/// REFUSED rather than adjusted. Re-planning is cheap and report-only.
+fn refuse_if_stale(
+    built: &plan::Plan,
+    loaded: &scan::Loaded,
+) -> Result<(), String> {
+    let current: Vec<(String, Option<String>)> = loaded
+        .sources
+        .iter()
+        .map(|(src, text)| (src.clone(), Some(text.clone())))
+        .collect();
+    let stale = plan::staleness(built, &current);
+    if stale.is_empty() {
+        return Ok(());
+    }
+    let reasons: Vec<String> = stale.iter().map(ToString::to_string).collect();
+    Err(format!("refusing a stale plan: {}", reasons.join("; ")))
+}
+
+fn commit(
+    args: &ApplyArgs,
+    built: &plan::Plan,
+    base: &Path,
+    mut staged: Staged,
+) -> Result<Output, String> {
+    let pending = apply::pending(&built.steps, &staged.held);
+    if pending.is_empty() {
+        return report_apply(
+            &staged.outcome,
+            args,
+            vec!["nothing to do".to_string()],
+        );
+    }
+    approved(&consent_for(args, &staged.outcome)?)?;
+    let done = perform_apply(&pending, base, &mut staged)?;
+    report_apply(&staged.outcome, args, done)
+}
+
+fn perform_apply(
+    pending: &[plan::Step],
+    base: &Path,
+    staged: &mut Staged,
+) -> Result<Vec<String>, String> {
+    let mut done = write_all(pending, base)?;
+    for step in pending {
+        staged.held.record(apply::row_for(step, now()));
+    }
+    ledger::save(&staged.path, &staged.held)
+        .map_err(|error| error.to_string())?;
+    done.push(format!("recorded {} extraction(s)", pending.len()));
+    Ok(done)
+}
+
+/// Unix seconds. Zero if the clock is unreadable -- a missing timestamp is
+/// a worse ledger row than an old one, and neither is worth failing over.
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs())
+}
+
+/// V7: name every file BEFORE asking, so the question is informed.
+fn consent_for(
+    args: &ApplyArgs,
+    outcome: &apply::Outcome,
+) -> Result<Consent, String> {
+    if args.auto_approve {
+        return Ok(Consent::Flag);
+    }
+    eprint!("{}", render_apply_human(outcome, &[]));
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        return Ok(Consent::Unattended);
+    }
+    ask_at_terminal()
+}
+
+/// Read an answer from anywhere.
+///
+/// Takes the reader rather than reaching for stdin, so the parsing of a
+/// consent answer -- the part with a decision in it -- is testable without
+/// a terminal. What is left needing one is the two lines below.
+pub fn read_answer(
+    input: &mut impl std::io::BufRead,
+) -> Result<Consent, String> {
+    let mut answer = String::new();
+    input
+        .read_line(&mut answer)
+        .map_err(|error| error.to_string())?;
+    Ok(Consent::Answered(answer))
+}
+
+fn ask_at_terminal() -> Result<Consent, String> {
+    eprint!("apply these changes? [y/N] ");
+    read_answer(&mut std::io::stdin().lock())
+}
+
+fn write_all(
+    pending: &[plan::Step],
+    base: &Path,
+) -> Result<Vec<String>, String> {
+    let mut done = Vec::new();
+    for step in pending {
+        write_artifact(base, step)?;
+        done.push(format!("wrote {}", step.artifact));
+    }
+    edit_sources(pending, base, &mut done)?;
+    Ok(done)
+}
+
+fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
+    let path = base.join(&step.artifact);
+    let parent = path.parent().unwrap_or(Path::new("."));
+    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    std::fs::write(&path, apply::artifact_text(step))
+        .map_err(|error| error.to_string())
+}
+
+/// One rewrite per source file, with every span for that file applied
+/// together and bottom-up. Rewriting per STEP would shift the spans of the
+/// steps that follow it.
+fn edit_sources(
+    pending: &[plan::Step],
+    base: &Path,
+    done: &mut Vec<String>,
+) -> Result<(), String> {
+    for src in sources_touched(pending) {
+        let steps: Vec<plan::Step> =
+            pending.iter().filter(|s| s.src == src).cloned().collect();
+        let path = base.join(&src);
+        let text = std::fs::read_to_string(&path)
+            .map_err(|error| error.to_string())?;
+        let edited = apply::splice_all(&text, &steps).ok_or_else(|| {
+            format!("{src}: a span no longer fits -- re-run `rekall plan`")
+        })?;
+        std::fs::write(&path, edited).map_err(|error| error.to_string())?;
+        done.push(format!("edited {src}"));
+    }
+    Ok(())
+}
+
+fn sources_touched(pending: &[plan::Step]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for step in pending {
+        if !out.contains(&step.src) {
+            out.push(step.src.clone());
+        }
+    }
+    out
+}
+
+fn report_apply(
+    outcome: &apply::Outcome,
+    args: &ApplyArgs,
+    done: Vec<String>,
+) -> Result<Output, String> {
+    if args.json {
+        let text = serde_json::to_string_pretty(outcome)
+            .map(|text| format!("{text}\n"))
+            .map_err(|error| error.to_string())?;
+        return Ok(Output {
+            text,
+            warnings: done,
+        });
+    }
+    Ok(Output {
+        text: render_apply_human(outcome, &done),
+        warnings: Vec::new(),
+    })
+}
+
+#[must_use]
+pub fn render_apply_human(outcome: &apply::Outcome, done: &[String]) -> String {
+    let mut out = String::new();
+    for path in &outcome.writes {
+        out.push_str(&format!("write   {path}\n"));
+    }
+    for path in &outcome.edits {
+        out.push_str(&format!("edit    {path}\n"));
+    }
+    for id in &outcome.skipped {
+        out.push_str(&format!("skip    {id} (already extracted)\n"));
+    }
+    for line in done {
+        out.push_str(&format!("done    {line}\n"));
+    }
+    out
+}
+
+fn run_apply(flags: &[String], env: &Env) -> u8 {
+    match apply_command(flags, env) {
+        Ok(output) => {
+            for warning in &output.warnings {
+                eprintln!("rekall: {warning}");
+            }
+            print!("{}", output.text);
+            0
+        }
+        Err(message) => {
+            eprintln!("rekall: {message}");
+            USAGE_EXIT
+        }
+    }
+}
+
 fn run_scan(flags: &[String], env: &Env) -> u8 {
     match scan_command(flags, env) {
         Ok(output) => {
@@ -885,7 +1290,7 @@ mod tests {
     /// code, different message -- the distinction is the message's job.
     /// The verbs that actually do something. Kept beside the loop below so
     /// implementing a verb without dispatching it fails here.
-    const IMPLEMENTED: [&str; 4] = ["scan", "init", "show", "plan"];
+    const IMPLEMENTED: [&str; 5] = ["scan", "init", "show", "plan", "apply"];
 
     #[test]
     fn a_specified_verb_is_unimplemented_not_unknown() {
@@ -1523,5 +1928,360 @@ mod tests {
             dir.join("x.plan").is_file(),
             "plan did not land in the project"
         );
+    }
+    fn apply_project(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("cli-apply").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = [\".\"]\n",
+        );
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n\n- background prose\n",
+        );
+        dir
+    }
+
+    fn apply_in(dir: &Path, extra: &[&str]) -> Result<Output, String> {
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.extend(args(extra));
+        apply_command(&flags, &env())
+    }
+
+    fn rule_id(dir: &Path) -> String {
+        scan_command(&args(&["-C", &dir.to_string_lossy()]), &env())
+            .map(|out| out.text)
+            .unwrap_or_default()
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    #[test]
+    fn apply_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["apply", "abc"])),
+            Action::Apply(args(&["abc"]))
+        );
+    }
+
+    /// V20: off a tty, silence is not consent.
+    #[test]
+    fn without_a_terminal_and_without_the_flag_apply_refuses() {
+        assert_eq!(
+            approved(&Consent::Unattended),
+            Err(NEEDS_APPROVAL.to_string())
+        );
+        assert!(NEEDS_APPROVAL.contains("--auto-approve"));
+    }
+
+    #[test]
+    fn the_flag_is_consent_and_a_no_is_not() {
+        assert!(approved(&Consent::Flag).is_ok());
+        assert!(approved(&Consent::Answered("y\n".to_string())).is_ok());
+        assert!(approved(&Consent::Answered("yes".to_string())).is_ok());
+        assert!(approved(&Consent::Answered("n".to_string())).is_err());
+        assert!(approved(&Consent::Answered(String::new())).is_err());
+    }
+
+    /// Bare Enter means NO. The prompt reads `[y/N]`, and a destructive
+    /// default that triggers on a stray keypress is not a confirmation.
+    #[test]
+    fn an_empty_answer_cancels() {
+        assert_eq!(
+            approved(&Consent::Answered("\n".to_string())),
+            Err("cancelled".to_string())
+        );
+    }
+
+    #[test]
+    fn apply_without_ids_or_a_plan_says_what_to_run() {
+        let dir = apply_project("no-input");
+        let message = apply_in(&dir, &["--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("rekall plan"), "message was {message}");
+    }
+
+    /// V1: the span is DELETED and a pointer left. Both halves asserted --
+    /// a copy would leave the context cost unpaid.
+    #[test]
+    fn apply_moves_the_statement_and_leaves_a_pointer() {
+        let dir = apply_project("moves");
+        let id = rule_id(&dir);
+        assert!(apply_in(&dir, &[&id, "--auto-approve"]).is_ok());
+        let corpus =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert!(
+            !corpus.contains("never commit"),
+            "source survived: {corpus}"
+        );
+        assert!(corpus.contains("<!-- rekall"), "no pointer: {corpus}");
+        assert!(
+            corpus.contains("- background prose"),
+            "unrelated prose lost: {corpus}"
+        );
+    }
+
+    #[test]
+    fn apply_writes_the_artifact_and_records_the_ledger() {
+        let dir = apply_project("artifact");
+        let id = rule_id(&dir);
+        assert!(apply_in(&dir, &[&id, "--auto-approve"]).is_ok());
+        let held = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        let artifact = held
+            .find(&id)
+            .map(|row| row.artifact.clone())
+            .unwrap_or_default();
+        assert!(
+            dir.join(&artifact).is_file(),
+            "artifact missing: {artifact}"
+        );
+        assert_eq!(held.extracted.len(), 1);
+    }
+
+    /// V9: the ledger keeps the ORIGINAL TEXT, which is what makes `revert`
+    /// a replay rather than a rewrite.
+    #[test]
+    fn the_ledger_keeps_the_original_text_verbatim() {
+        let dir = apply_project("verbatim");
+        let id = rule_id(&dir);
+        let _ = apply_in(&dir, &[&id, "--auto-approve"]);
+        let held = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        assert_eq!(
+            held.find(&id).map(|row| row.text.clone()),
+            Some("- never commit to `main`".to_string())
+        );
+    }
+
+    /// V13: applying an id that is already extracted is a NO-OP at exit 0.
+    /// Its statement is gone from the corpus -- `apply` replaced it with a
+    /// pointer -- so the lookup that would fail must consult the ledger.
+    #[test]
+    fn re_applying_an_extracted_id_is_a_no_op() {
+        let dir = apply_project("idempotent");
+        let id = rule_id(&dir);
+        let _ = apply_in(&dir, &[&id, "--auto-approve"]);
+        let before =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        let second = apply_in(&dir, &[&id, "--auto-approve"]);
+        assert!(second.is_ok(), "{second:?}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(before, after, "a second apply changed the corpus");
+    }
+
+    #[test]
+    fn re_applying_exits_zero_and_says_it_skipped() {
+        let dir = apply_project("idempotent-exit");
+        let id = rule_id(&dir);
+        let _ = apply_in(&dir, &[&id, "--auto-approve"]);
+        let text = apply_in(&dir, &[&id, "--auto-approve"])
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("already extracted"), "{text}");
+    }
+
+    #[test]
+    fn an_id_in_neither_the_corpus_nor_the_ledger_is_still_an_error() {
+        let dir = apply_project("unknown");
+        let message = apply_in(&dir, &["zzzzzzz", "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            message.contains("no statement matches"),
+            "message was {message}"
+        );
+    }
+
+    /// V19: the whole reason the fingerprint exists.
+    #[test]
+    fn a_plan_applied_after_the_corpus_moved_is_refused() {
+        let dir = apply_project("stale");
+        let saved = save_plan(&dir);
+        shift_corpus(&dir);
+        let message = apply_in(&dir, &[&saved, "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            message.contains("refusing a stale plan"),
+            "message was {message}"
+        );
+    }
+
+    fn save_plan(dir: &Path) -> String {
+        let id = rule_id(dir);
+        let _ = plan_command(
+            &args(&["-C", &dir.to_string_lossy(), &id, "--out", "p.plan"]),
+            &env(),
+        );
+        dir.join("p.plan").to_string_lossy().to_string()
+    }
+
+    /// Insert lines ABOVE every span, which is the edit that moves them.
+    fn shift_corpus(dir: &Path) {
+        let path = dir.join("CLAUDE.md");
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let _ = std::fs::write(&path, format!("# shifted\n\n{text}"));
+    }
+
+    #[test]
+    fn a_fresh_plan_file_applies() {
+        let dir = apply_project("from-plan");
+        let id = rule_id(&dir);
+        let _ = plan_command(
+            &args(&["-C", &dir.to_string_lossy(), &id, "--out", "p.plan"]),
+            &env(),
+        );
+        let plan_path = dir.join("p.plan");
+        let result =
+            apply_in(&dir, &[&plan_path.to_string_lossy(), "--auto-approve"]);
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn an_unknown_apply_flag_is_an_error() {
+        assert!(parse_apply(&args(&["--nope"])).is_err());
+        assert!(parse_apply(&args(&["--format"])).is_err());
+    }
+
+    #[test]
+    fn a_successful_apply_exits_zero() {
+        let dir = apply_project("exit-zero");
+        let id = rule_id(&dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id);
+        flags.push("--auto-approve".to_string());
+        assert_eq!(perform(Action::Apply(flags), &env()), 0);
+    }
+
+    #[test]
+    fn a_failed_apply_exits_two() {
+        assert_eq!(
+            perform(
+                Action::Apply(args(&["zzzzzzz", "--auto-approve"])),
+                &env()
+            ),
+            USAGE_EXIT
+        );
+    }
+
+    #[test]
+    fn apply_json_is_parseable() {
+        let dir = apply_project("json");
+        let id = rule_id(&dir);
+        let text = apply_in(&dir, &[&id, "--auto-approve", "--format", "json"])
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&text).is_ok(),
+            "{text}"
+        );
+    }
+    /// Without the flag and without a terminal, apply REFUSES rather than
+    /// proceeding. Tests are never a tty, so this is the real path CI takes.
+    #[test]
+    fn apply_without_approval_refuses_and_changes_nothing() {
+        let dir = apply_project("unattended");
+        let id = rule_id(&dir);
+        let before =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        let message = apply_in(&dir, &[&id]).err().unwrap_or_default();
+        assert!(message.contains("--auto-approve"), "message was {message}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(before, after, "a refused apply edited the corpus");
+    }
+
+    /// A plan whose FINGERPRINT still matches but whose span does not fit
+    /// -- a hand-edited or corrupt plan. The fingerprint check passes, so
+    /// the splice is the last thing standing between that plan and the
+    /// wrong bytes. It refuses too.
+    #[test]
+    fn a_plan_with_an_impossible_span_is_refused_at_the_splice() {
+        let dir = apply_project("bad-span");
+        let path = forge_plan(&dir, 999);
+        let message = apply_in(&dir, &[&path, "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("no longer fits"), "message was {message}");
+    }
+
+    /// A plan whose fingerprint is CORRECT but whose span is not. Hand
+    /// editing a plan, or a corrupt one, gets past V19 -- so the splice is
+    /// the last thing standing between it and the wrong bytes.
+    fn forge_plan(dir: &Path, line: usize) -> String {
+        let corpus =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        let forged = format!(
+            "format = 1\n\n[[fingerprint]]\nsrc = \"CLAUDE.md\"\ndigest = \"{}\"\n\n\
+             [[steps]]\nid = \"forged1\"\nsrc = \"CLAUDE.md\"\nline_start = {line}\n\
+             line_end = {line}\ntext = \"x\"\nlabel = \"M1\"\n\
+             artifact = \".rekall/rules/x.sh\"\nwiring = \"w\"\n",
+            plan::digest_of(&corpus)
+        );
+        let path = dir.join("forged.plan");
+        let _ = std::fs::write(&path, forged);
+        path.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn apply_reports_what_it_did_on_stderr_in_json_mode() {
+        let dir = apply_project("json-warnings");
+        let id = rule_id(&dir);
+        let warnings =
+            apply_in(&dir, &[&id, "--auto-approve", "--format", "json"])
+                .map(|out| out.warnings)
+                .unwrap_or_default();
+        assert!(
+            warnings.iter().any(|w| w.contains("wrote ")),
+            "{warnings:?}"
+        );
+        assert!(
+            warnings.iter().any(|w| w.contains("edited ")),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn a_json_apply_exits_zero_and_prints_its_warnings() {
+        let dir = apply_project("json-exit");
+        let id = rule_id(&dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id);
+        flags.extend(args(&["--auto-approve", "--format", "json"]));
+        assert_eq!(perform(Action::Apply(flags), &env()), 0);
+    }
+    #[test]
+    fn an_answer_is_read_from_any_reader() {
+        let mut input = std::io::Cursor::new(b"y\n".to_vec());
+        assert_eq!(
+            read_answer(&mut input).ok(),
+            Some(Consent::Answered("y\n".to_string()))
+        );
+    }
+
+    #[test]
+    fn an_answer_that_is_read_is_then_judged() {
+        let mut yes = std::io::Cursor::new(b"yes\n".to_vec());
+        let mut no = std::io::Cursor::new(b"\n".to_vec());
+        assert!(read_answer(&mut yes).and_then(|c| approved(&c)).is_ok());
+        assert!(read_answer(&mut no).and_then(|c| approved(&c)).is_err());
+    }
+
+    /// A reader that fails mid-line is an ERROR, not a silent yes.
+    #[test]
+    fn a_failing_reader_is_not_consent() {
+        struct Broken;
+        impl std::io::Read for Broken {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("no"))
+            }
+        }
+        let mut input = std::io::BufReader::new(Broken);
+        assert!(read_answer(&mut input).is_err());
     }
 }

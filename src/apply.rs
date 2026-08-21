@@ -1,0 +1,416 @@
+//! `rekall apply` -- the only verb that edits the corpus.
+//!
+//! Extraction is a MOVE, not a copy (V1): the artifact lands, the source
+//! span is DELETED, and a pointer is left where it stood. A copy would
+//! leave two hand-maintained statements of one rule and would leave the
+//! context cost unpaid, which is the whole purpose lost.
+//!
+//! The splice is a PURE function over text. Everything that decides which
+//! bytes disappear is testable without a filesystem, because this is the
+//! code that edits someone's memory and "it looked right" is not a
+//! standard it can be held to.
+
+use crate::{ledger, plan};
+
+/// The note left where a statement used to be.
+///
+/// A pointer rather than a silent deletion. Someone reading `CLAUDE.md`
+/// later needs to know the rule still exists and where it went -- prose
+/// that simply vanished reads as a mistake, and the next person restates
+/// it (V1's founding defect, one level down).
+#[must_use]
+pub fn pointer(step: &plan::Step) -> String {
+    format!(
+        "<!-- rekall {}: extracted to {} -->",
+        step.id, step.artifact
+    )
+}
+
+/// Replace a statement's span with its pointer.
+///
+/// Line numbers are 1-based and inclusive, as `scan` reports them. A span
+/// outside the file is returned UNCHANGED rather than clamped: a plan that
+/// points past the end of a file is stale, and quietly editing the nearest
+/// line would be the exact failure V19 exists to prevent.
+#[must_use]
+pub fn splice(text: &str, step: &plan::Step) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let start = step.line_start.checked_sub(1)?;
+    if !in_range(step, lines.len(), start) {
+        return None;
+    }
+    let mut out: Vec<String> = lines
+        .get(..start)?
+        .iter()
+        .map(|l| (*l).to_string())
+        .collect();
+    out.push(pointer(step));
+    out.extend(lines.get(step.line_end..)?.iter().map(|l| (*l).to_string()));
+    Some(finish(out, text))
+}
+
+fn in_range(step: &plan::Step, len: usize, start: usize) -> bool {
+    step.line_end <= len && step.line_start <= step.line_end && start < len
+}
+
+/// Preserve whether the file ended with a newline. Adding or removing one
+/// would show up as a spurious change in every diff of the corpus.
+fn finish(lines: Vec<String>, original: &str) -> String {
+    let joined = lines.join("\n");
+    if original.ends_with('\n') {
+        return format!("{joined}\n");
+    }
+    joined
+}
+
+/// Apply every step that touches one file.
+///
+/// BOTTOM-UP, deliberately. Each splice replaces N lines with one pointer,
+/// so applying a lower span first would shift every span above it and the
+/// second edit would land on the wrong lines. Descending order means no
+/// span moves before it is used.
+#[must_use]
+pub fn splice_all(text: &str, steps: &[plan::Step]) -> Option<String> {
+    let mut ordered: Vec<&plan::Step> = steps.iter().collect();
+    ordered.sort_by_key(|step| std::cmp::Reverse(step.line_start));
+    let mut out = text.to_string();
+    for step in ordered {
+        out = splice(&out, step)?;
+    }
+    Some(out)
+}
+
+/// The artifact a step materializes.
+///
+/// Both forms arrive INERT and LOUD. A generated `M` script exits nonzero
+/// saying it is unimplemented, so wiring it into the gate before writing
+/// the check fails visibly rather than passing green; a generated `S` skill
+/// carries a trigger heading and an explicit do-not-fire heading, because
+/// V4 wants absence stated rather than inferred and a template that omits
+/// it teaches the omission.
+#[must_use]
+pub fn artifact_text(step: &plan::Step) -> String {
+    if step.label.starts_with('M') {
+        return rule_script(step);
+    }
+    skill_file(step)
+}
+
+fn rule_script(step: &plan::Step) -> String {
+    fill(RULE_TEMPLATE, step)
+}
+
+fn skill_file(step: &plan::Step) -> String {
+    fill(SKILL_TEMPLATE, step)
+}
+
+/// Templates are CONSTS, not inline format walls. The generated artifact is
+/// the thing a human edits next, so its text should be readable and
+/// editable here rather than reassembled from fragments.
+fn fill(template: &str, step: &plan::Step) -> String {
+    template
+        .replace("{ID}", &step.id)
+        .replace("{SRC}", &step.src)
+        .replace("{START}", &step.line_start.to_string())
+        .replace("{END}", &step.line_end.to_string())
+        .replace("{ARTIFACT}", &step.artifact)
+        .replace("{TEXT}", step.text.trim())
+}
+
+/// Arrives INERT and LOUD: exits nonzero until the check is written, so
+/// wiring it into the gate before implementing it fails visibly rather
+/// than passing green.
+const RULE_TEMPLATE: &str = "\
+#!/bin/sh
+# Extracted by rekall from {SRC}:{START}-{END} (id {ID}).
+#
+# THE RULE, verbatim:
+# {TEXT}
+#
+# Exits NONZERO until the check is written. A runner that passes without
+# testing anything gates nothing, and is worse than no runner (V2, V22).
+echo 'rekall: {ARTIFACT} is not implemented yet' >&2
+exit 1
+";
+
+/// Carries BOTH headings. V4 wants absence stated rather than inferred, so
+/// a template that omits the do-not-fire section teaches the omission.
+const SKILL_TEMPLATE: &str = "\
+# {ID}
+
+Extracted by rekall from {SRC}:{START}-{END}.
+
+{TEXT}
+
+## Fires when
+
+TODO: name the exact tool, path or situation. A skill with no trigger is
+always-on prose, which is what this was extracted FROM (V3).
+
+## Does NOT fire when
+
+TODO: state this explicitly. Absence is not provable from a positive
+description, so a list of what fires says nothing about what does not (V4).
+";
+
+/// A ledger row for a step, ready to record.
+#[must_use]
+pub fn row_for(step: &plan::Step, at: u64) -> ledger::Extracted {
+    ledger::Extracted {
+        id: step.id.clone(),
+        src: step.src.clone(),
+        line_start: step.line_start,
+        line_end: step.line_end,
+        text: step.text.clone(),
+        artifact: step.artifact.clone(),
+        fires: 0,
+        at,
+    }
+}
+
+/// What an apply did, or would do.
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct Outcome {
+    /// EVERY file touched, named before anything is written (V7).
+    pub writes: Vec<String>,
+    pub edits: Vec<String>,
+    /// Ids already in the ledger. V13 makes these a no-op, not an error.
+    pub skipped: Vec<String>,
+}
+
+/// Which steps still need applying, and every file that would change.
+///
+/// Computed BEFORE any write so the caller can name the whole blast radius
+/// while it is still hypothetical. V7 requires naming files before writing;
+/// naming them afterwards is a receipt, not a warning.
+#[must_use]
+pub fn preview(steps: &[plan::Step], held: &ledger::Ledger) -> Outcome {
+    let mut out = Outcome::default();
+    for step in steps {
+        if held.holds(&step.id) {
+            out.skipped.push(step.id.clone());
+            continue;
+        }
+        out.writes.push(step.artifact.clone());
+        if !out.edits.contains(&step.src) {
+            out.edits.push(step.src.clone());
+        }
+    }
+    out
+}
+
+/// The steps `preview` decided are still outstanding.
+#[must_use]
+pub fn pending(steps: &[plan::Step], held: &ledger::Ledger) -> Vec<plan::Step> {
+    steps
+        .iter()
+        .filter(|step| !held.holds(&step.id))
+        .cloned()
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn step(id: &str, start: usize, end: usize, label: &str) -> plan::Step {
+        plan::Step {
+            id: id.to_string(),
+            src: "CLAUDE.md".to_string(),
+            line_start: start,
+            line_end: end,
+            text: "- never commit to `main`".to_string(),
+            label: label.to_string(),
+            artifact: ".rekall/rules/no-main.sh".to_string(),
+            wiring: "wire it".to_string(),
+        }
+    }
+
+    #[test]
+    fn a_span_is_replaced_by_its_pointer() {
+        let text = "# H\n\n- never commit to `main`\n\n- another\n";
+        let out =
+            splice(text, &step("abc1234", 3, 3, "M1")).unwrap_or_default();
+        assert!(out.contains(
+            "<!-- rekall abc1234: extracted to .rekall/rules/no-main.sh -->"
+        ));
+        assert!(
+            !out.contains("never commit"),
+            "the source text survived: {out}"
+        );
+        assert!(
+            out.contains("- another"),
+            "unrelated lines were lost: {out}"
+        );
+    }
+
+    /// V1: extraction is a MOVE. A pointer, not a silent deletion -- prose
+    /// that simply vanished reads as a mistake, and the next person
+    /// restates the rule.
+    #[test]
+    fn the_pointer_names_the_artifact_and_the_id() {
+        let pointer = pointer(&step("abc1234", 1, 1, "M1"));
+        assert!(
+            pointer.contains("abc1234")
+                && pointer.contains(".rekall/rules/no-main.sh")
+        );
+    }
+
+    #[test]
+    fn a_multi_line_span_collapses_to_one_pointer() {
+        let text = "- first line\n  continued\n\n- other\n";
+        let out =
+            splice(text, &step("abc1234", 1, 2, "M1")).unwrap_or_default();
+        assert!(!out.contains("continued"), "{out}");
+        assert_eq!(out.lines().count(), 3, "{out}");
+    }
+
+    #[test]
+    fn a_trailing_newline_is_preserved() {
+        let text = "- never commit to `main`\n";
+        assert!(
+            splice(text, &step("a", 1, 1, "M1"))
+                .unwrap_or_default()
+                .ends_with('\n')
+        );
+    }
+
+    #[test]
+    fn a_file_without_a_trailing_newline_does_not_gain_one() {
+        let text = "- never commit to `main`";
+        let out = splice(text, &step("a", 1, 1, "M1")).unwrap_or_default();
+        assert!(!out.ends_with('\n'), "a newline appeared: {out:?}");
+    }
+
+    /// A span past the end of the file means the plan is STALE. Clamping to
+    /// the nearest line would edit text nobody chose -- exactly the failure
+    /// V19's fingerprint exists to prevent, arriving through a different
+    /// door.
+    #[test]
+    fn a_span_past_the_end_of_the_file_is_refused() {
+        let text = "- only line\n";
+        assert_eq!(splice(text, &step("a", 5, 5, "M1")), None);
+        assert_eq!(splice(text, &step("a", 1, 9, "M1")), None);
+    }
+
+    #[test]
+    fn a_zero_or_inverted_span_is_refused() {
+        let text = "- only line\n";
+        assert_eq!(splice(text, &step("a", 0, 1, "M1")), None);
+        assert_eq!(splice(text, &step("a", 2, 1, "M1")), None);
+    }
+
+    /// THE ORDERING HAZARD. Each splice replaces N lines with one pointer,
+    /// so applying the LOWER span first shifts every span above it and the
+    /// second edit lands on the wrong lines. Bottom-up means no span moves
+    /// before it is used.
+    #[test]
+    fn two_statements_in_one_file_both_land_correctly() {
+        let text = "- first rule\n\n- second rule\n\n- third rule\n";
+        let steps = vec![step("aaa", 1, 1, "M1"), step("ccc", 5, 5, "M1")];
+        let out = splice_all(text, &steps).unwrap_or_default();
+        assert!(out.contains("rekall aaa"), "{out}");
+        assert!(out.contains("rekall ccc"), "{out}");
+        assert!(
+            out.contains("- second rule"),
+            "the untouched rule moved: {out}"
+        );
+        assert!(
+            !out.contains("- first rule") && !out.contains("- third rule"),
+            "{out}"
+        );
+    }
+
+    /// The same set in the other order must produce the same file. If it
+    /// did not, the result would depend on the order ids were typed.
+    #[test]
+    fn the_order_ids_are_given_does_not_change_the_result() {
+        let text = "- first rule\n\n- second rule\n\n- third rule\n";
+        let forward = vec![step("aaa", 1, 1, "M1"), step("ccc", 5, 5, "M1")];
+        let backward = vec![step("ccc", 5, 5, "M1"), step("aaa", 1, 1, "M1")];
+        assert_eq!(splice_all(text, &forward), splice_all(text, &backward));
+    }
+
+    #[test]
+    fn one_bad_span_refuses_the_whole_file() {
+        let text = "- first rule\n";
+        let steps = vec![step("aaa", 1, 1, "M1"), step("bbb", 9, 9, "M1")];
+        assert_eq!(splice_all(text, &steps), None);
+    }
+
+    /// V2: a runner that passes without testing anything gates nothing.
+    /// The generated script fails until someone writes the check.
+    #[test]
+    fn a_generated_rule_script_exits_nonzero() {
+        let text = artifact_text(&step("abc1234", 1, 1, "M1"));
+        assert!(text.starts_with("#!/bin/sh"), "{text}");
+        assert!(text.contains("exit 1"), "{text}");
+        assert!(
+            text.contains("- never commit to `main`"),
+            "the rule is missing: {text}"
+        );
+    }
+
+    /// V3 and V4: a trigger AND an explicit do-not-fire clause. A template
+    /// that omitted the second would teach the omission.
+    #[test]
+    fn a_generated_skill_carries_both_headings() {
+        let text = artifact_text(&step("abc1234", 1, 1, "S2"));
+        assert!(text.contains("## Fires when"), "{text}");
+        assert!(text.contains("## Does NOT fire when"), "{text}");
+    }
+
+    #[test]
+    fn every_sharpness_of_m_generates_a_script() {
+        for label in ["M1", "M2", "M3"] {
+            assert!(
+                artifact_text(&step("a", 1, 1, label)).starts_with("#!/bin/sh"),
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_ledger_row_carries_the_span_and_the_text() {
+        let row = row_for(&step("abc1234", 3, 4, "M1"), 1_700_000_000);
+        assert_eq!((row.line_start, row.line_end), (3, 4));
+        assert_eq!(row.text, "- never commit to `main`");
+        assert_eq!(row.fires, 0);
+        assert_eq!(row.at, 1_700_000_000);
+    }
+
+    /// V7: every file named BEFORE anything is written. Naming them
+    /// afterwards is a receipt, not a warning.
+    #[test]
+    fn preview_names_every_file_that_would_change() {
+        let steps = vec![step("aaa", 1, 1, "M1"), step("bbb", 3, 3, "M1")];
+        let outcome = preview(&steps, &ledger::Ledger::default());
+        assert_eq!(outcome.writes.len(), 2);
+        assert_eq!(
+            outcome.edits,
+            vec!["CLAUDE.md".to_string()],
+            "one file, named once"
+        );
+        assert!(outcome.skipped.is_empty());
+    }
+
+    /// V13: `apply` of an already-extracted id is a NO-OP, not an error.
+    #[test]
+    fn an_already_extracted_id_is_skipped_not_reapplied() {
+        let mut held = ledger::Ledger::default();
+        held.record(row_for(&step("aaa", 1, 1, "M1"), 0));
+        let steps = vec![step("aaa", 1, 1, "M1"), step("bbb", 3, 3, "M1")];
+        let outcome = preview(&steps, &held);
+        assert_eq!(outcome.skipped, vec!["aaa".to_string()]);
+        assert_eq!(outcome.writes.len(), 1);
+        assert_eq!(pending(&steps, &held).len(), 1);
+    }
+
+    #[test]
+    fn applying_nothing_new_reports_no_changes() {
+        let mut held = ledger::Ledger::default();
+        held.record(row_for(&step("aaa", 1, 1, "M1"), 0));
+        let outcome = preview(&[step("aaa", 1, 1, "M1")], &held);
+        assert!(outcome.writes.is_empty() && outcome.edits.is_empty());
+    }
+}

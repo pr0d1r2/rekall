@@ -108,8 +108,8 @@ T5|x|statement splitter: prose -> statements, path-scoped hash ids, spans|V13,§
 T6|x|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
 T7|x|`rekall scan` human + json, filters, `--sources`, `-C`|I.scan,V7,V13,V17
 T8|x|ledger store `.rekall/ledger.toml`: CANDIDATE & EXTRACTED rows, prefix lookup, fire count|V7,V9,V11,V13
-T9|.|`rekall apply` `M` -> script + runner wiring|V1,V2
-T10|.|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
+T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
+T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|.|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|.|`rekall recall` matcher|I.recall,V3
 T13|.|`rekall hook` adapter|I.hook,V5,R9
@@ -122,8 +122,8 @@ T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
 T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
 T23|x|`rekall plan`: extraction DIFF, artifact + wiring named, `--out` anchored to `-C`|§I,V7
-T24|~|plan FINGERPRINT + `staleness()` land; the `apply` REFUSAL waits on T9|V19
-T25|.|confirm gate for `apply`/`revert`: tty prompt, `--auto-approve` off-tty|V20
+T24|x|plan FINGERPRINT + `apply` REFUSES a stale plan|V19
+T25|~|confirm gate on `apply`: tty prompt, `--auto-approve` off-tty. `revert` waits on T15|V20
 T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
 T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
 T28|x|`id` shape DECIDED: path-scoped hash of normalized text, 7 hex, `.n` for repeats, prefix input|§I,T5,V13
