@@ -79,17 +79,6 @@ fn to_row(found: &statement::Statement) -> Row {
     }
 }
 
-/// Read one file and classify every statement in it.
-///
-/// An unreadable file is SKIPPED rather than fatal -- a corpus is other
-/// people's files and one bad permission bit must not stop the inventory --
-/// but the skip is returned so the caller can say so. A silent skip would
-/// report a smaller corpus as if it were the whole one (V26).
-fn rows_for(path: &Path, name: &str) -> Result<Vec<Row>, PathBuf> {
-    let text = std::fs::read_to_string(path).map_err(|_| path.to_path_buf())?;
-    Ok(statement::split(&text, name).iter().map(to_row).collect())
-}
-
 /// The STABLE name of a corpus file: relative to the project base when it
 /// sits under it, `~`-prefixed when it sits under the home directory,
 /// absolute otherwise.
@@ -134,26 +123,6 @@ pub struct Corpus<'a> {
     pub base: &'a Path,
 }
 
-/// Run a scan over already-resolved roots.
-pub fn run(
-    corpus: &Corpus<'_>,
-    filter: &Filter,
-) -> Result<Outcome, corpus::Error> {
-    let mut rows = Vec::new();
-    let mut sources = Vec::new();
-    let mut unreadable = Vec::new();
-    for (root, scope) in corpus.roots {
-        let found = corpus.files_under(root)?;
-        sources.push(source_of(root, *scope, found.files.len()));
-        unreadable.extend(found.unreadable);
-        gather(&found.files, &mut rows, &mut unreadable, corpus);
-    }
-    Ok(Outcome {
-        report: finish(rows, sources, filter),
-        unreadable,
-    })
-}
-
 impl Corpus<'_> {
     fn files_under(
         &self,
@@ -168,18 +137,71 @@ impl Corpus<'_> {
     }
 }
 
-fn gather(
-    files: &[PathBuf],
-    rows: &mut Vec<Row>,
-    unreadable: &mut Vec<PathBuf>,
-    at: &Corpus<'_>,
-) {
-    for file in files {
-        match rows_for(file, &stable_name(file, at.base, at.home)) {
-            Ok(found) => rows.extend(found),
-            Err(path) => unreadable.push(path),
+/// The corpus, read once.
+///
+/// `scan`, `show` and `plan` all need the same three things and used to
+/// walk the tree separately for them. Three walkers is three chances to
+/// disagree about what the corpus contains -- the defect V8 names for two
+/// token counters, in a place where a disagreement would mean `plan`
+/// pointing at a statement `scan` never listed.
+pub struct Loaded {
+    pub statements: Vec<statement::Statement>,
+    /// Each source's stable name and its full text, for fingerprinting.
+    pub sources: Vec<(String, String)>,
+    pub unreadable: Vec<PathBuf>,
+}
+
+/// Read every corpus file once and split it.
+pub fn load(at: &Corpus<'_>) -> Result<Loaded, corpus::Error> {
+    let mut out = Loaded {
+        statements: Vec::new(),
+        sources: Vec::new(),
+        unreadable: Vec::new(),
+    };
+    for (root, _) in at.roots {
+        let walked = at.files_under(root)?;
+        out.unreadable.extend(walked.unreadable);
+        read_all(&walked.files, at, &mut out);
+    }
+    Ok(out)
+}
+
+fn read_all(files: &[PathBuf], at: &Corpus<'_>, out: &mut Loaded) {
+    for path in files {
+        let name = stable_name(path, at.base, at.home);
+        match std::fs::read_to_string(path) {
+            Ok(text) => {
+                out.statements.extend(statement::split(&text, &name));
+                out.sources.push((name, text));
+            }
+            Err(_) => out.unreadable.push(path.clone()),
         }
     }
+}
+
+/// Run a scan over already-resolved roots.
+pub fn run(
+    corpus: &Corpus<'_>,
+    filter: &Filter,
+) -> Result<Outcome, corpus::Error> {
+    let loaded = load(corpus)?;
+    let rows: Vec<Row> = loaded.statements.iter().map(to_row).collect();
+    Ok(Outcome {
+        report: finish(rows, sources_of(corpus)?, filter),
+        unreadable: loaded.unreadable,
+    })
+}
+
+/// One source row per configured root, with the count of files it
+/// contributed. Reported even when a root contributed nothing, so an empty
+/// result is distinguishable from a root that was never read.
+fn sources_of(corpus: &Corpus<'_>) -> Result<Vec<Source>, corpus::Error> {
+    let mut out = Vec::new();
+    for (root, scope) in corpus.roots {
+        let walked = corpus.files_under(root)?;
+        out.push(source_of(root, *scope, walked.files.len()));
+    }
+    Ok(out)
 }
 
 fn source_of(root: &str, scope: config::Scope, files: usize) -> Source {

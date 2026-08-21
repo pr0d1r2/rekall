@@ -44,10 +44,13 @@ pub fn lookup(
     at: &scan::Corpus<'_>,
     prefix: &str,
 ) -> Result<Lookup, corpus::Error> {
-    let mut hits = Vec::new();
-    for (root, _) in at.roots {
-        collect(at, root, prefix, &mut hits)?;
-    }
+    let loaded = scan::load(at)?;
+    let hits: Vec<Found> = loaded
+        .statements
+        .iter()
+        .filter(|found| found.id.starts_with(prefix))
+        .map(detail)
+        .collect();
     Ok(resolve(hits))
 }
 
@@ -61,32 +64,6 @@ fn resolve(mut hits: Vec<Found>) -> Lookup {
             Lookup::Ambiguous(hits.into_iter().map(|found| found.id).collect())
         }
     }
-}
-
-fn collect(
-    at: &scan::Corpus<'_>,
-    root: &String,
-    prefix: &str,
-    hits: &mut Vec<Found>,
-) -> Result<(), corpus::Error> {
-    let walked =
-        corpus::files(std::slice::from_ref(root), at.globs, at.home, at.base)?;
-    for path in walked.files {
-        let name = scan::stable_name(&path, at.base, at.home);
-        hits.extend(matches_in(&path, &name, prefix));
-    }
-    Ok(())
-}
-
-fn matches_in(path: &std::path::Path, name: &str, prefix: &str) -> Vec<Found> {
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return Vec::new();
-    };
-    statement::split(&text, name)
-        .into_iter()
-        .filter(|found| found.id.starts_with(prefix))
-        .map(|found| detail(&found))
-        .collect()
 }
 
 fn detail(found: &statement::Statement) -> Found {

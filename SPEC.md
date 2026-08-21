@@ -118,8 +118,8 @@ T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
 T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
-T23|.|`rekall plan`: extraction DIFF + `--out FILE` plan artifact|§I,V7
-T24|.|plan corpus FINGERPRINT; `apply <PLAN>` refuses a stale plan|V19
+T23|x|`rekall plan`: extraction DIFF, artifact + wiring named, `--out` anchored to `-C`|§I,V7
+T24|~|plan FINGERPRINT + `staleness()` land; the `apply` REFUSAL waits on T9|V19
 T25|.|confirm gate for `apply`/`revert`: tty prompt, `--auto-approve` off-tty|V20
 T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
 T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
