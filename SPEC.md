@@ -25,7 +25,7 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 
 ## §I INTERFACES
 
-- `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|R|U` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `signals`. Deterministic, report-only. THE CPU CORE.
+- `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|U` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `signals`. Deterministic, report-only. THE CPU CORE.
 - `rekall extract <id>...` -- `--dry-run` · `--to <dir>` · `--format json`. Materialize. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`restore`.
 - `rekall verify` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
 - `rekall recall <situation>` -- `--tool X` · `--path P` · `--cwd D` · `--format json`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands.
@@ -79,7 +79,7 @@ T2|.|`.context-limits` ceiling set before growth|V12
 T3|.|`rekall.toml` loader, `[sources]` only|§C,R6
 T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
 T5|.|statement splitter: prose -> addressable statements, STABLE ids across edits|V13
-T6|.|deterministic classifier: signals -> `M`/`S`/`R`/`U` + tier|V10
+T6|.|deterministic classifier: signals -> `M`/`S`/`U`|V10
 T7|.|`rekall scan` human + json|I.scan,V7,V17
 T8|.|ledger store: span · original text · artifact · fire count|V9,V11
 T9|.|`rekall extract` `M` -> script + runner wiring|V1,V2
