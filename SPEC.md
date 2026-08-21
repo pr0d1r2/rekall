@@ -8,6 +8,8 @@ Turn always-on agent prose into TANGIBLES: mine agent memory & `CLAUDE.md`-class
 
 MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at turn 3 competes with everything after it, dies at compaction, and costs window on every turn it does NOT fire. A rule that arrives at its trigger point uninvited costs nothing until it matters.
 
+CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WINDOW, it was ⊥ too hard to apply. & the second cost outlives the first -- rationale decays, ∴ nobody dares DELETE & the file only grows (R13). `--dead` (V11) answers that with a MEASUREMENT, ⊥ with nerve: a rule that never fired is one you can drop & PROVE you could.
+
 ## §C CONSTRAINTS
 
 - Rust, edition **2024**, MSRV **1.95** = the FLEET PIN, ⊥ a local choice: `nixpkgs-lock` pins `nixos-26.05` for every repo in the fleet (R8) ∴ CONFORM -- a crate that picks its own floor is a crate whose `nix build` reproduces only on its author's box. `itok` & `microlith` both declare 1.95, AGREEING with the pin ⊥ setting it. MEASURE here regardless: a declared floor MIRRORS the pin until a build PROVES it ∴ this crate proves its own IN THE GATE.
@@ -62,6 +64,7 @@ R8|MSRV|the FLEET PIN is `nixpkgs-lock` @ `3677ad2` -> `github:NixOS/nixpkgs/nix
 R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|github.com/pr0d1r2/itok SPEC.md §V @ main
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
 R12|platforms|`nixpkgs-lock` -- the fleet PIN repo, ∴ the authority -- declares `supportedSystems` = `aarch64-darwin` · `x86_64-darwin` · `x86_64-linux` · `aarch64-linux`. Consumers `itok` & `microlith` each declare that list MINUS `x86_64-darwin` ∴ the 4 are SUPPORT & the 3 are what GitHub CI can BUILD, ⊥ two disagreeing support claims. Read a consumer as authority & you conclude Intel-mac is unsupported -- it is UNBUILT|github.com/pr0d1r2/nixpkgs-lock flake.nix @ main
+R13|instruction growth|MEASURED over 247,694 instruction lifetimes in 1,867 repos: agent instruction files grow +226% across their life at +4.9 net instructions/commit, & the deletion hazard FALLS with age (-0.032/commit) ∴ an old rule is never removed. A wholesale rewrite dropping ~40% is followed by FASTER regrowth (+4.9%/commit vs +4.1%) ∴ manual pruning is ⊥ a fix. "Catastrophic remembering" = the RATIONALE is lost ∴ deletion is UNSAFE, ⊥ merely unpleasant|alphaxiv.org/abs/2608.11095
 
 ## §V INVARIANTS
 
