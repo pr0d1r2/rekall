@@ -27,13 +27,13 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 
 - `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|U` · `--sharpness 1|2|3` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `sharpness` · `signals`. Deterministic, report-only. THE CPU CORE.
 - CLASS × SHARPNESS. Class = `M`|`S`|`U`, R7's vocabulary UNCHANGED. Sharpness = `1`|`2`|`3`, printed joined ∴ `M2`. Sharpness is a property of the STATEMENT, ⊥ of the classifier: how sharp a runner or trigger the statement ADMITS, ⊥ how confident the classifier FEELS. `M1` runner deterministic, ⊥ judgment · `M2` runner needs ONE human-set parameter · `M3` runner DETECTS, ⊥ resolves. `S1` trigger EXACT (tool · path · extension) · `S2` trigger a signal-matchable CLASS of situations · `S3` trigger SEMANTIC ∴ only a model notices it. `U` carries ⊥ sharpness -- absence of a class has no ladder. Both ladders run SHARP -> FUZZY ∴ the digit PREDICTS fire rate & the `3` rows are where `--dead` (V11) comes from. ⊥ a third word (R7): `M`/`S` stand, the digit is a DEGREE. `--class M` matches ∀ `M*`; `--sharpness` filters across classes. JSON carries `class` · `sharpness` · `label` as SEPARATE fields ∴ an agent ⊥ string-surgery `M2` (V17).
-- `rekall extract <id>...` -- `--dry-run` · `--to <dir>` · `--format json`. Materialize. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`restore`.
+- `rekall extract <id>...` -- `--dry-run` · `--to <dir>` · `--format json`. Materialize. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`revert`.
 - `rekall check` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
 - `rekall recall <situation>` -- `--tool X` · `--path P` · `--cwd D` · `--format json`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands.
 - `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point.
 - `rekall ledger` -- `--format json` · `--dead` · `--since D`. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11).
 - `rekall catch [<session>]` -- `--format json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only; promotion goes through `extract`.
-- `rekall restore <id>` -- reverse one extraction from the ledger, verbatim (V9).
+- `rekall revert <id>` -- reverse one extraction from the ledger, verbatim (V9).
 - Config: `rekall.toml` -- `[sources]` corpus roots & globs · `[signals]` classifier weights · `[triggers]` matcher defaults · `[budget]` ceilings.
 - Exit: 0 ok · 1 drift/violation · 2 usage. ⊥ a network code ∵ ⊥ a network path.
 
@@ -60,9 +60,9 @@ V3: ∀ extracted `S` -> a TRIGGER. A skill with no trigger is always-on prose, 
 V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence ⊥ provable from a positive description (`blackbox`'s `⊥owns` byte, R5).
 V5: CPU-ONLY, ∀ verb, ⊥ exception. Deterministic & offline everywhere. ⊥ model, ⊥ network, ⊥ inference tier at ANY opt-in. Inference is `blackbox`'s (R11) ∴ ⊥ reimplemented here -- two inference clients is exactly the defect V8 names for two token counters. An opt-in that CAN fire is a path that WILL fire, & then the classifier's floor is a remote model's uptime.
 V6: `check` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
-V7: report-only DEFAULT. Only `extract` · `catch` -> ledger · `restore` mutate, & each NAMES every file touched before writing.
+V7: report-only DEFAULT. Only `extract` · `catch` -> ledger · `revert` mutate, & each NAMES every file touched before writing.
 V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same defect as two rule sets.
-V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `restore` is mechanical, ⊥ a rewrite.
+V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `revert` is mechanical, ⊥ a rewrite.
 V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired & its SHARPNESS. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate. Sharpness is DERIVED from the same signals ∴ also a claim, & a `3` is the spec SAYING OUT LOUD that this artifact may never fire.
 V11: ledger counts FIRES ∴ a never-fired artifact is DETECTABLE. A rule that never fires is a wrong trigger or dead law; both need to be visible, ⊥ inferred. SHARPNESS predicts what `--dead` MEASURES ∴ the two are checkable against each other: a `1` gone dead is a CLASSIFIER defect, a `3` that fires often is a LADDER defect. Neither is visible without both numbers.
 V12: spec CAPS ITSELF from commit one. `.context-limits` ceiling lands BEFORE the file grows into it -- a ceiling set after the growth RATIFIES it (`microlith` V9).
@@ -89,7 +89,7 @@ T11|.|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|.|`rekall recall` matcher|I.recall,V3
 T13|.|`rekall hook` adapter|I.hook,V5,R9
 T14|.|`rekall ledger` + `--dead`|V11
-T15|.|`rekall restore`|V9
+T15|.|`rekall revert`|V9
 T16|.|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
