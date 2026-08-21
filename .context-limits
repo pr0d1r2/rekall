@@ -1,0 +1,33 @@
+# Per-path token ceilings, gated by `itok check` on every commit.
+#
+# Counts are TOKENIZER-backed (o200k, itok's pinned `--bpe` tier), never a
+# bytes/4 heuristic and never a model's guess. That is what makes a ceiling
+# comparable across machines and across days -- an estimator that varies per
+# run cannot gate anything. rekall does not implement the counter: itok owns
+# token accounting and this file is read by itok's own runner (SPEC.md V8).
+#
+# WHAT THIS CEILING IS: a cap on ENTRY COST. SPEC.md is what an agent loads
+# before it does any work in this repo, and that cost is re-billed on every
+# turn, so it is subtracted from headroom before anything useful happens. It
+# is not a fit constraint -- 6,773 tokens fits any window in use.
+#
+# It forces a REVIEW, not a shrink. The slack below is deliberate (~13%): a
+# ceiling set a hair above the current figure turns every legitimate addition
+# into a raise, and a threshold raised reflexively trains the reflex instead
+# of catching the problem. When a raise is genuinely right, it belongs in a
+# commit that says why -- which is the whole reason the number lives in a
+# tracked file rather than in a flag.
+#
+# MEASURED 2026-08-21, `itok estimate --bpe`:
+#   SPEC.md    6773
+#   README.md   842
+#
+# WHY THIS FILE EXISTS AT ALL, stated here because it is the trap it was
+# born from: V12 required the ceiling from commit one, and for several
+# commits this repo declared one in section C while nothing read it. A
+# declaration no runner reads is a wish, and wishes drift silently because
+# nothing reports them (V22). The runner landed with the number, in one
+# commit, which is what V22 actually asks for.
+
+SPEC.md    7700
+README.md  1000

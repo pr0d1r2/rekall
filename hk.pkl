@@ -94,6 +94,24 @@ local fast = new Mapping<String, Step> {
     check = "mth check SPEC.md"
   }
 
+  /// THE CEILING'S RUNNER (V22). `itok check` reads `.context-limits` and
+  /// exits nonzero on a breach, using its pinned tokenizer tier so the count
+  /// is reproducible rather than a per-run estimate.
+  ///
+  /// Delegated, never reimplemented: itok owns token accounting (V8), and a
+  /// second counter here would disagree with it eventually -- which is the
+  /// same defect as two rule sets, and the one that argues loudest for
+  /// itself because both numbers look plausible.
+  ///
+  /// On the COMMIT tier deliberately. The whole point of V12 is that the
+  /// ceiling is felt while the file is being edited; a breach discovered on
+  /// push is a breach discovered after the reasoning that caused it has been
+  /// written and defended.
+  ["context-limits"] {
+    glob = List("SPEC.md", "README.md", ".context-limits")
+    check = "itok check"
+  }
+
   /// `nixfmt --check` gates the flake itself: that file decides what every
   /// other step runs with, so drift there is drift everywhere.
   ["nixfmt"] {

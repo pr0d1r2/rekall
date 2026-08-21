@@ -34,6 +34,14 @@
     nix-hk.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
     microlith.url = "github:pr0d1r2/microlith";
     microlith.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
+    # `itok` OWNS token accounting (V8), and `itok check` already reads a
+    # `.context-limits` file and exits nonzero on a breach -- exactly the
+    # runner V22 demands for that ceiling. Taking it as a GATE input rather
+    # than reimplementing a counter is V8 honoured at the earliest possible
+    # moment; a cargo dependency for in-crate use is a separate decision and
+    # stays with T16.
+    itok.url = "github:pr0d1r2/itok";
+    itok.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
   };
 
   outputs =
@@ -41,6 +49,7 @@
       nixpkgs,
       nix-hk,
       microlith,
+      itok,
       ...
     }:
     let
@@ -162,6 +171,9 @@
             # right shape is a pinned package. `mth fmt --check` and `mth
             # check` gate SPEC.md's format (§C).
             microlith.packages.${pkgs.stdenv.hostPlatform.system}.default
+            # Token counts are DELEGATED, never reimplemented here (V8).
+            # `itok check` is the runner for `.context-limits` (T2, V22).
+            itok.packages.${pkgs.stdenv.hostPlatform.system}.default
             pkgs.rustc
             pkgs.cargo
             pkgs.clippy

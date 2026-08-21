@@ -96,7 +96,7 @@ V28: success is SILENCE; a FAILING gate NAMES THE FIX. Output that ALWAYS appear
 
 id|status|task|cites
 T1|x|scaffold: root `flake.nix`, `Cargo.toml`, `hk.pkl` (vendored schema), rustfmt/clippy, MIT, ASCII gate, `mth` in gate|§C,V23,V24,V25
-T2|.|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
+T2|x|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
 T3|.|`rekall.toml` loader, `[sources]` only|§C,R6
 T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
 T5|.|statement splitter: prose -> addressable statements, STABLE ids across edits|V13

@@ -1,6 +1,92 @@
 {
   "nodes": {
+    "hk": {
+      "inputs": {
+        "nixpkgs": [
+          "itok",
+          "hk",
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": [
+          "itok",
+          "nixpkgs-lock"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786698718,
+        "narHash": "sha256-qNYIs7PaqYNQ362eYzd+7QwCpmDsGixSK2SYQJdlWXE=",
+        "owner": "pr0d1r2",
+        "repo": "nix-hk",
+        "rev": "a687c1404575d67f425e17c6bee9ad75dfa14728",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "repo": "nix-hk",
+        "type": "github"
+      }
+    },
+    "itok": {
+      "inputs": {
+        "hk": "hk",
+        "microlith": "microlith",
+        "nixpkgs": [
+          "itok",
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": [
+          "nixpkgs-lock"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786856998,
+        "narHash": "sha256-fd6zrxw4lBUl+boN6uTqi591BSzFCnNLgh+lp+EDXyQ=",
+        "owner": "pr0d1r2",
+        "repo": "itok",
+        "rev": "0104fe94346b1a946f7a70d253ffcda56409ed91",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "repo": "itok",
+        "type": "github"
+      }
+    },
     "microlith": {
+      "inputs": {
+        "nix-hk": [
+          "itok",
+          "hk"
+        ],
+        "nixpkgs": [
+          "itok",
+          "microlith",
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": [
+          "itok",
+          "nixpkgs-lock"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786709569,
+        "narHash": "sha256-KLxL48Qug7X0R9F/bG0MpJTsn/kmQz17CXQN4saLsks=",
+        "owner": "pr0d1r2",
+        "repo": "microlith",
+        "rev": "aa0380ac3b51b8d46bd536de28ea83452f01be90",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "ref": "v0.6.1",
+        "repo": "microlith",
+        "type": "github"
+      }
+    },
+    "microlith_2": {
       "inputs": {
         "nix-hk": "nix-hk",
         "nixpkgs": [
@@ -114,7 +200,8 @@
     },
     "root": {
       "inputs": {
-        "microlith": "microlith",
+        "itok": "itok",
+        "microlith": "microlith_2",
         "nix-hk": "nix-hk_2",
         "nixpkgs": [
           "nixpkgs-lock",
