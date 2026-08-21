@@ -360,4 +360,166 @@ mod tests {
         );
         assert_eq!(from_inside, from_elsewhere);
     }
+    use std::fs;
+
+    /// A throwaway corpus on disk, named after the test that owns it so two
+    /// tests never share a directory. Under `target/` so `cargo clean`
+    /// removes it and nothing leaks into the user's temp dir.
+    fn corpus_dir(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("test-corpus").join(name);
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        dir
+    }
+
+    fn write(dir: &Path, name: &str, body: &str) {
+        let _ = fs::write(dir.join(name), body);
+    }
+
+    fn scan_dir(dir: &Path, filter: &Filter) -> Outcome {
+        let roots = vec![(".".to_string(), config::Scope::Project)];
+        let globs = vec!["**/*.md".to_string()];
+        let corpus = Corpus {
+            roots: &roots,
+            globs: &globs,
+            home: None,
+            base: dir,
+        };
+        run(&corpus, filter).unwrap_or_else(|_| Outcome {
+            report: Report {
+                rows: Vec::new(),
+                sources: Vec::new(),
+            },
+            unreadable: Vec::new(),
+        })
+    }
+
+    #[test]
+    fn run_inventories_a_real_directory() {
+        let dir = corpus_dir("inventory");
+        write(
+            &dir,
+            "CLAUDE.md",
+            "- never commit to `main`\n\n- code must be readable\n",
+        );
+        let outcome = scan_dir(&dir, &Filter::default());
+        assert_eq!(outcome.report.rows.len(), 2);
+        assert_eq!(outcome.report.sources.len(), 1);
+        assert_eq!(outcome.report.sources.first().map(|s| s.files), Some(1));
+    }
+
+    /// Names in the report are relative to the base, so the same corpus
+    /// reports the same ids from any working directory.
+    #[test]
+    fn run_reports_paths_relative_to_the_base() {
+        let dir = corpus_dir("relative");
+        write(&dir, "CLAUDE.md", "- never commit to `main`\n");
+        let outcome = scan_dir(&dir, &Filter::default());
+        assert_eq!(
+            outcome.report.rows.first().map(|r| r.src.clone()),
+            Some("CLAUDE.md:1-1".to_string())
+        );
+    }
+
+    /// A file that is not valid UTF-8 cannot be read as prose. It is
+    /// RETURNED as unreadable rather than dropped, so the caller can name
+    /// it -- reporting a smaller corpus as if it were the whole one is the
+    /// silent skip V26 forbids.
+    #[test]
+    fn an_unreadable_file_is_reported_not_dropped() {
+        let dir = corpus_dir("unreadable");
+        write(&dir, "good.md", "- never commit to `main`\n");
+        let _ = fs::write(dir.join("bad.md"), [0xff_u8, 0xfe, 0xff]);
+        let outcome = scan_dir(&dir, &Filter::default());
+        assert_eq!(outcome.unreadable.len(), 1, "{:?}", outcome.unreadable);
+        assert_eq!(outcome.report.rows.len(), 1, "the good file still scanned");
+    }
+
+    #[test]
+    fn run_applies_the_class_filter() {
+        let dir = corpus_dir("filtered");
+        let body =
+            "- never commit to `main`\n\n- when writing tests, prefer tables\n";
+        write(&dir, "CLAUDE.md", body);
+        let filter = Filter {
+            class: Some("S".to_string()),
+            ..Filter::default()
+        };
+        let labels = labels_of(&scan_dir(&dir, &filter));
+        assert_eq!(labels, vec!["S2".to_string()]);
+    }
+
+    fn labels_of(outcome: &Outcome) -> Vec<String> {
+        outcome
+            .report
+            .rows
+            .iter()
+            .map(|row| row.label.clone())
+            .collect()
+    }
+
+    #[test]
+    fn run_applies_top_after_filtering() {
+        let dir = corpus_dir("top");
+        write(
+            &dir,
+            "CLAUDE.md",
+            "- one must be `a`\n\n- two must be `b`\n\n- three must be `c`\n",
+        );
+        let filter = Filter {
+            top: Some(2),
+            ..Filter::default()
+        };
+        assert_eq!(scan_dir(&dir, &filter).report.rows.len(), 2);
+    }
+
+    /// Sources are reported even when a root contributes nothing, so an
+    /// empty result is distinguishable from a root that was never read.
+    #[test]
+    fn an_empty_root_still_reports_a_source_row() {
+        let dir = corpus_dir("empty");
+        let outcome = scan_dir(&dir, &Filter::default());
+        assert!(outcome.report.rows.is_empty());
+        assert_eq!(outcome.report.sources.first().map(|s| s.files), Some(0));
+    }
+
+    /// V13: scanning twice yields the same report.
+    #[test]
+    fn scanning_is_idempotent_on_disk() {
+        let dir = corpus_dir("idempotent");
+        write(
+            &dir,
+            "CLAUDE.md",
+            "- never commit to `main`\n\n- prefer small modules\n",
+        );
+        assert_eq!(
+            scan_dir(&dir, &Filter::default()).report,
+            scan_dir(&dir, &Filter::default()).report
+        );
+    }
+
+    /// A path under neither the base nor home keeps its absolute form --
+    /// the last fallback in `stable_name`.
+    #[test]
+    fn a_path_outside_base_and_home_stays_absolute() {
+        assert_eq!(
+            stable_name(
+                Path::new("/etc/notes.md"),
+                Path::new("/p"),
+                Some("/home/u")
+            ),
+            "/etc/notes.md"
+        );
+    }
+
+    #[test]
+    fn sources_carry_the_scope_that_named_the_root() {
+        let dir = corpus_dir("scope");
+        write(&dir, "CLAUDE.md", "- a rule\n");
+        let outcome = scan_dir(&dir, &Filter::default());
+        assert_eq!(
+            outcome.report.sources.first().map(|s| s.scope.clone()),
+            Some("project".to_string())
+        );
+    }
 }
