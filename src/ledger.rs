@@ -153,15 +153,26 @@ impl Ledger {
     /// the one they copied from a report.
     #[must_use]
     pub fn find(&self, prefix: &str) -> Option<&Extracted> {
-        let mut hits = self
-            .extracted
-            .iter()
-            .filter(|row| row.id.starts_with(prefix));
-        let first = hits.next()?;
-        if hits.next().is_some() {
-            return None;
+        match self.matching(prefix).as_slice() {
+            [only] => Some(only),
+            _ => None,
         }
-        Some(first)
+    }
+
+    /// EVERY extracted row an id prefix matches.
+    ///
+    /// `find` collapses none and many to the same `None`, which is right
+    /// for a caller that only wants the unique hit -- but a caller that
+    /// REPORTS the failure needs to tell them apart. Section I makes an
+    /// ambiguous prefix a usage error with its own message, not a coin
+    /// toss, and "unknown id" is the wrong thing to print at someone whose
+    /// id was merely too short.
+    #[must_use]
+    pub fn matching(&self, prefix: &str) -> Vec<&Extracted> {
+        self.extracted
+            .iter()
+            .filter(|row| row.id.starts_with(prefix))
+            .collect()
     }
 
     /// Whether this id has already been extracted. V13 makes `apply` of an

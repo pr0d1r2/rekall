@@ -20,10 +20,19 @@ use crate::{ledger, plan};
 /// it (V1's founding defect, one level down).
 #[must_use]
 pub fn pointer(step: &plan::Step) -> String {
-    format!(
-        "<!-- rekall {}: extracted to {} -->",
-        step.id, step.artifact
-    )
+    pointer_of(&step.id, &step.artifact)
+}
+
+/// The pointer's SHAPE, defined once.
+///
+/// `revert` reads this line back out of the corpus to find where a
+/// statement belongs (V9), so the two directions have to agree on it
+/// exactly. Two format strings that must match is two rule sets, and the
+/// invisible kind: each looks right alone, and the divergence only shows
+/// when a revert cannot find a pointer that is plainly there.
+#[must_use]
+pub fn pointer_of(id: &str, artifact: &str) -> String {
+    format!("<!-- rekall {id}: extracted to {artifact} -->")
 }
 
 /// Replace a statement's span with its pointer.

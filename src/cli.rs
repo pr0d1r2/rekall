@@ -5,7 +5,7 @@
 //! 1 drift, 2 usage -- so the mapping from argument to exit stays visible
 //! here instead of inside a macro.
 
-use crate::{apply, config, init, ledger, plan, scan, show, statement};
+use crate::{apply, config, init, ledger, plan, revert, scan, show, statement};
 use std::path::{Path, PathBuf};
 
 pub const USAGE_EXIT: u8 = 2;
@@ -148,7 +148,7 @@ verbs:
   hook    harness hook JSON on stdin, decision JSON on stdout
   log     read the ledger
   catch   mine a transcript for candidate statements
-  revert  reverse one extraction, verbatim
+  revert  reverse one extraction, verbatim; confirms before it mutates
 
 exit: 0 ok, 1 drift or violation, 2 usage
 ";
@@ -169,6 +169,7 @@ pub enum Action {
     Show(Vec<String>),
     Plan(Vec<String>),
     Apply(Vec<String>),
+    Revert(Vec<String>),
     /// A verb section I defines that this build cannot perform.
     Unimplemented(String),
     /// A verb the binary has never heard of -- a typo, not a backlog row.
@@ -196,6 +197,7 @@ pub fn decide(args: &[String]) -> Action {
         Some("show") => Action::Show(rest(args)),
         Some("plan") => Action::Plan(rest(args)),
         Some("apply") => Action::Apply(rest(args)),
+        Some("revert") => Action::Revert(rest(args)),
         Some(verb) if VERBS.contains(&verb) => {
             Action::Unimplemented(verb.to_string())
         }
@@ -231,6 +233,7 @@ pub fn perform(action: Action, env: &Env) -> u8 {
         Action::Show(flags) => run_show(&flags, env),
         Action::Plan(flags) => run_plan(&flags, env),
         Action::Apply(flags) => run_apply(&flags, env),
+        Action::Revert(flags) => run_revert(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
     }
@@ -256,6 +259,28 @@ fn say_unimplemented(verb: &str) -> u8 {
 fn say_unknown(other: &str) -> u8 {
     eprintln!("rekall: unknown verb `{other}`\n");
     show_usage(USAGE_EXIT)
+}
+
+/// Print an outcome and return its exit code.
+///
+/// EVERY verb ends this way, so it is written once. Six copies of the same
+/// four lines is six chances for one verb to print its warnings to stdout,
+/// or to exit 0 on an error, and each copy looks correct on its own -- the
+/// divergence only shows to whoever piped that one verb into something.
+fn emit(result: Result<Output, String>) -> u8 {
+    match result {
+        Ok(output) => {
+            for warning in &output.warnings {
+                eprintln!("rekall: {warning}");
+            }
+            print!("{}", output.text);
+            0
+        }
+        Err(message) => {
+            eprintln!("rekall: {message}");
+            USAGE_EXIT
+        }
+    }
 }
 
 /// `init` flags. `--force` is separate from `--auto-approve` on purpose:
@@ -315,16 +340,7 @@ fn render_init(report: &init::Report, json: bool) -> Result<String, String> {
 }
 
 fn run_init(flags: &[String], env: &Env) -> u8 {
-    match init_command(flags, env) {
-        Ok(output) => {
-            print!("{}", output.text);
-            0
-        }
-        Err(message) => {
-            eprintln!("rekall: {message}");
-            USAGE_EXIT
-        }
-    }
+    emit(init_command(flags, env))
 }
 
 /// `show` takes ONE id (or an unambiguous prefix of one) plus the usual
@@ -432,16 +448,7 @@ fn render_found(found: &show::Found, json: bool) -> Result<String, String> {
 }
 
 fn run_show(flags: &[String], env: &Env) -> u8 {
-    match show_command(flags, env) {
-        Ok(output) => {
-            print!("{}", output.text);
-            0
-        }
-        Err(message) => {
-            eprintln!("rekall: {message}");
-            USAGE_EXIT
-        }
-    }
+    emit(show_command(flags, env))
 }
 
 /// `plan` takes one or more ids plus `--out` and the usual flags.
@@ -585,19 +592,7 @@ fn render_plan(built: &plan::Plan, json: bool) -> Result<String, String> {
 }
 
 fn run_plan(flags: &[String], env: &Env) -> u8 {
-    match plan_command(flags, env) {
-        Ok(output) => {
-            for warning in &output.warnings {
-                eprintln!("rekall: {warning}");
-            }
-            print!("{}", output.text);
-            0
-        }
-        Err(message) => {
-            eprintln!("rekall: {message}");
-            USAGE_EXIT
-        }
-    }
+    emit(plan_command(flags, env))
 }
 
 /// `apply` takes ids OR a plan file, plus `--auto-approve`.
@@ -825,15 +820,17 @@ fn commit(
 ) -> Result<Output, String> {
     let pending = apply::pending(&built.steps, &staged.held);
     if pending.is_empty() {
-        return report_apply(
+        return report(
             &staged.outcome,
-            args,
+            args.json,
             vec!["nothing to do".to_string()],
+            render_apply_human,
         );
     }
-    approved(&consent_for(args, &staged.outcome)?)?;
+    let named = render_apply_human(&staged.outcome, &[]);
+    approved(&consent_for(args.auto_approve, &named)?)?;
     let done = perform_apply(&pending, base, &mut staged)?;
-    report_apply(&staged.outcome, args, done)
+    report(&staged.outcome, args.json, done, render_apply_human)
 }
 
 fn perform_apply(
@@ -860,14 +857,16 @@ fn now() -> u64 {
 }
 
 /// V7: name every file BEFORE asking, so the question is informed.
-fn consent_for(
-    args: &ApplyArgs,
-    outcome: &apply::Outcome,
-) -> Result<Consent, String> {
-    if args.auto_approve {
+///
+/// Takes the rendered names rather than an outcome, because V20 is ONE
+/// rule and not one per verb: `apply` and `revert` both delete from the
+/// user's private memory, and a second confirm gate written for the second
+/// verb is a second place for the rule to be slightly wrong.
+fn consent_for(auto_approve: bool, named: &str) -> Result<Consent, String> {
+    if auto_approve {
         return Ok(Consent::Flag);
     }
-    eprint!("{}", render_apply_human(outcome, &[]));
+    eprint!("{named}");
     if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
         return Ok(Consent::Unattended);
     }
@@ -948,12 +947,20 @@ fn sources_touched(pending: &[plan::Step]) -> Vec<String> {
     out
 }
 
-fn report_apply(
-    outcome: &apply::Outcome,
-    args: &ApplyArgs,
+/// Report what a MUTATING verb did, in either format.
+///
+/// `apply` and `revert` differ in what they RENDER, not in how they
+/// report: the machine-readable outcome goes to stdout and the list of
+/// what actually happened to stderr, so `--format json` stays parseable
+/// while the receipt is still visible (V17). Writing that branch twice
+/// would be two rule sets of the smallest and most forgettable kind.
+fn report<T: serde::Serialize>(
+    outcome: &T,
+    json: bool,
     done: Vec<String>,
+    human: impl Fn(&T, &[String]) -> String,
 ) -> Result<Output, String> {
-    if args.json {
+    if json {
         let text = serde_json::to_string_pretty(outcome)
             .map(|text| format!("{text}\n"))
             .map_err(|error| error.to_string())?;
@@ -963,7 +970,7 @@ fn report_apply(
         });
     }
     Ok(Output {
-        text: render_apply_human(outcome, &done),
+        text: human(outcome, &done),
         warnings: Vec::new(),
     })
 }
@@ -987,35 +994,261 @@ pub fn render_apply_human(outcome: &apply::Outcome, done: &[String]) -> String {
 }
 
 fn run_apply(flags: &[String], env: &Env) -> u8 {
-    match apply_command(flags, env) {
-        Ok(output) => {
-            for warning in &output.warnings {
-                eprintln!("rekall: {warning}");
-            }
-            print!("{}", output.text);
-            0
+    emit(apply_command(flags, env))
+}
+
+/// `revert` takes ONE id plus `--auto-approve` and the usual flags.
+///
+/// One, because section I writes it `revert <id>` and because reverting is
+/// the deliberate undoing of a single decision. A batch revert would need
+/// its own answer to what happens when the third of five cannot be found,
+/// and that answer is better as five commands.
+#[derive(Debug, Default)]
+pub struct RevertArgs {
+    pub id: Option<String>,
+    pub auto_approve: bool,
+    pub cwd: Option<PathBuf>,
+    pub json: bool,
+}
+
+pub fn parse_revert(args: &[String]) -> Result<RevertArgs, String> {
+    let mut out = RevertArgs::default();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        apply_revert_arg(&mut out, arg, &mut rest)?;
+    }
+    Ok(out)
+}
+
+fn apply_revert_arg<'a>(
+    out: &mut RevertArgs,
+    arg: &str,
+    rest: &mut impl Iterator<Item = &'a String>,
+) -> Result<(), String> {
+    match arg {
+        "--auto-approve" => out.auto_approve = true,
+        "--format" => {
+            out.json = parse_format(&need(arg, rest)?)? == Format::Json
         }
-        Err(message) => {
-            eprintln!("rekall: {message}");
-            USAGE_EXIT
+        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
+        other if other.starts_with('-') => {
+            return Err(format!("unknown flag `{other}`"));
         }
+        id => return set_revert_id(out, id),
+    }
+    Ok(())
+}
+
+/// A second positional is a MISTAKE, not a second revert -- the same
+/// reasoning `show` uses, and it matters more here: quietly reverting only
+/// the first of two named ids would leave the second extraction in place
+/// while the command reported success.
+fn set_revert_id(out: &mut RevertArgs, id: &str) -> Result<(), String> {
+    if out.id.is_some() {
+        return Err(format!("`revert` takes one id, got a second: `{id}`"));
+    }
+    out.id = Some(id.to_string());
+    Ok(())
+}
+
+pub const NO_REVERT_INPUT: &str =
+    "`revert` needs an id -- copy one from `rekall log`";
+
+/// Run `revert` end to end.
+///
+/// Order is the point, as it is in `apply`: find the row, compute the
+/// restored bytes and REFUSE if the pointer is gone, name both files
+/// (V7), ask (V20), and only then write.
+pub fn revert_command(flags: &[String], env: &Env) -> Result<Output, String> {
+    let args = parse_revert(flags)?;
+    let id = args.id.clone().ok_or_else(|| NO_REVERT_INPUT.to_string())?;
+    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
+    let mut held = Held::open(&base)?;
+    let Some(row) = chosen_row(&held.ledger, &id, &base, env)? else {
+        return nothing_to_revert(&id, args.json);
+    };
+    undo(&row, &base, &args, &mut held)
+}
+
+/// V13: nothing left to undo is a no-op at exit 0, and says so.
+fn nothing_to_revert(id: &str, json: bool) -> Result<Output, String> {
+    report(
+        &revert::nothing_to_do(id),
+        json,
+        vec!["nothing to do".to_string()],
+        render_revert_human,
+    )
+}
+
+/// Compute, name, ask, write -- in that order (V7, V20).
+fn undo(
+    row: &ledger::Extracted,
+    base: &Path,
+    args: &RevertArgs,
+    held: &mut Held,
+) -> Result<Output, String> {
+    let restored = restored_text(row, base)?;
+    let outcome = revert::preview(row);
+    let named = render_revert_human(&outcome, &[]);
+    approved(&consent_for(args.auto_approve, &named)?)?;
+    let done = perform_revert(row, &restored, held)?;
+    report(&outcome, args.json, done, render_revert_human)
+}
+
+/// The ledger and where it lives, carried together so writing it back does
+/// not need the path threaded through every call beneath it.
+struct Held {
+    ledger: ledger::Ledger,
+    path: PathBuf,
+}
+
+impl Held {
+    fn open(base: &Path) -> Result<Self, String> {
+        let path = ledger::path_in(base);
+        let ledger = ledger::load(&path).map_err(|error| error.to_string())?;
+        Ok(Self { ledger, path })
     }
 }
 
-fn run_scan(flags: &[String], env: &Env) -> u8 {
-    match scan_command(flags, env) {
-        Ok(output) => {
-            for warning in &output.warnings {
-                eprintln!("rekall: {warning}");
-            }
-            print!("{}", output.text);
-            0
-        }
-        Err(message) => {
-            eprintln!("rekall: {message}");
-            USAGE_EXIT
-        }
+/// Which ledger row to undo, or `None` when there is nothing left to undo.
+///
+/// A prefix the ledger does not hold is NOT automatically an error. If the
+/// statement is back in the corpus, this id has already been reverted --
+/// and its text rehashes to the same id, which is what makes the check
+/// possible at all. V13 makes that a no-op at exit 0, the mirror of
+/// re-applying an id the ledger already holds. An id in NEITHER place is
+/// still an error.
+fn chosen_row(
+    held: &ledger::Ledger,
+    id: &str,
+    base: &Path,
+    env: &Env,
+) -> Result<Option<ledger::Extracted>, String> {
+    match held.matching(id).as_slice() {
+        [only] => Ok(Some((*only).clone())),
+        [] => already_reverted(id, base, env),
+        many => Err(plan::Error::Ambiguous(
+            id.to_string(),
+            many.iter().map(|row| row.id.clone()).collect(),
+        )
+        .to_string()),
     }
+}
+
+fn already_reverted(
+    id: &str,
+    base: &Path,
+    env: &Env,
+) -> Result<Option<ledger::Extracted>, String> {
+    let loaded = load_corpus(base, env)?;
+    one(&loaded.statements, id).map(|_| None)
+}
+
+/// The bytes to put back, computed BEFORE anything is asked or written.
+///
+/// Refusing before the prompt matters twice over: asking someone to
+/// approve an edit that cannot happen wastes the one deliberate act V20
+/// exists to require, and it fixes the ORDER -- the source is restored
+/// before the artifact is removed, so a failure never leaves the artifact
+/// deleted and the statement still absent, which would lose the rule
+/// outright.
+struct Restored {
+    path: PathBuf,
+    text: String,
+}
+
+fn restored_text(
+    row: &ledger::Extracted,
+    base: &Path,
+) -> Result<Restored, String> {
+    let path = base.join(&row.src);
+    let text =
+        std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    let text =
+        revert::unsplice(&text, row).map_err(|fault| fault.to_string())?;
+    Ok(Restored { path, text })
+}
+
+fn perform_revert(
+    row: &ledger::Extracted,
+    restored: &Restored,
+    held: &mut Held,
+) -> Result<Vec<String>, String> {
+    std::fs::write(&restored.path, &restored.text)
+        .map_err(|error| error.to_string())?;
+    let mut done = vec![format!("restored {}", row.src)];
+    done.push(remove_artifact(row, &restored.path)?);
+    held.ledger.take(&row.id);
+    ledger::save(&held.path, &held.ledger)
+        .map_err(|error| error.to_string())?;
+    done.push(format!("dropped the ledger row for {}", row.id));
+    Ok(done)
+}
+
+/// The other half of the move (V1).
+///
+/// An artifact that is ALREADY GONE is reported, not an error: the corpus
+/// still ends in the state the revert promised. An artifact that will not
+/// delete IS an error, and the ledger row is left in place on purpose --
+/// the extraction is not fully undone, and a ledger that said it was would
+/// hide the leftover from `check` as well as from the user.
+fn remove_artifact(
+    row: &ledger::Extracted,
+    source: &Path,
+) -> Result<String, String> {
+    let path = base_of(source, &row.src).join(&row.artifact);
+    if !path.exists() {
+        return Ok(format!("{} was already gone", row.artifact));
+    }
+    std::fs::remove_file(&path)
+        .map(|()| format!("removed {}", row.artifact))
+        .map_err(|cause| {
+            format!(
+                "{} is back in {}, but {} could not be removed: {cause}. \
+                 Delete it by hand -- the ledger row is kept so `rekall check` \
+                 still reports the leftover",
+                row.id, row.src, row.artifact
+            )
+        })
+}
+
+/// The project root, recovered from the source path that was just written.
+///
+/// Derived rather than passed, so the artifact and the source it pairs
+/// with can never be resolved against two different roots.
+fn base_of(source: &Path, src: &str) -> PathBuf {
+    let mut base = source.to_path_buf();
+    for _ in Path::new(src).components() {
+        base.pop();
+    }
+    base
+}
+
+#[must_use]
+pub fn render_revert_human(
+    outcome: &revert::Outcome,
+    done: &[String],
+) -> String {
+    let mut out = String::new();
+    if outcome.already {
+        out.push_str(&format!("skip    {} (nothing to revert)\n", outcome.id));
+    }
+    if !outcome.restores.is_empty() {
+        out.push_str(&format!("restore {}\n", outcome.restores));
+        out.push_str(&format!("remove  {}\n", outcome.removes));
+    }
+    for line in done {
+        out.push_str(&format!("done    {line}\n"));
+    }
+    out
+}
+
+fn run_revert(flags: &[String], env: &Env) -> u8 {
+    emit(revert_command(flags, env))
+}
+
+fn run_scan(flags: &[String], env: &Env) -> u8 {
+    emit(scan_command(flags, env))
 }
 
 /// What a scan produced for a caller to print.
@@ -1290,7 +1523,8 @@ mod tests {
     /// code, different message -- the distinction is the message's job.
     /// The verbs that actually do something. Kept beside the loop below so
     /// implementing a verb without dispatching it fails here.
-    const IMPLEMENTED: [&str; 5] = ["scan", "init", "show", "plan", "apply"];
+    const IMPLEMENTED: [&str; 6] =
+        ["scan", "init", "show", "plan", "apply", "revert"];
 
     #[test]
     fn a_specified_verb_is_unimplemented_not_unknown() {
@@ -2270,6 +2504,328 @@ mod tests {
         let mut no = std::io::Cursor::new(b"\n".to_vec());
         assert!(read_answer(&mut yes).and_then(|c| approved(&c)).is_ok());
         assert!(read_answer(&mut no).and_then(|c| approved(&c)).is_err());
+    }
+
+    fn revert_project(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("cli-revert").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = [\".\"]\n",
+        );
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n\n- background prose\n",
+        );
+        dir
+    }
+
+    fn revert_in(dir: &Path, extra: &[&str]) -> Result<Output, String> {
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.extend(args(extra));
+        revert_command(&flags, &env())
+    }
+
+    /// Extract one statement and hand back its id and the corpus as it
+    /// stood BEFORE the extraction -- which is the thing a revert has to
+    /// reproduce.
+    fn extracted(dir: &Path) -> (String, String) {
+        extracted_from(dir, &dir.join("CLAUDE.md"))
+    }
+
+    /// The artifact an extracted id landed, read back from the ledger --
+    /// the tests never hard-code the path, because the slug is derived
+    /// from the statement's own words.
+    fn artifact_of(dir: &Path, id: &str) -> String {
+        ledger::load(&ledger::path_in(dir))
+            .unwrap_or_default()
+            .find(id)
+            .map(|row| row.artifact.clone())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn revert_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["revert", "abc"])),
+            Action::Revert(args(&["abc"]))
+        );
+    }
+
+    /// V9: THE PROMISE. Extract, revert, and the file is the file that was
+    /// there -- byte for byte. The ledger's verbatim text is what makes it
+    /// a replay rather than a rewrite.
+    #[test]
+    fn revert_restores_the_original_bytes() {
+        let dir = revert_project("bytes");
+        let (id, before) = extracted(&dir);
+        let result = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(result.is_ok(), "{result:?}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(after, before);
+    }
+
+    /// V1, in the other direction. Restoring the source and leaving the
+    /// artifact behind would leave two hand-maintained statements of one
+    /// rule -- the copy V1 exists to forbid.
+    #[test]
+    fn revert_removes_the_artifact_and_the_ledger_row() {
+        let dir = revert_project("artifact");
+        let (id, _) = extracted(&dir);
+        let artifact = artifact_of(&dir, &id);
+        assert!(dir.join(&artifact).is_file(), "nothing was extracted");
+        let _ = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(
+            !dir.join(&artifact).exists(),
+            "the artifact survived: {artifact}"
+        );
+        let after = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        assert!(after.extracted.is_empty(), "{after:?}");
+    }
+
+    /// V20: off a tty and without the flag, revert refuses -- and the
+    /// corpus is untouched. The confirm gate is one rule, not one per verb.
+    #[test]
+    fn revert_without_approval_refuses_and_changes_nothing() {
+        let dir = revert_project("unattended");
+        let (id, _) = extracted(&dir);
+        let extracted_corpus =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        let message = revert_in(&dir, &[&id]).err().unwrap_or_default();
+        assert!(message.contains("--auto-approve"), "message was {message}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(
+            after, extracted_corpus,
+            "a refused revert edited the corpus"
+        );
+    }
+
+    /// V13: reverting twice is a no-op at exit 0. The statement is back in
+    /// the corpus and its text rehashes to the same id, so "not in the
+    /// ledger" means work already undone rather than an unknown id.
+    #[test]
+    fn reverting_twice_is_a_no_op() {
+        let dir = revert_project("idempotent");
+        let (id, before) = extracted(&dir);
+        let _ = revert_in(&dir, &[&id, "--auto-approve"]);
+        let second = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(second.is_ok(), "{second:?}");
+        let text = second.map(|out| out.text).unwrap_or_default();
+        assert!(text.contains("nothing to revert"), "{text}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(after, before, "a second revert changed the corpus");
+    }
+
+    #[test]
+    fn an_id_in_neither_the_ledger_nor_the_corpus_is_an_error() {
+        let dir = revert_project("unknown");
+        let message = revert_in(&dir, &["zzzzzzz", "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            message.contains("no statement matches"),
+            "message was {message}"
+        );
+    }
+
+    /// A ledger holding two rows that share a prefix, written by hand
+    /// because two REAL extractions get two hex ids that are not
+    /// guaranteed to collide on any character.
+    fn write_twin_rows(dir: &Path) {
+        let _ = std::fs::create_dir_all(dir.join(ledger::DIR));
+        let _ = std::fs::write(
+            ledger::path_in(dir),
+            "[[extracted]]\nid = \"aaa1111\"\nsrc = \"CLAUDE.md\"\n\
+             line_start = 1\nline_end = 1\ntext = \"x\"\nartifact = \"a.sh\"\n\n\
+             [[extracted]]\nid = \"aaa2222\"\nsrc = \"CLAUDE.md\"\n\
+             line_start = 2\nline_end = 2\ntext = \"y\"\nartifact = \"b.sh\"\n",
+        );
+    }
+
+    /// Section I: a prefix that matches two ids is a usage error, not a
+    /// coin toss -- and it says WHICH two, so the fix is to type more
+    /// characters rather than to guess.
+    #[test]
+    fn an_ambiguous_prefix_names_the_ids_it_matched() {
+        let dir = revert_project("ambiguous");
+        write_twin_rows(&dir);
+        let message = revert_in(&dir, &["aaa", "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("Use more characters"), "{message}");
+        assert!(message.contains("aaa1111"), "{message}");
+    }
+
+    /// The pointer is the ADDRESS. If someone deleted it by hand there is
+    /// no single place the text belongs, so revert refuses -- and names
+    /// what to do instead rather than only what went wrong (V28).
+    #[test]
+    fn a_hand_edited_pointer_refuses_and_names_the_fix() {
+        let dir = revert_project("no-pointer");
+        let (id, _) = extracted(&dir);
+        let _ = std::fs::write(dir.join("CLAUDE.md"), "# Rules\n\n- prose\n");
+        let message = revert_in(&dir, &[&id, "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            message.contains("no longer holds the pointer"),
+            "message was {message}"
+        );
+        assert!(message.contains("rekall log"), "no fix named: {message}");
+    }
+
+    /// An artifact someone already deleted is REPORTED, not an error: the
+    /// corpus still ends in the state the revert promised.
+    #[test]
+    fn an_artifact_that_is_already_gone_is_reported_not_fatal() {
+        let dir = revert_project("gone");
+        let (id, before) = extracted(&dir);
+        let _ = std::fs::remove_file(dir.join(artifact_of(&dir, &id)));
+        let text = revert_in(&dir, &[&id, "--auto-approve"])
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("was already gone"), "{text}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(after, before);
+    }
+
+    /// An artifact that will NOT delete is an error, and the ledger row is
+    /// kept on purpose: the extraction is not fully undone, and a ledger
+    /// that said it was would hide the leftover from `check` too. A
+    /// directory standing where the file should be is the portable way to
+    /// make the removal fail.
+    #[test]
+    fn an_artifact_that_cannot_be_removed_is_an_error() {
+        let dir = revert_project("stuck");
+        let (id, _) = extracted(&dir);
+        let artifact = dir.join(artifact_of(&dir, &id));
+        let _ = std::fs::remove_file(&artifact);
+        let _ = std::fs::create_dir_all(artifact.join("in-the-way"));
+        let message = revert_in(&dir, &[&id, "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("could not be removed"), "{message}");
+        let after = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        assert_eq!(after.extracted.len(), 1, "the row was dropped anyway");
+    }
+
+    #[test]
+    fn revert_json_is_parseable() {
+        let dir = revert_project("json");
+        let (id, _) = extracted(&dir);
+        let text =
+            revert_in(&dir, &[&id, "--auto-approve", "--format", "json"])
+                .map(|out| out.text)
+                .unwrap_or_default();
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&text).is_ok(),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_json_revert_reports_what_it_did_on_stderr() {
+        let dir = revert_project("json-warnings");
+        let (id, _) = extracted(&dir);
+        let warnings =
+            revert_in(&dir, &[&id, "--auto-approve", "--format", "json"])
+                .map(|out| out.warnings)
+                .unwrap_or_default();
+        assert!(
+            warnings.iter().any(|w| w.contains("restored ")),
+            "{warnings:?}"
+        );
+        assert!(
+            warnings.iter().any(|w| w.contains("removed ")),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn revert_without_an_id_says_what_to_run() {
+        let dir = revert_project("no-input");
+        let message = revert_in(&dir, &["--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("rekall log"), "message was {message}");
+    }
+
+    #[test]
+    fn revert_takes_one_id_and_a_second_is_an_error() {
+        assert!(parse_revert(&args(&["aaa", "bbb"])).is_err());
+        assert!(parse_revert(&args(&["--nope"])).is_err());
+        assert!(parse_revert(&args(&["--format"])).is_err());
+    }
+
+    #[test]
+    fn a_successful_revert_exits_zero() {
+        let dir = revert_project("exit-zero");
+        let (id, _) = extracted(&dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id);
+        flags.push("--auto-approve".to_string());
+        assert_eq!(perform(Action::Revert(flags), &env()), 0);
+    }
+
+    #[test]
+    fn a_failed_revert_exits_two() {
+        assert_eq!(
+            perform(
+                Action::Revert(args(&["zzzzzzz", "--auto-approve"])),
+                &env()
+            ),
+            USAGE_EXIT
+        );
+    }
+
+    /// The revert of a corpus file in a NESTED directory. The artifact is
+    /// resolved against the project root, and recovering that root from
+    /// the source path is the step that would silently go wrong.
+    #[test]
+    fn a_nested_source_file_resolves_its_artifact_from_the_root() {
+        let dir = nested_project("nested");
+        let nested = dir.join("docs").join("AGENTS.md");
+        let (id, before) = extracted_from(&dir, &nested);
+        let artifact = artifact_of(&dir, &id);
+        assert!(dir.join(&artifact).is_file(), "nothing was extracted");
+        let result = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(
+            std::fs::read_to_string(&nested).unwrap_or_default(),
+            before
+        );
+        assert!(
+            !dir.join(&artifact).exists(),
+            "the artifact resolved against the wrong root: {artifact}"
+        );
+    }
+
+    /// A corpus whose only source file is one directory down.
+    fn nested_project(name: &str) -> PathBuf {
+        let dir = revert_project(name);
+        let _ = std::fs::remove_file(dir.join("CLAUDE.md"));
+        let _ = std::fs::create_dir_all(dir.join("docs"));
+        let _ = std::fs::write(
+            dir.join("docs").join("AGENTS.md"),
+            "# Rules\n\n- never commit to `main`\n\n- background prose\n",
+        );
+        dir
+    }
+
+    /// `extracted`, for a corpus file that is not `CLAUDE.md`.
+    fn extracted_from(dir: &Path, src: &Path) -> (String, String) {
+        let before = std::fs::read_to_string(src).unwrap_or_default();
+        let id = rule_id(dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id.clone());
+        flags.push("--auto-approve".to_string());
+        let _ = apply_command(&flags, &env());
+        (id, before)
     }
 
     /// A reader that fails mid-line is an ERROR, not a silent yes.

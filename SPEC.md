@@ -114,7 +114,7 @@ T11|.|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|.|`rekall recall` matcher|I.recall,V3
 T13|.|`rekall hook` adapter|I.hook,V5,R9
 T14|.|`rekall log` + `--dead`|V11
-T15|.|`rekall revert`|V9
+T15|x|`rekall revert`|V9
 T16|.|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
@@ -123,7 +123,7 @@ T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7
 T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
 T23|x|`rekall plan`: extraction DIFF, artifact + wiring named, `--out` anchored to `-C`|§I,V7
 T24|x|plan FINGERPRINT + `apply` REFUSES a stale plan|V19
-T25|~|confirm gate on `apply`: tty prompt, `--auto-approve` off-tty. `revert` waits on T15|V20
+T25|x|confirm gate on `apply`: tty prompt, `--auto-approve` off-tty. `revert` waits on T15|V20
 T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
 T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
 T28|x|`id` shape DECIDED: path-scoped hash of normalized text, 7 hex, `.n` for repeats, prefix input|§I,T5,V13
