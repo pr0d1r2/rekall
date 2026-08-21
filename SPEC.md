@@ -25,8 +25,10 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 
 ## §I INTERFACES
 
+- `rekall init` -- `--format human|json` · `--force`. THE COLD START. DETECT corpus roots (memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs) & write `rekall.toml`. Names every file before writing; ⊥ overwrites an existing config without `--force`. ⊥ this verb, first contact is `scan` failing on a config nothing ever wrote.
 - `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|U` · `--sharpness 1|2|3` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `sharpness` · `signals`. Deterministic, report-only. THE CPU CORE.
 - CLASS × SHARPNESS. Class = `M`|`S`|`U`, R7's vocabulary UNCHANGED. Sharpness = `1`|`2`|`3`, printed joined ∴ `M2`. Sharpness is a property of the STATEMENT, ⊥ of the classifier: how sharp a runner or trigger the statement ADMITS, ⊥ how confident the classifier FEELS. `M1` runner deterministic, ⊥ judgment · `M2` runner needs ONE human-set parameter · `M3` runner DETECTS, ⊥ resolves. `S1` trigger EXACT (tool · path · extension) · `S2` trigger a signal-matchable CLASS of situations · `S3` trigger SEMANTIC ∴ only a model notices it. `U` carries ⊥ sharpness -- absence of a class has no ladder. Both ladders run SHARP -> FUZZY ∴ the digit PREDICTS fire rate & the `3` rows are where `--dead` (V11) comes from. ⊥ a third word (R7): `M`/`S` stand, the digit is a DEGREE. `--class M` matches ∀ `M*`; `--sharpness` filters across classes. JSON carries `class` · `sharpness` · `label` as SEPARATE fields ∴ an agent ⊥ string-surgery `M2` (V17).
+- `rekall show <id>` -- `--format human|json`. ONE statement or artifact in FULL: source span · ORIGINAL TEXT · class × sharpness · EVERY signal that fired & its weight · artifact path & FIRE count if extracted. Report-only. `scan` truncates to a row ∴ `show` is where a class is ARGUED with (V10: a class is a claim, & a claim ! be inspectable).
 - `rekall plan <id>...` -- `--format human|json` · `--out FILE` · `--to <dir>`. The DIFF of an extraction: per statement, the source span to DELETE, the artifact to WRITE, the wiring to ADD. Report-only, writes ⊥ except the plan file itself. `--out` makes the plan an ARTIFACT ∴ reviewable, diffable, committable before a byte of corpus moves.
 - `rekall apply <id>... | <PLAN>` -- `--format human|json` · `--auto-approve` · `--to <dir>`. EXECUTE. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`revert`. Given a PLAN it re-checks the corpus FINGERPRINT first & REFUSES a stale plan (V19). Confirms on a tty; off-tty demands `--auto-approve` (V20).
 - `rekall check` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
@@ -98,6 +100,8 @@ T16|.|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
+T21|.|`rekall init`: detect corpus roots, write `rekall.toml`|§I,R6
+T22|.|`rekall show <id>`: full statement + signal weights|§I,V10
 
 ## §B BUGS
 
