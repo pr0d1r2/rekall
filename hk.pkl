@@ -1,0 +1,211 @@
+/// rekall's gate, defined ONCE (V23).
+///
+/// Every op below is a plain command a human can paste into a shell (V24).
+/// hk decides *when* they run -- which files changed, which hook, in what
+/// order -- and never what it means to pass, so a verdict never rests on the
+/// runner's own logic and stays reproducible without it.
+///
+/// The schema is VENDORED at `pkl/Config.pkl` rather than fetched from a
+/// `package://` URL at eval time (V25): the gate must run with no network,
+/// because a gate that needs one is a gate that goes soft on a plane, in a
+/// locked-down CI, and on the day that host is down.
+amends "pkl/Config.pkl"
+
+/// Success is SILENCE (V28). Output that always appears is output nobody
+/// reads, which is how a real failure hides in noise everyone learned to
+/// scroll past.
+///
+/// `fail_fast` locally because the loop is cheap, so the FIRST failure is the
+/// most useful thing to surface, and `depends` orders steps cheapest-first so
+/// it arrives fast.
+fail_fast = true
+
+env {
+  ["HK_HIDE_WHEN_DONE"] = "true"
+}
+
+/// The COMMIT tier: everything cheap enough that nobody is tempted to bypass
+/// it. `depends` chains the cargo steps deliberately -- cargo takes a lock on
+/// the target directory, so two cargo jobs launched in parallel do not run in
+/// parallel; the second blocks on "Blocking waiting for file lock on build
+/// directory", which READS AS A HANG.
+local fast = new Mapping<String, Step> {
+  ["fmt"] {
+    glob = List("**/*.rs")
+    check = "cargo fmt --check"
+    fix = "cargo fmt"
+  }
+
+  /// `-D warnings` is passed AFTER `--` rather than through RUSTFLAGS.
+  /// RUSTFLAGS reaches PATH DEPENDENCIES, and V8 commits this crate to
+  /// taking `itok` as one -- so the RUSTFLAGS form would let a sibling's
+  /// stray warning redden this gate for code this crate does not own.
+  ///
+  /// No allow-list and no lint-debt file. This crate started at zero lines,
+  /// so it can hold the full deny list from commit one; adopting it later
+  /// would mean measuring a debt and ratcheting it down instead (V12, V27).
+  ["clippy"] {
+    glob = List("**/*.rs")
+    depends = List("fmt")
+    check = "cargo clippy --all-targets -- -D warnings"
+  }
+
+  /// ASCII-only Rust source (SPEC.md §C): Trojan-Source resistance, and
+  /// plain legibility for the models this tool exists to serve. SPEC.md is
+  /// deliberately NOT in the glob -- its symbols are FORMAT, not source.
+  ///
+  /// The pattern is a POSIX RANGE under LC_ALL=C, not `grep -P` and not a
+  /// `[:print:]` class. MEASURED on this box: `-P` does not exist in BSD
+  /// grep, and `[^[:print:][:blank:]]` matched nothing against a UTF-8 byte
+  /// pair there -- so both forms would have passed silently on half the
+  /// supported platforms, which is a gate that reports green for a check it
+  /// never performed (V26).
+  ["ascii"] {
+    glob = List("**/*.rs")
+    check = """
+      hits=$(LC_ALL=C grep -rn '[^ -~]' src/ || true)
+      [ -z "$hits" ] || { echo 'hk: non-ASCII or control character in Rust source:' >&2; echo "$hits" >&2; echo 'SPEC.md symbols are FORMAT, not source -- spell it in ASCII here.' >&2; exit 1; }
+      """
+  }
+
+  ["test"] {
+    /// A step's glob must name every INPUT its tests read, not just the
+    /// language they are written in. Cargo.toml is here because the version
+    /// and lint set live there; SPEC.md will join it the moment a test reads
+    /// it, which T19 makes inevitable.
+    glob = List("**/*.rs", "Cargo.toml")
+    depends = List("clippy")
+    check = "cargo test"
+  }
+
+  /// THE FORMAT OWNER. `mth` owns SPEC.md's format (§C) and arrives as a
+  /// pinned flake input rather than off PATH, because the last time it was
+  /// merely expected on PATH the check was silently deferred and nothing
+  /// reported it (V26).
+  ["spec-fmt"] {
+    glob = List("SPEC.md")
+    check = "mth fmt --check SPEC.md"
+    fix = "mth fmt SPEC.md"
+  }
+
+  ["spec-check"] {
+    glob = List("SPEC.md")
+    depends = List("spec-fmt")
+    check = "mth check SPEC.md"
+  }
+
+  /// `nixfmt --check` gates the flake itself: that file decides what every
+  /// other step runs with, so drift there is drift everywhere.
+  ["nixfmt"] {
+    glob = List("**/*.nix")
+    check = "nixfmt --check flake.nix"
+    fix = "nixfmt flake.nix"
+  }
+
+  ["taplo"] {
+    glob = List("**/*.toml")
+    check = "taplo fmt --check"
+    fix = "taplo fmt"
+  }
+
+  ["typos"] {
+    glob = List("**/*")
+    check = "typos"
+    fix = "typos --write-changes"
+  }
+
+  /// Secrets. hk's `detect-private-key` builtin does exactly what its name
+  /// says and nothing else, so a token-shaped secret walks straight past it.
+  ["ripsecrets"] {
+    glob = List("**/*")
+    check = "ripsecrets"
+  }
+}
+
+/// The PUSH tier: everything too slow for a commit hook. A ~60s step on
+/// commit is a step someone learns to bypass, and a bypassed hook is worse
+/// than no hook.
+local all = (fast) {
+  ["rustdoc"] {
+    glob = List("**/*.rs")
+    depends = List("test")
+    check = "cargo doc --no-deps --quiet"
+  }
+
+  /// The crate must build with no default features, because a consumer may
+  /// take it that way and nothing else here would notice.
+  ["no-default-features"] {
+    glob = List("**/*.rs", "Cargo.toml")
+    depends = List("rustdoc")
+    check = "cargo build --no-default-features --quiet"
+  }
+
+  /// Publishing does not ship the REPO, it ships a tarball whose file set is
+  /// DERIVED -- git-tracked, minus `exclude`. That is a second file set
+  /// nothing else in this repo examines.
+  ["package"] {
+    glob = List("**/*.rs", "Cargo.toml")
+    depends = List("no-default-features")
+    check = "cargo package --quiet --allow-dirty"
+  }
+
+  /// THE RATCHET (V27). The floor may RISE, never fall. `.coverage` carries
+  /// the number; the margin absorbs measurement jitter without absorbing a
+  /// real regression.
+  ///
+  /// It starts at the scaffold's own figure rather than at an aspirational
+  /// one: a floor nobody can pay gates every commit red for weeks, and the
+  /// first thing anyone does with a gate they cannot pay is bypass it.
+  ["coverage"] {
+    glob = List("**/*.rs", ".coverage")
+    depends = List("package")
+    check = """
+      out=$(cargo llvm-cov --summary-only 2>&1) || { echo "$out" >&2; exit 1; }
+      now=$(printf '%s' "$out" | awk '/^TOTAL/{gsub("%","",$10); print $10}')
+      was=$(awk '/^lines /{print $2}' .coverage)
+      [ -n "$now" ] || { echo 'hk: could not read a coverage total -- that is an ERROR, not a floor breach' >&2; exit 1; }
+      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 < w+0 - 0.3)}' && { echo "hk: coverage FELL, $was% -> $now% (margin 0.3). A line that stopped being covered is a test that stopped asserting. Cover it, or say why in .coverage with the drop." >&2; exit 1; }
+      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 > w+0)}' && echo "hk: coverage rose $was% -> $now%. Run: hk run fix"
+      echo "coverage $now% (floor $was%)"
+      """
+    /// `fix` may only RAISE. A ratchet that writes down whatever it measures
+    /// is not a ratchet -- it files down its own teeth on exactly the commit
+    /// it existed to refuse (V27).
+    fix = """
+      out=$(cargo llvm-cov --summary-only 2>&1) || { echo "$out" >&2; exit 1; }
+      now=$(printf '%s' "$out" | awk '/^TOTAL/{gsub("%","",$10); print $10}')
+      was=$(awk '/^lines /{print $2}' .coverage)
+      [ -n "$now" ] || exit 1
+      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 < w+0)}' && { echo "hk: refusing to RECORD a drop, $was% -> $now%. Cover the gap, or edit .coverage by hand with the reason." >&2; exit 1; }
+      awk -v n="$now" '/^lines /{print "lines " n; next} {print}' .coverage > .coverage.new
+      mv .coverage.new .coverage
+      """
+  }
+}
+
+hooks {
+  /// `stash = "git"` is correctness, not speed -- without it a partially
+  /// staged file (`git add -p`) is checked as it looks in the WORKTREE,
+  /// giving a verdict about code you are not committing.
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps = fast
+  }
+
+  ["pre-push"] {
+    steps = all
+  }
+
+  /// What `hk check` runs -- the entry point for CI and for a by-hand full
+  /// run. ONE definition, many callers (V23): CI calls this, it does not
+  /// copy the step list into a workflow file.
+  ["check"] {
+    steps = all
+  }
+
+  ["fix"] {
+    fix = true
+    steps = all
+  }
+}

@@ -1,0 +1,5 @@
+# `target/` is build output, not source. The `package` step materializes a
+# `target/package/rekall-0.1.0/Cargo.toml` that cargo generates and nobody
+# edits, and formatting a generated file is a verdict about cargo's
+# formatter rather than about this repo.
+exclude = ["target/**"]

@@ -1,0 +1,10 @@
+# `pkl/` is VENDORED upstream, verbatim (SPEC.md V25). A typo in it is
+# upstream's, and correcting it here would defeat the point of vendoring:
+# the next sync would either revert the fix or conflict with it, and a
+# vendored file that differs from its source is no longer a vendored file.
+#
+# Excluded rather than added to a word list, because the exclusion is about
+# OWNERSHIP -- this repo does not own that text -- and not about whether
+# `precendence` is a word.
+[files]
+extend-exclude = ["pkl/"]
