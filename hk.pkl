@@ -144,9 +144,23 @@ local fast = new Mapping<String, Step> {
 /// commit is a step someone learns to bypass, and a bypassed hook is worse
 /// than no hook.
 local all = (fast) {
-  ["rustdoc"] {
+  /// Doc examples are TESTS. The one on `config::merge` pins the union
+  /// rule -- the single asymmetry in the merge -- so the behaviour that is
+  /// easiest to "simplify" away is asserted by the documentation that
+  /// explains it.
+  ///
+  /// Absent from commit one because the crate was bin-only and `cargo test
+  /// --doc` errors with "no library targets found". A step that cannot pass
+  /// is not a gate, it is a red nobody can clear (T32).
+  ["doctest"] {
     glob = List("**/*.rs")
     depends = List("test")
+    check = "cargo test --doc"
+  }
+
+  ["rustdoc"] {
+    glob = List("**/*.rs")
+    depends = List("doctest")
     check = "cargo doc --no-deps --quiet"
   }
 
