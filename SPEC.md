@@ -25,7 +25,8 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 
 ## §I INTERFACES
 
-- `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|U` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `signals`. Deterministic, report-only. THE CPU CORE.
+- `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|U` · `--sharpness 1|2|3` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `sharpness` · `signals`. Deterministic, report-only. THE CPU CORE.
+- CLASS × SHARPNESS. Class = `M`|`S`|`U`, R7's vocabulary UNCHANGED. Sharpness = `1`|`2`|`3`, printed joined ∴ `M2`. Sharpness is a property of the STATEMENT, ⊥ of the classifier: how sharp a runner or trigger the statement ADMITS, ⊥ how confident the classifier FEELS. `M1` runner deterministic, ⊥ judgment · `M2` runner needs ONE human-set parameter · `M3` runner DETECTS, ⊥ resolves. `S1` trigger EXACT (tool · path · extension) · `S2` trigger a signal-matchable CLASS of situations · `S3` trigger SEMANTIC ∴ only a model notices it. `U` carries ⊥ sharpness -- absence of a class has no ladder. Both ladders run SHARP -> FUZZY ∴ the digit PREDICTS fire rate & the `3` rows are where `--dead` (V11) comes from. ⊥ a third word (R7): `M`/`S` stand, the digit is a DEGREE. `--class M` matches ∀ `M*`; `--sharpness` filters across classes. JSON carries `class` · `sharpness` · `label` as SEPARATE fields ∴ an agent ⊥ string-surgery `M2` (V17).
 - `rekall extract <id>...` -- `--dry-run` · `--to <dir>` · `--format json`. Materialize. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`restore`.
 - `rekall verify` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
 - `rekall recall <situation>` -- `--tool X` · `--path P` · `--cwd D` · `--format json`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands.
@@ -62,8 +63,8 @@ V6: `verify` is the GATE ∴ CPU-only, no key, no network. A gate needing a mode
 V7: report-only DEFAULT. Only `extract` · `catch` -> ledger · `restore` mutate, & each NAMES every file touched before writing.
 V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same defect as two rule sets.
 V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `restore` is mechanical, ⊥ a rewrite.
-V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate.
-V11: ledger counts FIRES ∴ a never-fired artifact is DETECTABLE. A rule that never fires is a wrong trigger or dead law; both need to be visible, ⊥ inferred.
+V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired & its SHARPNESS. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate. Sharpness is DERIVED from the same signals ∴ also a claim, & a `3` is the spec SAYING OUT LOUD that this artifact may never fire.
+V11: ledger counts FIRES ∴ a never-fired artifact is DETECTABLE. A rule that never fires is a wrong trigger or dead law; both need to be visible, ⊥ inferred. SHARPNESS predicts what `--dead` MEASURES ∴ the two are checkable against each other: a `1` gone dead is a CLASSIFIER defect, a `3` that fires often is a LADDER defect. Neither is visible without both numbers.
 V12: spec CAPS ITSELF from commit one. `.context-limits` ceiling lands BEFORE the file grows into it -- a ceiling set after the growth RATIFIES it (`microlith` V9).
 V13: idempotent. `scan(scan(x))` identical; `extract` of an already-extracted id = no-op, exit 0.
 V14: SELF-CONTAINED spec. ⊥ load-bearing reference outside this dir. Lineage rows in §R are EVIDENCE; every invariant stands on its own reasoning.
@@ -79,7 +80,7 @@ T2|.|`.context-limits` ceiling set before growth|V12
 T3|.|`rekall.toml` loader, `[sources]` only|§C,R6
 T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
 T5|.|statement splitter: prose -> addressable statements, STABLE ids across edits|V13
-T6|.|deterministic classifier: signals -> `M`/`S`/`U`|V10
+T6|.|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
 T7|.|`rekall scan` human + json|I.scan,V7,V17
 T8|.|ledger store: span · original text · artifact · fire count|V9,V11
 T9|.|`rekall extract` `M` -> script + runner wiring|V1,V2
