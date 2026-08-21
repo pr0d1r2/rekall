@@ -1,0 +1,64 @@
+# The gate, run exactly the way it runs locally: `nix develop` supplies the
+# toolchain pinned in flake.lock, and `hk check` runs the ops defined in
+# hk.pkl. ONE definition, one toolchain, no second install path, and no
+# version skew between a runner and a laptop (SPEC.md V23).
+#
+# This file therefore installs no linters. hk, typos, taplo, nixfmt,
+# ripsecrets and mth all arrive through the same pinned shell, which is the
+# whole reason the step list lives in hk.pkl and not here. Copying the step
+# list into this file would create the second rule set V23 forbids -- and the
+# copy is the one that rots, because the local one is the one anybody runs.
+#
+# PLATFORM GAP, named rather than silently absent (SPEC.md §C, R12, V26):
+# flake.nix declares FOUR supported systems and this matrix builds THREE.
+# `x86_64-darwin` is supported and NOT exercised here, because GitHub offers
+# no free x86_64 macOS runner. It is built locally instead. An untested
+# platform claim is worse than an absent one only when nobody says it is
+# untested -- so this says it.
+#
+# PENDING, listed for the same reason:
+#   * build caching (nix store + cargo target)
+#   * release automation and publish
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Every platform reports, so one failure does not hide another that is
+      # specific to the other OS.
+      fail-fast: false
+      # One runner per system this workflow can reach:
+      #   ubuntu-latest    x86_64-linux
+      #   ubuntu-24.04-arm aarch64-linux
+      #   macos-latest     aarch64-darwin
+      #   (x86_64-darwin   supported, no free runner -- see the note above)
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    steps:
+      # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
+      # the action can move `v4` to different code, and every workflow that
+      # trusts the tag runs it on the next push. The tag stays in the comment
+      # because a SHA alone tells a reader nothing about which version they
+      # are on, or whether it is behind.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+
+      # --check, because `hk check` defaults to running FIX commands; CI must
+      # report, never rewrite. --all, because CI has no staged set.
+      #
+      # --no-fail-fast inverts the local default on purpose: locally the loop
+      # is cheap so the FIRST failure is most useful, while here a round-trip
+      # costs minutes, so whoever -- or whatever -- fixes this should get
+      # every problem in one pass.
+      - run: nix develop --command hk check --all --check --no-fail-fast
+
+      # The package must build reproducibly from the tracked lock alone.
+      - run: nix build .#default
