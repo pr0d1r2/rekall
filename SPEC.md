@@ -48,7 +48,7 @@ R2|name `total-recall`|TAKEN crates.io v0.3.0, GUI to-do app ∴ crate name unav
 R3|name `rekall`|FREE on crates.io @ 2026-08-21 ∴ repo · crate · bin collapse to ONE word, no bend to document|crates.io/api/v1/crates/rekall
 R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING on a 24GB M-series box @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware|MEASURED, internal
 R5|conditional load|~50% of a repo never loads for impl work; conditional slicing brings one node to ~6% of the whole ∴ trigger-gated load is MEASURED, ⊥ hoped|MEASURED, internal
-R6|config sprawl|`itok` grew `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts`, then began migrating to `itok.toml` ∴ unified from commit one. Its landed rule is PROJECT ROOT WINS, `~/.config` the global FALLBACK|../itok/SPEC.md §V
+R6|config sprawl|`itok` main carries FOUR dotfiles LIVE -- `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts` ∴ the sprawl is the SHIPPED state, ⊥ a near miss. A unification to `itok.toml` (project root wins, `~/.config` the fallback) exists on an UNLANDED branch ∴ EVIDENCE OF INTENT, ⊥ of outcome. Unify from commit one & pay ⊥ the migration|github.com/pr0d1r2/itok SPEC.md @ main
 R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|../microlith/SPEC.md §I
 R8|MSRV|`itok` & `microlith` both DECLARE `rust-version = "1.95"` @ 2026-08-21 ∴ 1.95 is the fleet floor & is CHECKABLE in two public manifests. MEASURE it here regardless: a DECLARED floor mirrors the pin until a build PROVES it|../itok/Cargo.toml, ../microlith/Cargo.toml
 R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|../itok/SPEC.md §V
@@ -105,7 +105,7 @@ T23|.|`rekall plan`: extraction DIFF + `--out FILE` plan artifact|§I,V7
 T24|.|plan corpus FINGERPRINT; `apply <PLAN>` refuses a stale plan|V19
 T25|.|confirm gate for `apply`/`revert`: tty prompt, `--auto-approve` off-tty|V20
 T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
-T27|.|DECIDE config SCOPE: project-root-wins + `~/.config` fallback (R6's landed itok rule) vs single scope. Corpus spans BOTH scopes ∴ ⊥ deferrable past T3|§C,R6
+T27|.|DECIDE config SCOPE: project-root-wins + `~/.config` fallback vs single scope. R6 is intent, ⊥ a landed precedent ∴ this decides on OUR reasoning. Corpus spans BOTH scopes ∴ ⊥ deferrable past T3|§C,R6
 T28|.|DECIDE `id` SHAPE: STABLE across edits (V13) ∴ ⊥ a content hash & ⊥ `file:line`. Blocks T5 & is the string a user types most|T5,V13
 T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
 
