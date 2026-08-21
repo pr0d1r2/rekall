@@ -25,7 +25,7 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - `.envrc` = `use flake`, `.direnv/` gitignored. `flake.nix` at the repo ROOT, ⊥ a subdirectory: a flake's source root is its OWN dir ∴ a nested one cannot SEE `Cargo.toml`/`src/` & cannot offer a real package. ENTERING the shell IS the toolchain CI uses (V23) ∴ "works on my box" & "passes CI" stop being two questions.
 - The dev shell puts `mth` & `rekall` on PATH via cargo-run shims ∴ the gate's own tools need ⊥ a global install, & this crate checks its OWN spec & its OWN corpus (T19, consumer #0). A tool absent from PATH is a check silently DEFERRED, ⊥ a check that failed (V26).
 - Gate = `hk` (`hk.pkl`), ONE definition, local & CI (V23). Coverage floor RATCHETS (V27).
-- GATE SET, tiered by COST. COMMIT: `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` · `mth fmt --check` · `mth check` · ASCII gate · the `.context-limits` runner (V22). PUSH: coverage · doctest · rustdoc · `--no-default-features` · `cargo package`. A ~60s step on COMMIT is a step someone learns to bypass, & a bypassed hook is worse than none.
+- GATE SET, tiered by COST. COMMIT: `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` · `mth fmt --check` · `mth check` · ASCII gate · the `.context-limits` runner (V22). PUSH: coverage · rustdoc · `--no-default-features` · `cargo package`. ⊥ `doctest` YET: bin-only crate ∴ `cargo test --doc` ERRORS, & a step that CANNOT pass is ⊥ a gate, it is a red nobody can clear (T32). A ~60s step on COMMIT is a step someone learns to bypass, & a bypassed hook is worse than none.
 - `-D warnings` goes AFTER `--`, ⊥ in `RUSTFLAGS`: RUSTFLAGS reaches PATH DEPS, & `itok` is one (V8) ∴ a sibling's stray warning would redden THIS gate for code this crate ⊥ owns.
 - ⊥ a lint-debt file & ⊥ an allow-list: this crate starts at ZERO code ∴ `-D warnings` runs CLEAN from commit one. An allow added later NAMES what it exempts & why -- an exemption is ⊥ a suppression.
 
@@ -125,6 +125,7 @@ T28|.|DECIDE `id` SHAPE: STABLE across edits (V13) ∴ ⊥ a content hash & ⊥ 
 T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
 T30|.|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
 T31|.|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & SAY SO|V26
+T32|.|`doctest` step RETURNS once a lib target exists|§C,V22
 
 ## §B BUGS
 
