@@ -1,6 +1,6 @@
 # SPEC -- rekall
 
-Self-contained spec. `rekall` develops inside a larger workspace but is designed to leave it standalone. It carries its own law: no load-bearing reference outside this directory (V14). Lineage (`itok` - `microlith` - `blackbox`) is SEE-ALSO, cited as evidence, never as authority.
+Self-contained spec. `rekall` develops inside a larger workspace but is designed to leave it standalone. It carries its own law: no load-bearing reference outside this directory (V14). Lineage (`itok` - `microlith`) is SEE-ALSO, cited as evidence, never as authority. Both are PUBLIC ∴ an outside reader can CHECK a §R row. A row an outsider cannot check is marked `internal` & carries no name.
 
 ## §G GOAL
 
@@ -10,11 +10,11 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 
 ## §C CONSTRAINTS
 
-- Rust, edition **2024**, MSRV **1.95** = fleet pin (`nixpkgs-lock` -> nixos-26.05). MSRV is MEASURED, ⊥ copied: `itok`/`microlith` declare 1.96 & compile clean on 1.95 (R8).
+- Rust, edition **2024**, MSRV **1.95** = fleet pin (`nixpkgs-lock` -> nixos-26.05). MSRV is MEASURED, ⊥ copied: `itok` & `microlith` both DECLARE 1.95 (R8), & a declared floor is a MIRROR of the pin until a build proves it ∴ this crate proves its own IN THE GATE.
 - ONE bin `rekall`; CRATE `rekall`; REPO `rekall`. MIT.
 - NAME: repo = crate = theme = invocation, ONE word, ⊥ a short form ∴ nothing here is an exception to record. 6 chars is the `cargo`/`docker` rung; an `rkl` abbreviation would buy nothing & cost muscle memory. Theme = Total Recall's memory-implant company, named ∵ the job is memory NOBODY has to hold. Three names were rejected & the REASONS are load-bearing: `tr` ∵ POSIX coreutils -- a bin on `PATH` would SHADOW it, hard ⊥ INDEPENDENT of any registry (R1); `total-recall` ∵ TAKEN (R2); `outception` ∵ Inception already NAMES its inverse -- extraction -- ∴ the coinage renames a thing that has a word, & `out-` reads as OUTPUT (R10).
 - CPU-ONLY, WHOLE CRATE -- ⊥ a "core" qualifier, ∵ a qualifier is where an exception later hides. ∀ verb deterministic & offline. ⊥ an opt-in inference tier (V5).
-- ⊥ NETWORK, ⊥ MODEL, ⊥ INFERENCE, at any flag. The crate runs in a NETWORKLESS SANDBOX. Inference belongs to `blackbox` & is EXPERIMENTAL there (R11) ∴ importing it would make a GATE inherit an experiment's stability, & would stand up a SECOND inference client beside a sibling's (V8).
+- ⊥ NETWORK, ⊥ MODEL, ⊥ INFERENCE, at any flag. The crate runs in a NETWORKLESS SANDBOX. THREE reasons, each SUFFICIENT ALONE: `check` is the GATE ∴ it ! run with no key & no network (V6) · the corpus is private user facts ∴ ⊥ a byte egresses (V15) · a DETERMINISTIC classifier IS the product (V10), & a model tier makes a class depend on a remote's uptime.
 - ASCII-only Rust source (Trojan-Source, LLM-friendliness). SPEC symbols are FORMAT, ⊥ source.
 - Corpus is PRIVATE. Agent memory & `CLAUDE.md` hold user facts ∴ ⊥ egress (V15).
 - ONE config file `rekall.toml` from commit one. `itok` grew four dotfiles then began migrating back to unified (R6) -- start where it landed.
@@ -46,22 +46,21 @@ id|topic|finding|src
 R1|name `tr`|TAKEN crates.io v0.1.11 (i18n) AND `tr` = POSIX coreutils ∴ bin would SHADOW it -- ⊥ regardless of registry|crates.io/api/v1/crates/tr
 R2|name `total-recall`|TAKEN crates.io v0.3.0, GUI to-do app ∴ crate name unavailable|crates.io/api/v1/crates/total-recall
 R3|name `rekall`|FREE on crates.io @ 2026-08-21 ∴ repo · crate · bin collapse to ONE word, no bend to document|crates.io/api/v1/crates/rekall
-R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING on a 24GB M-series box @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware|../blackbox/README.md
-R5|conditional load|~50% of a repo never loads for impl work; facet × horizontal brings one node to ~6% ∴ trigger-gated load is MEASURED, ⊥ hoped|../blackbox/README.md
+R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING on a 24GB M-series box @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware|MEASURED, internal
+R5|conditional load|~50% of a repo never loads for impl work; conditional slicing brings one node to ~6% of the whole ∴ trigger-gated load is MEASURED, ⊥ hoped|MEASURED, internal
 R6|config sprawl|`itok` grew `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts`, then began migrating to `itok.toml` ∴ unified from commit one. Its landed rule is PROJECT ROOT WINS, `~/.config` the global FALLBACK|../itok/SPEC.md §V
 R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|../microlith/SPEC.md §I
-R8|MSRV|`blackbox` MEASURED 1.95 clean while siblings DECLARE 1.96 ∴ the sibling floor is a stale pin mirror, ⊥ a minimum|../blackbox/SPEC.md §C
+R8|MSRV|`itok` & `microlith` both DECLARE `rust-version = "1.95"` @ 2026-08-21 ∴ 1.95 is the fleet floor & is CHECKABLE in two public manifests. MEASURE it here regardless: a DECLARED floor mirrors the pin until a build PROVES it|../itok/Cargo.toml, ../microlith/Cargo.toml
 R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|../itok/SPEC.md §V
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
-R11|inference|`blackbox` OWNS ollama: `src/ollama` 23,032B, its own hardware §R rows (`gpt-oss:20b` ctx 131,072 @ a LAN box), coverage 70.9% -- 13th of 14 nodes ∴ EXPERIMENTAL, ⊥ a foundation. A client here would DUPLICATE a sibling module & bind this crate's GATE to a moving target|../blackbox/SPEC.md §C,R9,R34,R50
 
 ## §V INVARIANTS
 
 V1: extraction is a MOVE, ⊥ a copy. Source span deleted (pointer left) in the SAME commit the artifact lands. A copy leaves two hand-maintained statements of one rule -- `microlith`'s founding defect -- and leaves the context cost UNPAID ∴ the whole purpose lost.
 V2: ∀ extracted `M` -> a RUNNER, same commit. Rule with no runner gates nothing.
 V3: ∀ extracted `S` -> a TRIGGER. A skill with no trigger is always-on prose, which is exactly what it was extracted FROM.
-V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence ⊥ provable from a positive description (`blackbox`'s `⊥owns` byte, R5).
-V5: CPU-ONLY, ∀ verb, ⊥ exception. Deterministic & offline everywhere. ⊥ model, ⊥ network, ⊥ inference tier at ANY opt-in. Inference is `blackbox`'s (R11) ∴ ⊥ reimplemented here (V8). An opt-in that CAN fire is a path that WILL fire, & then the classifier's floor is a remote model's uptime.
+V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence is ⊥ PROVABLE from a positive description: a list of what FIRES says nothing about what does ⊥, & a matcher ! decide both.
+V5: CPU-ONLY, ∀ verb, ⊥ exception. Deterministic & offline everywhere. ⊥ model, ⊥ network, ⊥ inference tier at ANY opt-in. An opt-in that CAN fire is a path that WILL fire, & then the classifier's floor is a remote model's uptime. If inference is EVER wanted it is a SEPARATE consumer reading `scan --format json`, ⊥ a tier inside this crate (V8).
 V6: `check` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
 V7: report-only DEFAULT. Only `apply` · `catch` -> ledger · `revert` mutate, & each NAMES every file touched before writing.
 V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same defect as two rule sets. GENERALIZE it, ∵ the shape recurs: ⊥ a second implementation of a capability a sibling already OWNS, in ANY domain. Cite this row, ⊥ restate it.
