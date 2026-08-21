@@ -46,10 +46,10 @@ R2|name `total-recall`|TAKEN crates.io v0.3.0, GUI to-do app ∴ crate name unav
 R3|name `rekall`|FREE on crates.io @ 2026-08-21 ∴ repo · crate · bin collapse to ONE word, no bend to document|crates.io/api/v1/crates/rekall
 R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING on a 24GB M-series box @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware|../blackbox/README.md
 R5|conditional load|~50% of a repo never loads for impl work; facet × horizontal brings one node to ~6% ∴ trigger-gated load is MEASURED, ⊥ hoped|../blackbox/README.md
-R6|config sprawl|`itok` grew `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts`, then began migrating to `itok.toml` (its V109) ∴ unified from commit one|../itok/SPEC.md §I
+R6|config sprawl|`itok` grew `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts`, then began migrating to `itok.toml` ∴ unified from commit one. Its landed rule is PROJECT ROOT WINS, `~/.config` the global FALLBACK|../itok/SPEC.md §V
 R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|../microlith/SPEC.md §I
 R8|MSRV|`blackbox` MEASURED 1.95 clean while siblings DECLARE 1.96 ∴ the sibling floor is a stale pin mirror, ⊥ a minimum|../blackbox/SPEC.md §C
-R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path (its V52/V53) ∴ proven shape, copy it|../itok/SPEC.md §I
+R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|../itok/SPEC.md §V
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
 R11|inference|`blackbox` OWNS ollama: `src/ollama` 23,032B, its own hardware §R rows (`gpt-oss:20b` ctx 131,072 @ a LAN box), coverage 70.9% -- 13th of 14 nodes ∴ EXPERIMENTAL, ⊥ a foundation. A client here would DUPLICATE a sibling module & bind this crate's GATE to a moving target|../blackbox/SPEC.md §C,R9,R34,R50
 
