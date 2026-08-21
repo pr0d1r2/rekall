@@ -21,7 +21,7 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - Token accounting is `itok`'s, TOKENIZER-backed ∴ counts are MEASURED & deterministic, ⊥ estimated by a model & ⊥ a char/4 heuristic. ⊥ reimplemented here (V8).
 - `SPEC.md` FORMAT owned by `microlith`, enforced by `mth` in the gate.
 - Zero host-project internals ∴ extraction of THIS crate is a move.
-- PLATFORMS = the fleet's tier-1 list, EXACTLY: `aarch64-darwin` · `x86_64-linux` · `aarch64-linux` (R12). ⊥ fewer: a crate that builds on one box is ⊥ a fleet member. ⊥ more: `x86_64-darwin` is absent from EVERY fleet flake ∴ adding it here would make this the ONLY repo claiming a platform nothing else tests, & an untested claim is worse than an absent one.
+- PLATFORMS = `nixpkgs-lock`'s `supportedSystems`, ALL FOUR: `aarch64-darwin` · `x86_64-darwin` · `x86_64-linux` · `aarch64-linux` (R12). SUPPORT & CI COVERAGE are ⊥ the same set: GitHub offers ⊥ a free x86_64 macOS runner ∴ CI builds THREE & `x86_64-darwin` is SUPPORTED-BUT-UNBUILT. NAME that gap in CI output & in the README. An untested platform is worse than an absent one ONLY when nobody says it is untested -- V26's rule, one level out: the SKIP is legal, the SILENCE is ⊥.
 - `.envrc` = `use flake`, `.direnv/` gitignored. `flake.nix` at the repo ROOT, ⊥ a subdirectory: a flake's source root is its OWN dir ∴ a nested one cannot SEE `Cargo.toml`/`src/` & cannot offer a real package. ENTERING the shell IS the toolchain CI uses (V23) ∴ "works on my box" & "passes CI" stop being two questions.
 - The dev shell puts `mth` & `rekall` on PATH via cargo-run shims ∴ the gate's own tools need ⊥ a global install, & this crate checks its OWN spec & its OWN corpus (T19, consumer #0). A tool absent from PATH is a check silently DEFERRED, ⊥ a check that failed (V26).
 - Gate = `hk` (`hk.pkl`), ONE definition, local & CI (V23). Coverage floor RATCHETS (V27).
@@ -59,7 +59,7 @@ R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judg
 R8|MSRV|the FLEET PIN is `nixpkgs-lock` @ `3677ad2` -> `github:NixOS/nixpkgs/nixos-26.05` ∴ 1.95 is fleet LAW, ⊥ this crate's preference; `itok` & `microlith` both declare `rust-version = "1.95"` on main, AGREEING with it. A declared floor mirrors the pin until a build proves it|github.com/pr0d1r2/nixpkgs-lock flake.nix @ 3677ad2
 R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path ∴ proven shape, copy it|github.com/pr0d1r2/itok SPEC.md §V @ main
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
-R12|platforms|`itok` & `microlith` flakes BOTH declare exactly `aarch64-darwin` · `x86_64-linux` · `aarch64-linux` on main, & `x86_64-darwin` appears in NEITHER ∴ the tier-1 list is fleet-wide & the Intel-mac omission is DELIBERATE, ⊥ an oversight to fix here|github.com/pr0d1r2/itok + /microlith flake.nix @ main
+R12|platforms|`nixpkgs-lock` -- the fleet PIN repo, ∴ the authority -- declares `supportedSystems` = `aarch64-darwin` · `x86_64-darwin` · `x86_64-linux` · `aarch64-linux`. Consumers `itok` & `microlith` each declare that list MINUS `x86_64-darwin` ∴ the 4 are SUPPORT & the 3 are what GitHub CI can BUILD, ⊥ two disagreeing support claims. Read a consumer as authority & you conclude Intel-mac is unsupported -- it is UNBUILT|github.com/pr0d1r2/nixpkgs-lock flake.nix @ main
 
 ## §V INVARIANTS
 
