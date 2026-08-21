@@ -67,7 +67,7 @@ V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same def
 V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `revert` is mechanical, ⊥ a rewrite.
 V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired & its SHARPNESS. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate. Sharpness is DERIVED from the same signals ∴ also a claim, & a `3` is the spec SAYING OUT LOUD that this artifact may never fire.
 V11: ledger counts FIRES ∴ a never-fired artifact is DETECTABLE. A rule that never fires is a wrong trigger or dead law; both need to be visible, ⊥ inferred. SHARPNESS predicts what `--dead` MEASURES ∴ the two are checkable against each other: a `1` gone dead is a CLASSIFIER defect, a `3` that fires often is a LADDER defect. Neither is visible without both numbers.
-V12: spec CAPS ITSELF from commit one. `.context-limits` ceiling lands BEFORE the file grows into it -- a ceiling set after the growth RATIFIES it (`microlith` V9).
+V12: spec CAPS ITSELF from commit one. `.context-limits` ceiling lands BEFORE the file grows into it -- a ceiling set after the growth RATIFIES it -- & lands IN THE SAME COMMIT as the runner that EXITS NONZERO on it (V22).
 V13: idempotent. `scan(scan(x))` identical; `apply` of an already-extracted id = no-op, exit 0; `plan` of one yields an EMPTY diff, ⊥ an error.
 V14: SELF-CONTAINED spec. ⊥ load-bearing reference outside this dir. Lineage rows in §R are EVIDENCE; every invariant stands on its own reasoning.
 V15: ⊥ EGRESS of corpus content, ZERO exception. Memory & `CLAUDE.md` hold private user facts. `scan` READS; ⊥ ONE byte leaves the process. ⊥ a LAN host, ⊥ a user-named host, ⊥ an opt-in flag -- an egress path that EXISTS is an egress path that FIRES, & the corpus is the user's private facts.
@@ -77,12 +77,13 @@ V18: `recall` & `hook` share ONE matcher. `hook` = `recall` + `M`-rule firing + 
 V19: a PLAN carries a corpus FINGERPRINT: a content hash per source file it touches. `apply <PLAN>` REHASHES & REFUSES on mismatch, exit 1, ⊥ an override flag. Spans are addressed `file:line-line` & the corpus is LIVE prose a human edits between the two commands ∴ a stale plan deletes the WRONG lines from the user's private memory. `revert` restores the BYTES but ⊥ the trust: the artifact was materialized from text that was never the rule, & the ledger records the mistake as if it were intended. V16 makes memory dirs near-sacred; a plan is the only place the promise can be CHECKED.
 V20: `apply` CONFIRMS before it mutates: PROMPTS on a tty, DEMANDS `--auto-approve` off-tty & exits 2 without it. ⊥ prompting into a pipe -- that hangs a CI job until someone kills it -- & ⊥ proceeding silently -- that makes the DESTRUCTIVE path the QUIET one. The corpus is the user's private memory ∴ the single verb that deletes from it ! be deliberate, & "deliberate" ! survive being run by a machine.
 V21: ∀ §R src is either PUBLICLY RESOLVABLE (a URL, pinned at a ref) or marked `internal` & carrying ⊥ a name. This crate SHIPS ∴ a src an outside reader cannot fetch is ⊥ evidence, it is an ASSERTION wearing a citation's clothes; & a src naming an unpublished repo is a LEAK. VERIFY against the REMOTE ref, ⊥ a local checkout: a checkout is one BRANCH at one MOMENT, & both drift.
+V22: ⊥ SHIP A DECLARATION NO RUNNER READS. A ceiling, a registry, a budget, a limit file: if nothing EXITS NONZERO on it, it is a WISH, & wishes drift silently ∵ nothing reports them. The runner lands in the SAME COMMIT as the declaration, ⊥ a task later -- "later" is how a limit file sits unread while every number under it goes over. A command someone REMEMBERS to type is the same defect one step on.
 
 ## §T TASKS
 
 id|status|task|cites
 T1|.|scaffold: flake, `Cargo.toml`, `hk.pkl`, rustfmt/clippy, MIT, ASCII gate, `mth` in gate|-
-T2|.|`.context-limits` ceiling set before growth|V12
+T2|.|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
 T3|.|`rekall.toml` loader, `[sources]` only|§C,R6
 T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
 T5|.|statement splitter: prose -> addressable statements, STABLE ids across edits|V13
