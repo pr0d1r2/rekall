@@ -1,0 +1,129 @@
+{
+  "nodes": {
+    "microlith": {
+      "inputs": {
+        "nix-hk": "nix-hk",
+        "nixpkgs": [
+          "microlith",
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": [
+          "nixpkgs-lock"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786740478,
+        "narHash": "sha256-INSX25BCuYglW4+fBpNbMJTKJuW2v0FQk2tNG8kxUSk=",
+        "owner": "pr0d1r2",
+        "repo": "microlith",
+        "rev": "5f3f9ea25f2094d5b184e7fdabf3324b9b28616b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "repo": "microlith",
+        "type": "github"
+      }
+    },
+    "nix-hk": {
+      "inputs": {
+        "nixpkgs": [
+          "microlith",
+          "nix-hk",
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": [
+          "microlith",
+          "nixpkgs-lock"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786679760,
+        "narHash": "sha256-KTPeew1V5XpLGp5qD4beYGfYcSHOXjoo7/mjtDk47ak=",
+        "owner": "pr0d1r2",
+        "repo": "nix-hk",
+        "rev": "84f10b7648efd4c32296084b822c1962df7d44be",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "repo": "nix-hk",
+        "type": "github"
+      }
+    },
+    "nix-hk_2": {
+      "inputs": {
+        "nixpkgs": [
+          "nix-hk",
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": [
+          "nixpkgs-lock"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786698718,
+        "narHash": "sha256-qNYIs7PaqYNQ362eYzd+7QwCpmDsGixSK2SYQJdlWXE=",
+        "owner": "pr0d1r2",
+        "repo": "nix-hk",
+        "rev": "a687c1404575d67f425e17c6bee9ad75dfa14728",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "repo": "nix-hk",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1787101114,
+        "narHash": "sha256-gwrPcFf/rDjHPaVflbDZ040ZDmBTRj/7+s8ZmE2SaIM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "b18a4b905f8d028dc4476412e6d6891728695379",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs-lock": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1787168625,
+        "narHash": "sha256-xfrollBO6wGlF7HJxo5rVdYZxa7hOEHOaMGbulxrRdY=",
+        "owner": "pr0d1r2",
+        "repo": "nixpkgs-lock",
+        "rev": "f6ada4107d2bc09d8091e9c817db5ad12c618ede",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pr0d1r2",
+        "repo": "nixpkgs-lock",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "microlith": "microlith",
+        "nix-hk": "nix-hk_2",
+        "nixpkgs": [
+          "nixpkgs-lock",
+          "nixpkgs"
+        ],
+        "nixpkgs-lock": "nixpkgs-lock"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
