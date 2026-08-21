@@ -102,6 +102,13 @@ T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|.|`rekall init`: detect corpus roots, write `rekall.toml`|§I,R6
 T22|.|`rekall show <id>`: full statement + signal weights|§I,V10
+T23|.|`rekall plan`: extraction DIFF + `--out FILE` plan artifact|§I,V7
+T24|.|plan corpus FINGERPRINT; `apply <PLAN>` refuses a stale plan|V19
+T25|.|confirm gate for `apply`/`revert`: tty prompt, `--auto-approve` off-tty|V20
+T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
+T27|.|DECIDE config SCOPE: project-root-wins + `~/.config` fallback (R6's landed itok rule) vs single scope. Corpus spans BOTH scopes ∴ ⊥ deferrable past T3|§C,R6
+T28|.|DECIDE `id` SHAPE: STABLE across edits (V13) ∴ ⊥ a content hash & ⊥ `file:line`. Blocks T5 & is the string a user types most|T5,V13
+T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
 
 ## §B BUGS
 
