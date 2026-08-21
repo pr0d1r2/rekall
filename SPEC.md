@@ -101,7 +101,7 @@ T1|x|scaffold: root `flake.nix`, `Cargo.toml`, `hk.pkl` (vendored schema), rustf
 T2|x|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
 T3|x|`rekall.toml` loader, `[sources]`, 2 scopes merged|§I,R6
 T4|.|corpus reader: memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs|I.scan,V15,V16
-T5|.|statement splitter: prose -> addressable statements, STABLE ids across edits|V13
+T5|x|statement splitter: prose -> statements, path-scoped hash ids, spans|V13,§I
 T6|.|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
 T7|.|`rekall scan` human + json|I.scan,V7,V17
 T8|.|ledger store: 2 row kinds -- CANDIDATE (from `catch`) & EXTRACTED (span · original text · artifact · fire count)|V7,V9,V11
