@@ -71,7 +71,7 @@ V3: ∀ extracted `S` -> a TRIGGER. A skill with no trigger is always-on prose, 
 V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence is ⊥ PROVABLE from a positive description: a list of what FIRES says nothing about what does ⊥, & a matcher ! decide both.
 V5: CPU-ONLY, ∀ verb, ⊥ exception. Deterministic & offline everywhere. ⊥ model, ⊥ network, ⊥ inference tier at ANY opt-in. An opt-in that CAN fire is a path that WILL fire, & then the classifier's floor is a remote model's uptime. If inference is EVER wanted it is a SEPARATE consumer reading `scan --format json`, ⊥ a tier inside this crate (V8).
 V6: `check` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
-V7: report-only DEFAULT. Only `apply` · `catch` -> ledger · `revert` mutate, & each NAMES every file touched before writing.
+V7: report-only DEFAULT. Only `apply` · `catch` -> ledger · `revert` touch the CORPUS or the LEDGER, & each NAMES every file touched before writing. `init` writes ONE file & only its OWN (`rekall.toml`), refusing an existing one without `--force` ∴ it is ⊥ in that set: it cannot reach a source span, & V20's confirm guards the DESTRUCTIVE path, ⊥ every write.
 V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same defect as two rule sets. GENERALIZE it, ∵ the shape recurs: ⊥ a second implementation of a capability a sibling already OWNS, in ANY domain. Cite this row, ⊥ restate it.
 V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `revert` is mechanical, ⊥ a rewrite.
 V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired & its SHARPNESS. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate. Sharpness is DERIVED from the same signals ∴ also a claim, & a `3` is the spec SAYING OUT LOUD that this artifact may never fire.
@@ -116,7 +116,7 @@ T16|.|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
-T21|.|`rekall init`: detect corpus roots, write `rekall.toml`|§I,R6
+T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
 T22|.|`rekall show <id>`: full statement + signal weights|§I,V10
 T23|.|`rekall plan`: extraction DIFF + `--out FILE` plan artifact|§I,V7
 T24|.|plan corpus FINGERPRINT; `apply <PLAN>` refuses a stale plan|V19

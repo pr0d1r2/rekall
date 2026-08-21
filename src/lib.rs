@@ -9,5 +9,6 @@ pub mod classify;
 pub mod cli;
 pub mod config;
 pub mod corpus;
+pub mod init;
 pub mod scan;
 pub mod statement;

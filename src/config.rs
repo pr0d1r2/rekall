@@ -200,17 +200,32 @@ fn union(
     Some(out)
 }
 
-/// Which scope each root came from, in merge order. `init` and `scan
+/// The scope a ROOT belongs to, derived from what it points at.
+///
+/// Derived rather than taken from which FILE listed it, because those are
+/// different questions and only this one stays true. `init` writes every
+/// detected root into the PROJECT config, so "which file listed it" would
+/// report every root as project-scoped the moment `init` had run --
+/// including `~/.claude`, which is the user's memory by definition.
+///
+/// A root reaching outside the project is USER scope whoever named it.
+#[must_use]
+pub fn scope_of(root: &str) -> Scope {
+    if root.starts_with('~') || root.starts_with('/') {
+        return Scope::User;
+    }
+    Scope::Project
+}
+
+/// Which scope each root belongs to, in merge order. `init` and `scan
 /// --sources` report this.
 pub fn attribute(user: &Config, project: &Config) -> Vec<(String, Scope)> {
     let mut out: Vec<(String, Scope)> = Vec::new();
     let from_user = user.sources.roots.clone().unwrap_or_default();
     let from_project = project.sources.roots.clone().unwrap_or_default();
-    for root in from_user {
-        push_unique(&mut out, root, Scope::User);
-    }
-    for root in from_project {
-        push_unique(&mut out, root, Scope::Project);
+    for root in from_user.into_iter().chain(from_project) {
+        let scope = scope_of(&root);
+        push_unique(&mut out, root, scope);
     }
     out
 }
@@ -304,24 +319,26 @@ mod tests {
 
     #[test]
     fn attribution_names_the_scope_of_each_root() {
-        let user = cfg("[sources]\nroots = [\"u\"]\n");
+        let user = cfg("[sources]\nroots = [\"~/mem\"]\n");
         let project = cfg("[sources]\nroots = [\"p\"]\n");
         assert_eq!(
             attribute(&user, &project),
             vec![
-                ("u".to_string(), Scope::User),
+                ("~/mem".to_string(), Scope::User),
                 ("p".to_string(), Scope::Project),
             ]
         );
     }
 
+    /// A root named in both scopes appears ONCE. Its scope comes from the
+    /// root itself, so naming it twice cannot change what it is.
     #[test]
-    fn a_shared_root_is_attributed_to_the_scope_that_named_it_first() {
+    fn a_root_named_in_both_scopes_is_attributed_once() {
         let user = cfg("[sources]\nroots = [\"shared\"]\n");
         let project = cfg("[sources]\nroots = [\"shared\"]\n");
         assert_eq!(
             attribute(&user, &project),
-            vec![("shared".to_string(), Scope::User)]
+            vec![("shared".to_string(), Scope::Project)]
         );
     }
 
@@ -400,5 +417,26 @@ mod tests {
             .map(|error| error.to_string())
             .unwrap_or_default();
         assert!(message.contains("broken.toml"), "message was {message}");
+    }
+    /// The scope of a root is a property of WHERE IT POINTS, not of which
+    /// file listed it. `init` writes every detected root into the project
+    /// config, so the other reading would label the user's own memory
+    /// "project" the moment init had run -- which is what it did.
+    #[test]
+    fn scope_is_derived_from_the_root_not_the_file() {
+        assert_eq!(scope_of("~/.claude/CLAUDE.md"), Scope::User);
+        assert_eq!(scope_of("/etc/notes.md"), Scope::User);
+        assert_eq!(scope_of("CLAUDE.md"), Scope::Project);
+        assert_eq!(scope_of("./docs/AGENTS.md"), Scope::Project);
+    }
+
+    #[test]
+    fn a_user_root_named_by_the_project_file_is_still_user_scope() {
+        let user = cfg("[sources]\n");
+        let project = cfg("[sources]\nroots = [\"~/.claude\"]\n");
+        assert_eq!(
+            attribute(&user, &project),
+            vec![("~/.claude".to_string(), Scope::User)]
+        );
     }
 }

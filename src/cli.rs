@@ -5,7 +5,7 @@
 //! 1 drift, 2 usage -- so the mapping from argument to exit stays visible
 //! here instead of inside a macro.
 
-use crate::{config, scan};
+use crate::{config, init, scan};
 use std::path::{Path, PathBuf};
 
 pub const USAGE_EXIT: u8 = 2;
@@ -165,6 +165,7 @@ pub enum Action {
     },
     PrintVersion,
     Scan(Vec<String>),
+    Init(Vec<String>),
     /// A verb section I defines that this build cannot perform.
     Unimplemented(String),
     /// A verb the binary has never heard of -- a typo, not a backlog row.
@@ -178,14 +179,17 @@ pub enum Action {
 /// usage, and neither case is drift -- inventing a fourth code to make a
 /// scaffold more expressive would change a published contract for a state
 /// that stops existing once the verbs land.
+fn rest(args: &[String]) -> Vec<String> {
+    args.get(1..).unwrap_or_default().to_vec()
+}
+
 #[must_use]
 pub fn decide(args: &[String]) -> Action {
     match args.first().map(String::as_str) {
         None | Some("-h" | "--help") => Action::PrintUsage { code: 0 },
         Some("-V" | "--version") => Action::PrintVersion,
-        Some("scan") => {
-            Action::Scan(args.get(1..).unwrap_or_default().to_vec())
-        }
+        Some("scan") => Action::Scan(rest(args)),
+        Some("init") => Action::Init(rest(args)),
         Some(verb) if VERBS.contains(&verb) => {
             Action::Unimplemented(verb.to_string())
         }
@@ -217,6 +221,7 @@ pub fn perform(action: Action, env: &Env) -> u8 {
         Action::PrintUsage { code } => show_usage(code),
         Action::PrintVersion => show_version(),
         Action::Scan(flags) => run_scan(&flags, env),
+        Action::Init(flags) => run_init(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
     }
@@ -242,6 +247,75 @@ fn say_unimplemented(verb: &str) -> u8 {
 fn say_unknown(other: &str) -> u8 {
     eprintln!("rekall: unknown verb `{other}`\n");
     show_usage(USAGE_EXIT)
+}
+
+/// `init` flags. `--force` is separate from `--auto-approve` on purpose:
+/// this writes its OWN config, never the corpus, so it is not the
+/// destructive path V20 guards.
+#[derive(Debug, Default)]
+pub struct InitArgs {
+    pub force: bool,
+    pub cwd: Option<PathBuf>,
+    pub json: bool,
+}
+
+pub fn parse_init(args: &[String]) -> Result<InitArgs, String> {
+    let mut out = InitArgs::default();
+    let mut rest = args.iter();
+    while let Some(flag) = rest.next() {
+        apply_init_flag(&mut out, flag, &mut rest)?;
+    }
+    Ok(out)
+}
+
+fn apply_init_flag<'a>(
+    out: &mut InitArgs,
+    flag: &str,
+    rest: &mut impl Iterator<Item = &'a String>,
+) -> Result<(), String> {
+    match flag {
+        "--force" => out.force = true,
+        "--format" => {
+            out.json = parse_format(&need(flag, rest)?)? == Format::Json
+        }
+        "-C" => out.cwd = Some(PathBuf::from(need(flag, rest)?)),
+        other => return Err(format!("unknown flag `{other}`")),
+    }
+    Ok(())
+}
+
+/// Run `init` end to end.
+pub fn init_command(flags: &[String], env: &Env) -> Result<Output, String> {
+    let args = parse_init(flags)?;
+    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
+    let report = init::run(&base, env.home.as_deref(), args.force)
+        .map_err(|error| error.to_string())?;
+    Ok(Output {
+        text: render_init(&report, args.json)?,
+        warnings: Vec::new(),
+    })
+}
+
+fn render_init(report: &init::Report, json: bool) -> Result<String, String> {
+    if json {
+        return serde_json::to_string_pretty(report)
+            .map(|text| format!("{text}\n"))
+            .map_err(|error| error.to_string());
+    }
+    Ok(init::render_human(report))
+}
+
+fn run_init(flags: &[String], env: &Env) -> u8 {
+    match init_command(flags, env) {
+        Ok(output) => {
+            print!("{}", output.text);
+            0
+        }
+        Err(message) => {
+            eprintln!("rekall: {message}");
+            USAGE_EXIT
+        }
+    }
 }
 
 fn run_scan(flags: &[String], env: &Env) -> u8 {
@@ -530,10 +604,14 @@ mod tests {
     /// A verb the spec defines but this build cannot perform is a BACKLOG
     /// ROW, and says so. A verb nobody has heard of is a typo. Same exit
     /// code, different message -- the distinction is the message's job.
+    /// The verbs that actually do something. Kept beside the loop below so
+    /// implementing a verb without dispatching it fails here.
+    const IMPLEMENTED: [&str; 2] = ["scan", "init"];
+
     #[test]
     fn a_specified_verb_is_unimplemented_not_unknown() {
         for verb in VERBS {
-            if verb == "scan" {
+            if IMPLEMENTED.contains(&verb) {
                 continue;
             }
             assert_eq!(
@@ -739,5 +817,92 @@ mod tests {
         let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
         let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
         assert_eq!(perform(Action::Scan(flags), &env()), 0);
+    }
+    #[test]
+    fn init_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["init", "--force"])),
+            Action::Init(args(&["--force"]))
+        );
+    }
+
+    #[test]
+    fn init_flags_parse() {
+        assert_eq!(
+            parse_init(&args(&["--force", "--format", "json"]))
+                .map(|parsed| (parsed.force, parsed.json))
+                .ok(),
+            Some((true, true))
+        );
+    }
+
+    #[test]
+    fn an_unknown_init_flag_is_an_error() {
+        assert!(parse_init(&args(&["--nope"])).is_err());
+        assert!(parse_init(&args(&["-C"])).is_err());
+    }
+
+    #[test]
+    fn init_writes_a_config_and_names_it() {
+        let dir = PathBuf::from("target").join("cli-init").join("fresh");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join("CLAUDE.md"), "- a rule\n");
+        let flags = args(&["-C", &dir.to_string_lossy()]);
+        let text = init_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("root   CLAUDE.md"), "text was {text}");
+    }
+
+    /// init then scan, with nothing hand-written in between. That is the
+    /// cold start, and it is the whole reason this verb exists.
+    #[test]
+    fn init_then_scan_works_with_no_hand_written_config() {
+        let dir = PathBuf::from("target").join("cli-init").join("cold-start");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("CLAUDE.md"), "- never commit to `main`\n");
+        let flags = args(&["-C", &dir.to_string_lossy()]);
+        assert!(init_command(&flags, &env()).is_ok());
+        let scanned = scan_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(scanned.contains("M1"), "scan output was {scanned}");
+    }
+
+    #[test]
+    fn init_refusing_to_clobber_exits_two() {
+        let dir = PathBuf::from("target").join("cli-init").join("clobber");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join("rekall.toml"), "[sources]\n");
+        let flags = args(&["-C", &dir.to_string_lossy()]);
+        assert_eq!(perform(Action::Init(flags), &env()), USAGE_EXIT);
+    }
+
+    #[test]
+    fn a_successful_init_exits_zero() {
+        let dir = PathBuf::from("target").join("cli-init").join("exit-zero");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let flags = args(&["-C", &dir.to_string_lossy()]);
+        assert_eq!(perform(Action::Init(flags), &env()), 0);
+    }
+
+    #[test]
+    fn init_json_is_parseable() {
+        let dir = PathBuf::from("target").join("cli-init").join("json");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let flags = args(&["-C", &dir.to_string_lossy(), "--format", "json"]);
+        let text = init_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&text).is_ok(),
+            "text was {text}"
+        );
     }
 }
