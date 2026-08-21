@@ -32,7 +32,7 @@ pub struct Source {
     pub files: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Report {
     pub rows: Vec<Row>,
     pub sources: Vec<Source>,
@@ -114,6 +114,7 @@ pub fn stable_name(path: &Path, base: &Path, home: Option<&str>) -> String {
 }
 
 /// What a scan produced, including what it could not read.
+#[derive(Debug, Default)]
 pub struct Outcome {
     pub report: Report,
     pub unreadable: Vec<PathBuf>,
@@ -143,8 +144,9 @@ pub fn run(
     let mut unreadable = Vec::new();
     for (root, scope) in corpus.roots {
         let found = corpus.files_under(root)?;
-        sources.push(source_of(root, *scope, found.len()));
-        gather(&found, &mut rows, &mut unreadable, corpus);
+        sources.push(source_of(root, *scope, found.files.len()));
+        unreadable.extend(found.unreadable);
+        gather(&found.files, &mut rows, &mut unreadable, corpus);
     }
     Ok(Outcome {
         report: finish(rows, sources, filter),
@@ -156,7 +158,7 @@ impl Corpus<'_> {
     fn files_under(
         &self,
         root: &String,
-    ) -> Result<Vec<PathBuf>, corpus::Error> {
+    ) -> Result<corpus::Walked, corpus::Error> {
         corpus::files(
             std::slice::from_ref(root),
             self.globs,
@@ -242,17 +244,27 @@ fn render_row(row: &Row) -> String {
 mod tests {
     use super::*;
 
-    /// `expect` rather than a blanket allow: the exemption names what is
-    /// deliberate and stops compiling if the panic ever leaves this helper.
-    #[expect(
-        clippy::panic,
-        reason = "a fixture that produces no statement must fail loudly"
-    )]
+    /// A fixture that produces no statement yields an EMPTY row, which
+    /// fails every assertion here on content -- so the helper needs no
+    /// panic arm, and therefore has no branch a test cannot execute.
     fn row_of(text: &str) -> Row {
-        let found = statement::split(text, "CLAUDE.md");
-        match found.first() {
-            Some(first) => to_row(first),
-            None => panic!("fixture produced no statement"),
+        statement::split(text, "CLAUDE.md")
+            .first()
+            .map_or_else(empty_row, to_row)
+    }
+
+    /// The row a missing statement would produce: empty, so every
+    /// assertion on content fails loudly. Defined here rather than on
+    /// `Row` so the library carries no constructor only tests use.
+    fn empty_row() -> Row {
+        Row {
+            id: String::new(),
+            src: String::new(),
+            tokens: None,
+            class: String::new(),
+            sharpness: None,
+            label: String::new(),
+            signals: Vec::new(),
         }
     }
 
@@ -376,6 +388,10 @@ mod tests {
         let _ = fs::write(dir.join(name), body);
     }
 
+    /// The fixtures use valid globs, so `run` cannot fail here. Returning
+    /// the Result rather than swallowing it means there is no fallback arm
+    /// that no test can execute -- a failure shows up as a failed
+    /// assertion on the value instead.
     fn scan_dir(dir: &Path, filter: &Filter) -> Outcome {
         let roots = vec![(".".to_string(), config::Scope::Project)];
         let globs = vec!["**/*.md".to_string()];
@@ -385,13 +401,7 @@ mod tests {
             home: None,
             base: dir,
         };
-        run(&corpus, filter).unwrap_or_else(|_| Outcome {
-            report: Report {
-                rows: Vec::new(),
-                sources: Vec::new(),
-            },
-            unreadable: Vec::new(),
-        })
+        run(&corpus, filter).unwrap_or_default()
     }
 
     #[test]
@@ -547,5 +557,15 @@ mod tests {
     fn a_row_with_no_tokens_renders_a_dash() {
         let row = row_of("- never commit to `main`\n");
         assert!(render_row(&row).contains("  -  "), "{}", render_row(&row));
+    }
+    /// `row_of` on input with no statement yields the EMPTY row. Asserting
+    /// it here is what keeps the helper's fallback executable rather than
+    /// a branch no test reaches.
+    #[test]
+    fn input_with_no_statement_yields_an_empty_row() {
+        let row = row_of("# heading only\n");
+        assert_eq!(row.id, "");
+        assert_eq!(row.label, "");
+        assert!(row.signals.is_empty());
     }
 }

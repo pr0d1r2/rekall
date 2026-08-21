@@ -7,7 +7,7 @@
 //! Everything here READS. V16 holds harness memory directories read-only
 //! unless `apply` named the file, and nothing in this module writes.
 
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::{Glob, GlobMatcher};
 use std::path::{Path, PathBuf};
 
 /// Used when no `globs` key is set in either scope. Markdown only, because
@@ -15,29 +15,36 @@ use std::path::{Path, PathBuf};
 /// one in a `.rs` is already code.
 pub const DEFAULT_GLOBS: [&str; 1] = ["**/*.md"];
 
+/// The only thing here that can FAIL a run is a pattern that will not
+/// compile, which is a config error the user can fix. A directory that
+/// cannot be walked is reported as a skip instead -- see `Walked`.
 #[derive(Debug)]
 pub enum Error {
     Glob {
         pattern: String,
         cause: globset::Error,
     },
-    Walk {
-        root: PathBuf,
-        cause: walkdir::Error,
-    },
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Glob { pattern, cause } => {
-                write!(f, "bad glob `{pattern}`: {cause}")
-            }
-            Self::Walk { root, cause } => {
-                write!(f, "cannot walk {}: {cause}", root.display())
-            }
-        }
+        let Self::Glob { pattern, cause } = self;
+        write!(f, "bad glob `{pattern}`: {cause}")
     }
+}
+
+/// What a walk found, and what it could not look at.
+///
+/// An entry that errors mid-walk -- a subdirectory with no read
+/// permission, a broken link -- is SKIPPED and NAMED, exactly like a file
+/// that is not valid UTF-8. Those are the same situation at different
+/// depths, and treating one as fatal while naming the other was an
+/// inconsistency rather than a policy: a single unreadable subdirectory
+/// would abort the inventory of an otherwise readable corpus.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Walked {
+    pub files: Vec<PathBuf>,
+    pub unreadable: Vec<PathBuf>,
 }
 
 impl std::error::Error for Error {}
@@ -78,23 +85,41 @@ pub fn resolve(raw: &str, home: Option<&str>, base: &Path) -> PathBuf {
     base.join(expanded)
 }
 
+/// A set of compiled glob patterns.
+///
+/// A `Vec` of per-glob matchers rather than a `GlobSet`. `GlobSetBuilder::
+/// build()` is fallible, and after `Glob::new` has validated every pattern
+/// that failure cannot happen -- which left three lines of error handling
+/// no test could ever reach. `Glob::compile_matcher` is infallible, so the
+/// unreachable branch stops existing instead of being explained. For the
+/// handful of patterns a corpus config carries, the single-regex
+/// optimisation GlobSet exists for buys nothing measurable.
+#[derive(Debug, Default)]
+pub struct Matcher {
+    globs: Vec<GlobMatcher>,
+}
+
+impl Matcher {
+    #[must_use]
+    pub fn is_match(&self, path: &Path) -> bool {
+        self.globs.iter().any(|glob| glob.is_match(path))
+    }
+}
+
 /// Build a matcher from glob patterns.
 ///
 /// An unparsable pattern is an ERROR, never skipped: a typo'd glob that
 /// silently matches nothing looks exactly like a corpus with nothing in it.
-pub fn matcher(patterns: &[String]) -> Result<GlobSet, Error> {
-    let mut builder = GlobSetBuilder::new();
+pub fn matcher(patterns: &[String]) -> Result<Matcher, Error> {
+    let mut globs = Vec::new();
     for pattern in patterns {
         let glob = Glob::new(pattern).map_err(|cause| Error::Glob {
             pattern: pattern.clone(),
             cause,
         })?;
-        builder.add(glob);
+        globs.push(glob.compile_matcher());
     }
-    builder.build().map_err(|cause| Error::Glob {
-        pattern: patterns.join(", "),
-        cause,
-    })
+    Ok(Matcher { globs })
 }
 
 /// Every file one root contributes.
@@ -102,28 +127,47 @@ pub fn matcher(patterns: &[String]) -> Result<GlobSet, Error> {
 /// A root naming a FILE contributes that file whether or not it matches the
 /// globs: naming a path explicitly IS the selection, and re-filtering it
 /// would make `roots = ["./NOTES.txt"]` silently contribute nothing.
-fn from_root(root: &Path, globs: &GlobSet) -> Result<Vec<PathBuf>, Error> {
+fn from_root(root: &Path, globs: &Matcher) -> Walked {
     if root.is_file() {
-        return Ok(vec![root.to_path_buf()]);
+        return Walked {
+            files: vec![root.to_path_buf()],
+            unreadable: Vec::new(),
+        };
     }
-    // A root that does not exist is NOT fatal. A user-scope config naming
-    // `~/.claude` is correct on the machine that has it and wrong on the
-    // one that does not, and failing the whole inventory over an absent
-    // optional root would make the tool unusable across machines. The
-    // caller reports it BY NAME -- an absent root is a named skip, never a
-    // silent one (V26).
+    // A root that does not exist is NOT fatal, and is not a skip either.
+    // A user-scope config naming `~/.claude` is correct on the machine
+    // that has it and simply does not apply on one that does not. That is
+    // different from a root that exists and cannot be read, which IS a
+    // skip and is named as one.
     if !root.exists() {
-        return Ok(Vec::new());
+        return Walked::default();
     }
-    let mut out = Vec::new();
+    walk(root, globs)
+}
+
+fn walk(root: &Path, globs: &Matcher) -> Walked {
+    let mut found = Walked::default();
     for entry in walkdir::WalkDir::new(root).follow_links(false) {
-        let entry = entry.map_err(|cause| Error::Walk {
-            root: root.to_path_buf(),
-            cause,
-        })?;
-        collect(entry, root, globs, &mut out);
+        match entry {
+            Ok(entry) => collect(entry, root, globs, &mut found.files),
+            Err(error) => {
+                found.unreadable.push(errored_path(error.path(), root))
+            }
+        }
     }
-    Ok(out)
+    found
+}
+
+/// The path a walk error refers to, falling back to the root when the
+/// error carries none. Naming SOMETHING is the point: a skip nobody can
+/// see is the failure V26 forbids.
+///
+/// Takes the path rather than the error so it is a pure function with no
+/// way to construct its input by hand -- `walkdir::Error` has no public
+/// constructor, so a version taking the error could only be exercised by
+/// provoking a real filesystem failure.
+fn errored_path(path: Option<&Path>, root: &Path) -> PathBuf {
+    path.unwrap_or(root).to_path_buf()
 }
 
 /// Glob matching is against the path RELATIVE to its root, so a pattern
@@ -132,7 +176,7 @@ fn from_root(root: &Path, globs: &GlobSet) -> Result<Vec<PathBuf>, Error> {
 fn collect(
     entry: walkdir::DirEntry,
     root: &Path,
-    globs: &GlobSet,
+    globs: &Matcher,
     out: &mut Vec<PathBuf>,
 ) {
     if !entry.file_type().is_file() {
@@ -157,19 +201,21 @@ pub fn files(
     globs: &[String],
     home: Option<&str>,
     base: &Path,
-) -> Result<Vec<PathBuf>, Error> {
+) -> Result<Walked, Error> {
     let patterns = if globs.is_empty() {
         DEFAULT_GLOBS.iter().map(|g| (*g).to_string()).collect()
     } else {
         globs.to_vec()
     };
     let set = matcher(&patterns)?;
-    let mut out = Vec::new();
+    let mut out = Walked::default();
     for raw in roots {
-        out.extend(from_root(&resolve(raw, home, base), &set)?);
+        let found = from_root(&resolve(raw, home, base), &set);
+        out.files.extend(found.files);
+        out.unreadable.extend(found.unreadable);
     }
-    out.sort();
-    out.dedup();
+    out.files.sort();
+    out.files.dedup();
     Ok(out)
 }
 
@@ -177,10 +223,10 @@ pub fn files(
 mod tests {
     use super::*;
 
-    fn globs(patterns: &[&str]) -> GlobSet {
+    fn globs(patterns: &[&str]) -> Matcher {
         let owned: Vec<String> =
             patterns.iter().map(|p| (*p).to_string()).collect();
-        matcher(&owned).unwrap_or_else(|_| GlobSet::empty())
+        matcher(&owned).unwrap_or_default()
     }
 
     #[test]
@@ -241,7 +287,7 @@ mod tests {
     fn default_globs_select_markdown_only() {
         let owned: Vec<String> =
             DEFAULT_GLOBS.iter().map(|g| (*g).to_string()).collect();
-        let set = matcher(&owned).unwrap_or_else(|_| GlobSet::empty());
+        let set = matcher(&owned).unwrap_or_default();
         assert!(set.is_match(Path::new("a/b.md")));
         assert!(!set.is_match(Path::new("a/b.json")));
     }
@@ -249,7 +295,7 @@ mod tests {
     #[test]
     fn no_roots_is_an_empty_corpus_not_an_error() {
         let found = files(&[], &[], None, Path::new("."));
-        assert_eq!(found.ok(), Some(Vec::new()));
+        assert_eq!(found.ok(), Some(Walked::default()));
     }
 
     #[test]
@@ -260,18 +306,15 @@ mod tests {
             None,
             Path::new("."),
         );
-        assert_eq!(found.ok(), Some(vec![PathBuf::from("./Cargo.toml")]));
+        assert_eq!(
+            found.map(|walked| walked.files).ok(),
+            Some(vec![PathBuf::from("./Cargo.toml")])
+        );
     }
 
     #[test]
     fn a_directory_root_is_walked_and_filtered() {
-        let found = files(
-            &["src".to_string()],
-            &["**/*.rs".to_string()],
-            None,
-            Path::new("."),
-        )
-        .unwrap_or_default();
+        let found = walked(&["src"], &["**/*.rs"]).files;
         assert!(
             found.contains(&PathBuf::from("./src/corpus.rs")),
             "found {found:?}"
@@ -283,16 +326,31 @@ mod tests {
         );
     }
 
+    fn walked(roots: &[&str], globs: &[&str]) -> Walked {
+        let roots: Vec<String> =
+            roots.iter().map(|r| (*r).to_string()).collect();
+        let globs: Vec<String> =
+            globs.iter().map(|g| (*g).to_string()).collect();
+        files(&roots, &globs, None, Path::new(".")).unwrap_or_default()
+    }
+
     #[test]
     fn results_are_sorted_and_deduplicated() {
-        let roots = vec!["src".to_string(), "src".to_string()];
-        let found =
-            files(&roots, &["**/*.rs".to_string()], None, Path::new("."))
-                .unwrap_or_default();
+        let found = walked(&["src", "src"], &["**/*.rs"]).files;
         let mut sorted = found.clone();
         sorted.sort();
         sorted.dedup();
         assert_eq!(found, sorted, "scan must not vary with filesystem order");
+    }
+
+    /// An unreadable ENTRY is a named skip, exactly like an unreadable
+    /// file. It was previously fatal, which meant one bad subdirectory
+    /// aborted the inventory of an otherwise readable corpus.
+    #[test]
+    fn a_walk_reports_files_and_skips_separately() {
+        let found = walked(&["src"], &["**/*.rs"]);
+        assert!(!found.files.is_empty());
+        assert!(found.unreadable.is_empty(), "{:?}", found.unreadable);
     }
     /// `-C` must anchor ROOTS, not only config discovery. Without this the
     /// config found under `-C` and the roots read from it disagree about
@@ -333,16 +391,15 @@ mod tests {
             None,
             Path::new("."),
         );
-        assert_eq!(found.ok(), Some(Vec::new()));
+        assert_eq!(found.ok(), Some(Walked::default()));
     }
     #[test]
     fn a_glob_error_names_the_pattern() {
-        let error = matcher(&["[".to_string()]);
-        let Some(error) = error.err() else {
-            unreachable!("bad glob")
-        };
-        let text = error.to_string();
-        assert!(text.contains("bad glob"), "message was {text}");
+        let message = matcher(&["[".to_string()])
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        assert!(message.contains("bad glob"), "message was {message}");
     }
 
     /// A root that exists but cannot be walked is an ERROR, unlike a root
@@ -357,9 +414,80 @@ mod tests {
 
     #[test]
     fn an_empty_glob_list_matches_nothing_rather_than_everything() {
-        let Ok(set) = matcher(&[]) else {
-            unreachable!("an empty pattern list builds")
-        };
-        assert!(!set.is_match(Path::new("CLAUDE.md")));
+        assert_eq!(
+            matcher(&[])
+                .map(|set| set.is_match(Path::new("CLAUDE.md")))
+                .ok(),
+            Some(false)
+        );
+    }
+    #[test]
+    fn an_errored_entry_is_named_by_its_own_path() {
+        assert_eq!(
+            errored_path(
+                Some(Path::new("/corpus/locked")),
+                Path::new("/corpus")
+            ),
+            PathBuf::from("/corpus/locked")
+        );
+    }
+
+    /// When the error carries no path, the ROOT is named. Naming something
+    /// is the point -- a skip nobody can see is the failure V26 forbids.
+    #[test]
+    fn an_errored_entry_with_no_path_falls_back_to_the_root() {
+        assert_eq!(
+            errored_path(None, Path::new("/corpus")),
+            PathBuf::from("/corpus")
+        );
+    }
+    /// A subdirectory that exists but cannot be read is a NAMED SKIP, not
+    /// a fatal error. This is the behaviour the `Walked` split exists for,
+    /// and it was previously untested as well as uncovered.
+    ///
+    /// The test asserts its own PRECONDITION: if the environment cannot
+    /// make a directory unreadable -- running as root, or a filesystem
+    /// that ignores mode bits -- the setup assertion fails loudly rather
+    /// than the test passing without having exercised anything. A test
+    /// that quietly succeeds because its condition never occurred is worse
+    /// than no test (V26, applied to our own suite).
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_subdirectory_is_skipped_and_named() {
+        let root = PathBuf::from("target").join("locked-corpus");
+        let (was_locked, found) = scan_with_locked_dir(&root);
+        assert!(was_locked, "{PRECONDITION}");
+        assert_eq!(found.unreadable.len(), 1, "{:?}", found.unreadable);
+        assert_eq!(found.files.len(), 1, "the readable file still scanned");
+    }
+
+    #[cfg(unix)]
+    const PRECONDITION: &str = "precondition failed: this environment cannot make a \
+         directory unreadable (running as root?), so the skip path was never exercised";
+
+    /// Locks a subdirectory, scans, and ALWAYS unlocks -- no conditional
+    /// cleanup, so there is no branch that only a root environment takes.
+    /// Returns whether the lock actually took, so the caller asserts its
+    /// own precondition rather than passing silently.
+    #[cfg(unix)]
+    fn scan_with_locked_dir(root: &Path) -> (bool, Walked) {
+        let locked = root.join("locked");
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::create_dir_all(&locked);
+        let _ = std::fs::write(root.join("ok.md"), "- a rule\n");
+        set_mode(&locked, 0o000);
+        let was_locked = std::fs::read_dir(&locked).is_err();
+        let found = walked(&[&root.to_string_lossy()], &["**/*.md"]);
+        set_mode(&locked, 0o755);
+        (was_locked, found)
+    }
+
+    #[cfg(unix)]
+    fn set_mode(dir: &Path, mode: u32) {
+        use std::os::unix::fs::PermissionsExt as _;
+        let _ = std::fs::set_permissions(
+            dir,
+            std::fs::Permissions::from_mode(mode),
+        );
     }
 }

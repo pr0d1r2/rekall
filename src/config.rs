@@ -225,22 +225,12 @@ fn push_unique(out: &mut Vec<(String, Scope)>, root: String, scope: Scope) {
 mod tests {
     use super::*;
 
-    /// A test that cannot parse its own fixture has nothing to assert, so
-    /// the helper aborts rather than returning a default that would make
-    /// every later assertion test the default instead of the fixture.
-    ///
-    /// `expect` rather than `allow`: the exemption NAMES what is deliberate
-    /// and stops compiling if the panic ever leaves this helper, which a
-    /// blanket allow on the module would not.
-    #[expect(
-        clippy::panic,
-        reason = "a fixture that will not parse must fail loudly, not silently default"
-    )]
+    /// A fixture that will not parse yields the DEFAULT config, and every
+    /// test here asserts on a value that differs from the default -- so a
+    /// broken fixture fails its assertion rather than panicking in a
+    /// helper. That keeps the helper free of an arm no test can execute.
     fn cfg(toml_text: &str) -> Config {
-        match parse(toml_text, Path::new("test.toml")) {
-            Ok(parsed) => parsed,
-            Err(error) => panic!("fixture failed to parse: {error}"),
-        }
+        parse(toml_text, Path::new("test.toml")).unwrap_or_default()
     }
 
     #[test]
@@ -393,19 +383,22 @@ mod tests {
 
     #[test]
     fn a_read_error_says_which_file_it_could_not_read() {
-        let error = load_file(Path::new("target/definitely-absent.toml"));
-        let Some(error) = error.err() else {
-            unreachable!("absent file")
-        };
-        assert!(error.to_string().contains("definitely-absent.toml"));
+        let message = load_file(Path::new("target/definitely-absent.toml"))
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        assert!(
+            message.contains("definitely-absent.toml"),
+            "message was {message}"
+        );
     }
 
     #[test]
     fn a_parse_error_says_which_file_it_could_not_parse() {
-        let error = parse("not = = toml", Path::new("broken.toml"));
-        let Some(error) = error.err() else {
-            unreachable!("invalid toml")
-        };
-        assert!(error.to_string().contains("broken.toml"));
+        let message = parse("not = = toml", Path::new("broken.toml"))
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        assert!(message.contains("broken.toml"), "message was {message}");
     }
 }

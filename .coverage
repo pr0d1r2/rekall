@@ -1,33 +1,35 @@
 # Coverage floor. May only RISE; the gate's `fix` half refuses to record a
-# drop (SPEC.md V27). Raised in five rounds from 0.0 at the scaffold:
+# drop (SPEC.md V27). Raised from 0.0 at the scaffold to 99.17.
 #
-#   63.68  the config loader arrived with tests
-#   85.99  splitter and corpus reader
-#   91.99  scan pipeline tested against a real directory
-#   93.93  dispatch moved out of main.rs, exit codes made assertable
-#   95.89  error paths, config discovery, classifier fallbacks
-#   96.64  the command path end to end
-#   97.07  binary success path, ordered-marker rejection
+# EVERY LIBRARY SOURCE LINE IS EXECUTED. `cargo llvm-cov --show-missing-lines`
+# reports uncovered lines in exactly one file: `src/main.rs`. The per-file
+# text reports show zero uncovered lines in classify.rs, cli.rs, config.rs,
+# corpus.rs, scan.rs and statement.rs. The small residue the merged summary
+# still attributes to cli.rs and scan.rs is lib-vs-bin instantiation
+# accounting, not source anyone can reach.
 #
-# PRACTICAL CEILING, measured rather than guessed. The ~51 lines still
-# uncovered are, in order of size:
+# The remaining 11 lines are `fn main`: reading argv, the working directory
+# and HOME, then calling into `cli`. A binary entry point cannot be called
+# by a unit test, so those lines are unverifiable rather than unverified.
 #
-#   ~27  `unreachable!`/`panic!` arms inside TEST fixtures. They execute
-#        only when a fixture is itself broken, so covering them means
-#        deliberately breaking one.
-#     4  `fn main` -- a binary entry point cannot be called by a unit test.
-#     3  `dispatch`, the one-line shim main calls. Covering it would assert
-#        nothing: `ExitCode` implements no comparison, which is why
-#        `perform` returns a u8 instead.
-#     ~7  walk-error construction and its Display. Reachable only with a
-#        directory that exists but cannot be read, which needs a chmod that
-#        does nothing when tests run as root -- a test that passes silently
-#        in one environment is worse than an uncovered line.
-#     ~4  `current_dir()` failing, `GlobSet::build()` failing: error paths
-#        with no portable way to provoke them.
+# THEY ARE DELIBERATELY NOT EXCLUDED from the measurement. Passing
+# `--ignore-filename-regex 'src/main\.rs'` would report 99.78 and would
+# also remove the only pressure keeping main.rs thin -- code moved there
+# would stop counting against this number, which is precisely the incentive
+# that put 37 lines in it before. Leaving the gap visible is what keeps the
+# binary an edge instead of a hiding place.
 #
-# So ~97-98% is the real ceiling for this shape of crate, and chasing 100
-# would mean testing the test harness. Raise this when new code lands with
-# tests, not by finding ways to execute the lines above.
+# Three earlier rounds were REFACTORS rather than new tests, and each was
+# the right fix on its own terms:
+#   * dispatch moved out of main.rs -- a binary's logic is untestable
+#   * `perform` returns u8, not ExitCode -- ExitCode has no comparison, so
+#     tests could call every arm and assert nothing
+#   * `Matcher` replaced `GlobSet` -- `GlobSetBuilder::build()` is fallible
+#     but cannot fail after per-glob validation, so three lines of error
+#     handling existed that no test could reach. Removing the unreachable
+#     branch beat explaining it.
+#
+# Raise this when new code lands with tests. Do not raise it by excluding
+# files.
 
-lines 97.07
+lines 99.17

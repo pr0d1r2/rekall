@@ -7,7 +7,6 @@
 
 use crate::{config, scan};
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
 
 pub const USAGE_EXIT: u8 = 2;
 
@@ -199,12 +198,25 @@ pub fn decide(args: &[String]) -> Action {
 /// A value rather than an `ExitCode` so tests can assert on it: `ExitCode`
 /// is deliberately opaque and implements no comparison, which would leave
 /// every arm here exercised but unasserted. `dispatch` converts once.
+/// The process facts the library needs but must not READ for itself.
+///
+/// `current_dir` and `HOME` are process globals. A library that reaches for
+/// them is a library whose behaviour depends on state no caller passed and
+/// no test can set -- `std::env::set_var` is unsafe in edition 2024, and
+/// mutating it would race other tests anyway. The binary reads them once,
+/// at the edge, and hands them in.
+#[derive(Debug, Clone)]
+pub struct Env {
+    pub cwd: PathBuf,
+    pub home: Option<String>,
+}
+
 #[must_use]
-pub fn perform(action: Action) -> u8 {
+pub fn perform(action: Action, env: &Env) -> u8 {
     match action {
         Action::PrintUsage { code } => show_usage(code),
         Action::PrintVersion => show_version(),
-        Action::Scan(flags) => run_scan(&flags),
+        Action::Scan(flags) => run_scan(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
     }
@@ -232,13 +244,8 @@ fn say_unknown(other: &str) -> u8 {
     show_usage(USAGE_EXIT)
 }
 
-/// The whole binary, in one line of side effect.
-pub fn dispatch(args: &[String]) -> ExitCode {
-    ExitCode::from(perform(decide(args)))
-}
-
-fn run_scan(flags: &[String]) -> u8 {
-    match scan_command(flags) {
+fn run_scan(flags: &[String], env: &Env) -> u8 {
+    match scan_command(flags, env) {
         Ok(output) => {
             for warning in &output.warnings {
                 eprintln!("rekall: {warning}");
@@ -254,6 +261,7 @@ fn run_scan(flags: &[String]) -> u8 {
 }
 
 /// What a scan produced for a caller to print.
+#[derive(Debug)]
 pub struct Output {
     pub text: String,
     /// Files that could not be read. NAMED, never silently dropped:
@@ -263,14 +271,14 @@ pub struct Output {
 }
 
 /// Run `scan` end to end: parse flags, resolve config, inventory, render.
-pub fn scan_command(flags: &[String]) -> Result<Output, String> {
+pub fn scan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let args = parse_scan(flags)?;
-    let cwd = working_dir(args.cwd.as_deref())?;
+    let cwd = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let resolved = resolve(&cwd)?;
     if resolved.roots.is_empty() {
         return Err(NO_SOURCES.to_string());
     }
-    let outcome = inventory(&resolved, &args, &cwd)?;
+    let outcome = inventory(&resolved, &args, &cwd, env.home.as_deref())?;
     Ok(Output {
         text: render(&outcome, &args)?,
         warnings: warnings(&outcome),
@@ -280,24 +288,16 @@ pub fn scan_command(flags: &[String]) -> Result<Output, String> {
 pub const NO_SOURCES: &str = "no corpus roots configured. \
 Run `rekall init` to detect them, or add [sources].roots to rekall.toml";
 
-fn working_dir(requested: Option<&Path>) -> Result<PathBuf, String> {
-    match requested {
-        Some(path) => Ok(path.to_path_buf()),
-        None => std::env::current_dir()
-            .map_err(|error| format!("no working directory: {error}")),
-    }
-}
-
 fn inventory(
     resolved: &Resolved,
     args: &ScanArgs,
     base: &Path,
+    home: Option<&str>,
 ) -> Result<scan::Outcome, String> {
-    let home = std::env::var("HOME").ok();
     let corpus = scan::Corpus {
         roots: &resolved.roots,
         globs: &resolved.globs,
-        home: home.as_deref(),
+        home,
         base,
     };
     scan::run(&corpus, &args.filter).map_err(|error| error.to_string())
@@ -326,6 +326,15 @@ mod tests {
 
     fn args(items: &[&str]) -> Vec<String> {
         items.iter().map(|item| (*item).to_string()).collect()
+    }
+
+    /// A deterministic environment. Tests never read the real one: the
+    /// point of `Env` is that process globals arrive as arguments.
+    fn env() -> Env {
+        Env {
+            cwd: PathBuf::from("."),
+            home: None,
+        }
     }
 
     #[test]
@@ -357,30 +366,31 @@ mod tests {
             "--top",
             "5",
         ]));
-        let Some(parsed) = parsed.ok() else {
-            unreachable!("these flags parse")
-        };
-        assert_eq!(parsed.filter.class.as_deref(), Some("M"));
-        assert_eq!(parsed.filter.sharpness, Some(2));
-        assert_eq!(parsed.filter.top, Some(5));
+        let filter = parsed.map(|parsed| parsed.filter).ok();
+        assert_eq!(
+            filter.as_ref().and_then(|f| f.class.clone()),
+            Some("M".to_string())
+        );
+        assert_eq!(filter.as_ref().and_then(|f| f.sharpness), Some(2));
+        assert_eq!(filter.and_then(|f| f.top), Some(5));
     }
 
     #[test]
     fn sources_and_json_are_flags_without_values() {
         let parsed = parse_scan(&args(&["--sources", "--format", "json"]));
-        let Some(parsed) = parsed.ok() else {
-            unreachable!("these flags parse")
-        };
-        assert!(parsed.sources && parsed.json);
+        assert_eq!(
+            parsed.map(|parsed| (parsed.sources, parsed.json)).ok(),
+            Some((true, true))
+        );
     }
 
     #[test]
     fn dash_c_sets_the_working_directory() {
         let parsed = parse_scan(&args(&["-C", "/tmp/x"]));
-        let Some(parsed) = parsed.ok() else {
-            unreachable!("these flags parse")
-        };
-        assert_eq!(parsed.cwd.as_deref(), Some(Path::new("/tmp/x")));
+        assert_eq!(
+            parsed.map(|parsed| parsed.cwd).ok().flatten(),
+            Some(PathBuf::from("/tmp/x"))
+        );
     }
 
     /// A truncated command line is an error rather than a default. Guessing
@@ -425,28 +435,21 @@ mod tests {
     }
     #[test]
     fn a_scan_with_no_configured_roots_says_what_to_run() {
-        let outcome = scan_command(&args(&["-C", "/tmp"]));
-        let Some(message) = outcome.err() else {
-            unreachable!("/tmp has no rekall.toml")
-        };
-        assert!(message.contains("rekall init"), "message was {message}");
+        let outcome = scan_command(&args(&["-C", "/tmp"]), &env());
+        assert!(
+            outcome.err().is_some_and(|m| m.contains("rekall init")),
+            "an unconfigured project must say what to run"
+        );
     }
 
     #[test]
     fn an_unknown_flag_reaches_the_caller_as_an_error() {
-        assert!(scan_command(&args(&["--nope"])).is_err());
+        assert!(scan_command(&args(&["--nope"]), &env()).is_err());
     }
 
     #[test]
     fn warnings_are_empty_when_everything_was_readable() {
-        let outcome = scan::Outcome {
-            report: scan::Report {
-                rows: Vec::new(),
-                sources: Vec::new(),
-            },
-            unreadable: Vec::new(),
-        };
-        assert!(warnings(&outcome).is_empty());
+        assert!(warnings(&empty_outcome()).is_empty());
     }
 
     #[test]
@@ -468,47 +471,37 @@ mod tests {
         );
     }
 
-    #[test]
-    fn json_output_is_parseable_and_carries_the_report_anatomy() {
-        let outcome = scan::Outcome {
+    fn empty_outcome() -> scan::Outcome {
+        scan::Outcome {
             report: scan::Report {
                 rows: Vec::new(),
                 sources: Vec::new(),
             },
             unreadable: Vec::new(),
-        };
+        }
+    }
+
+    #[test]
+    fn json_output_is_parseable_and_carries_the_report_anatomy() {
         let json_args = ScanArgs {
             json: true,
             ..ScanArgs::default()
         };
-        let Ok(text) = render(&outcome, &json_args) else {
-            unreachable!("an empty report serializes")
-        };
-        assert!(text.contains("\"rows\"") && text.contains("\"sources\""));
+        assert!(
+            render(&empty_outcome(), &json_args)
+                .is_ok_and(|text| text.contains("\"rows\"")
+                    && text.contains("\"sources\"")),
+        );
     }
 
     #[test]
     fn human_output_is_not_json() {
-        let outcome = scan::Outcome {
-            report: scan::Report {
-                rows: Vec::new(),
-                sources: Vec::new(),
-            },
-            unreadable: Vec::new(),
-        };
-        let Ok(text) = render(&outcome, &ScanArgs::default()) else {
-            unreachable!("an empty report renders")
-        };
-        assert!(!text.contains("\"rows\""));
-    }
-
-    #[test]
-    fn working_dir_prefers_the_requested_path() {
-        assert_eq!(
-            working_dir(Some(Path::new("/tmp/x"))).ok(),
-            Some(PathBuf::from("/tmp/x"))
+        assert!(
+            render(&empty_outcome(), &ScanArgs::default())
+                .is_ok_and(|text| !text.contains("\"rows\"")),
         );
     }
+
     #[test]
     fn no_arguments_prints_usage_and_succeeds() {
         assert_eq!(decide(&args(&[])), Action::PrintUsage { code: 0 });
@@ -575,12 +568,12 @@ mod tests {
     }
     #[test]
     fn usage_exits_zero_when_asked_for() {
-        assert_eq!(perform(Action::PrintUsage { code: 0 }), 0);
+        assert_eq!(perform(Action::PrintUsage { code: 0 }, &env()), 0);
     }
 
     #[test]
     fn version_exits_zero() {
-        assert_eq!(perform(Action::PrintVersion), 0);
+        assert_eq!(perform(Action::PrintVersion, &env()), 0);
     }
 
     /// Both are usage errors -- section I fixes the exit set, and neither
@@ -588,21 +581,27 @@ mod tests {
     #[test]
     fn unknown_and_unimplemented_both_exit_two() {
         assert_eq!(
-            perform(Action::Unimplemented("plan".to_string())),
+            perform(Action::Unimplemented("plan".to_string()), &env()),
             USAGE_EXIT
         );
-        assert_eq!(perform(Action::Unknown("scna".to_string())), USAGE_EXIT);
+        assert_eq!(
+            perform(Action::Unknown("scna".to_string()), &env()),
+            USAGE_EXIT
+        );
         assert_eq!(USAGE_EXIT, 2);
     }
 
     #[test]
     fn usage_shown_after_an_unknown_verb_still_reports_failure() {
-        assert_eq!(perform(Action::Unknown("nope".to_string())), 2);
+        assert_eq!(perform(Action::Unknown("nope".to_string()), &env()), 2);
     }
 
     #[test]
     fn a_scan_that_cannot_run_exits_two() {
-        assert_eq!(perform(Action::Scan(args(&["--nope"]))), USAGE_EXIT);
+        assert_eq!(
+            perform(Action::Scan(args(&["--nope"])), &env()),
+            USAGE_EXIT
+        );
     }
     /// A whole project on disk: a config plus a corpus file. Under
     /// `target/` so `cargo clean` removes it, named after its test so two
@@ -626,17 +625,18 @@ mod tests {
         let mut flags =
             vec!["-C".to_string(), dir.to_string_lossy().to_string()];
         flags.extend(extra.iter().map(|item| (*item).to_string()));
-        scan_command(&flags)
+        scan_command(&flags, &env())
     }
 
     #[test]
     fn a_configured_project_scans_end_to_end() {
         let dir = project("end-to-end");
-        let Ok(output) = run_in(&dir, &[]) else {
-            unreachable!("a configured project scans")
-        };
-        assert!(output.text.contains("M1"), "text was {}", output.text);
-        assert!(output.warnings.is_empty());
+        let output = run_in(&dir, &[]).ok();
+        assert!(
+            output.as_ref().is_some_and(|out| out.text.contains("M1")),
+            "output was {output:?}"
+        );
+        assert_eq!(output.map(|out| out.warnings.len()), Some(0));
     }
 
     /// Paths in the report are relative to the project, not to wherever the
@@ -644,37 +644,35 @@ mod tests {
     #[test]
     fn output_paths_are_project_relative() {
         let dir = project("relative");
-        let Ok(output) = run_in(&dir, &[]) else {
-            unreachable!("scans")
-        };
+        let text = text_of(&dir, &[]);
+        assert!(text.contains("CLAUDE.md:1-1"), "text was {text}");
         assert!(
-            output.text.contains("CLAUDE.md:1-1"),
-            "text was {}",
-            output.text
+            !text.contains("target/test-project"),
+            "the absolute temp path leaked into the report"
         );
-        assert!(!output.text.contains("target/test-project"));
     }
 
     #[test]
     fn json_output_parses_and_matches_the_human_row_count() {
         let dir = project("json");
-        let Ok(human) = run_in(&dir, &[]) else {
-            unreachable!("scans")
-        };
-        let rows = json_rows(&dir);
-        assert_eq!(rows, human.text.lines().count());
+        let human_rows = text_of(&dir, &[]).lines().count();
+        assert_eq!(json_rows(&dir), human_rows);
+        assert!(human_rows > 0, "the fixture must produce rows");
+    }
+
+    /// The rendered text, or an empty string if the scan failed. A failed
+    /// scan then shows up as a failed ASSERTION on content rather than as
+    /// a panic in a helper -- which keeps every test path executable.
+    fn text_of(dir: &Path, extra: &[&str]) -> String {
+        run_in(dir, extra).map(|out| out.text).unwrap_or_default()
     }
 
     fn json_rows(dir: &Path) -> usize {
-        let Ok(json) = run_in(dir, &["--format", "json"]) else {
-            unreachable!("scans")
-        };
-        let parsed: serde_json::Value = match serde_json::from_str(&json.text) {
-            Ok(value) => value,
-            Err(error) => unreachable!("json output must parse: {error}"),
-        };
-        parsed
-            .get("rows")
+        let text = text_of(dir, &["--format", "json"]);
+        serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .as_ref()
+            .and_then(|parsed| parsed.get("rows"))
             .and_then(|rows| rows.as_array())
             .map_or(0, std::vec::Vec::len)
     }
@@ -682,41 +680,31 @@ mod tests {
     #[test]
     fn the_sources_flag_adds_a_source_line() {
         let dir = project("sources");
-        let Ok(plain) = run_in(&dir, &[]) else {
-            unreachable!("scans")
-        };
-        let Ok(with_sources) = run_in(&dir, &["--sources"]) else {
-            unreachable!("scans")
-        };
-        assert!(with_sources.text.lines().count() > plain.text.lines().count());
-        assert!(with_sources.text.contains("project"));
+        let plain = text_of(&dir, &[]);
+        let with_sources = text_of(&dir, &["--sources"]);
+        assert!(with_sources.lines().count() > plain.lines().count());
+        assert!(with_sources.contains("project"));
     }
 
     #[test]
     fn filters_reach_through_the_command() {
         let dir = project("filter");
-        let Ok(output) = run_in(&dir, &["--class", "S"]) else {
-            unreachable!("scans")
-        };
-        assert_eq!(output.text.lines().count(), 1);
-        assert!(output.text.contains("S2"));
+        let text = text_of(&dir, &["--class", "S"]);
+        assert_eq!(text.lines().count(), 1);
+        assert!(text.contains("S2"), "text was {text}");
     }
 
     #[test]
     fn an_unreadable_corpus_file_becomes_a_named_warning() {
         let dir = project("warned");
         let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
-        let Ok(output) = run_in(&dir, &[]) else {
-            unreachable!("scans")
-        };
-        assert_eq!(output.warnings.len(), 1, "{:?}", output.warnings);
+        let warnings = run_in(&dir, &[])
+            .map(|out| out.warnings)
+            .unwrap_or_default();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert!(
-            output
-                .warnings
-                .first()
-                .is_some_and(|w| w.contains("bad.md")),
-            "{:?}",
-            output.warnings
+            warnings.first().is_some_and(|w| w.contains("bad.md")),
+            "{warnings:?}"
         );
     }
 
@@ -738,7 +726,7 @@ mod tests {
     fn a_successful_scan_exits_zero() {
         let dir = project("exit-zero");
         let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
-        assert_eq!(perform(Action::Scan(flags)), 0);
+        assert_eq!(perform(Action::Scan(flags), &env()), 0);
     }
 
     /// A corpus with an unreadable file still SUCCEEDS -- the warning is
@@ -750,6 +738,6 @@ mod tests {
         let dir = project("exit-zero-warned");
         let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
         let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
-        assert_eq!(perform(Action::Scan(flags)), 0);
+        assert_eq!(perform(Action::Scan(flags), &env()), 0);
     }
 }
