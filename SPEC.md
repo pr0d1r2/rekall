@@ -30,8 +30,8 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - `rekall plan <id>...` -- `--format human|json` · `--out FILE` · `--to <dir>`. The DIFF of an extraction: per statement, the source span to DELETE, the artifact to WRITE, the wiring to ADD. Report-only, writes ⊥ except the plan file itself. `--out` makes the plan an ARTIFACT ∴ reviewable, diffable, committable before a byte of corpus moves.
 - `rekall apply <id>... | <PLAN>` -- `--format human|json` · `--auto-approve` · `--to <dir>`. EXECUTE. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`revert`. Given a PLAN it re-checks the corpus FINGERPRINT first & REFUSES a stale plan (V19). Confirms on a tty; off-tty demands `--auto-approve` (V20).
 - `rekall check` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
-- `rekall recall <situation>` -- `--tool X` · `--path P` · `--cwd D` · `--format json`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands.
-- `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point.
+- `rekall recall <situation>` -- `--tool X` · `--path P` · `--cwd D` · `--format json`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands. SAME matcher as `hook` (V18).
+- `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point. SAME matcher as `recall` (V18) ∴ what `recall` PRINTS is what `hook` DECIDES.
 - `rekall log` -- `--format json` · `--dead` · `--since D`. READS the ledger. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11). VERB is `log`, STORE is the ledger -- the store is a ledger & is called one everywhere it is described.
 - `rekall catch [<session>]` -- `--format json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only; promotion goes through `plan` then `apply`.
 - `rekall revert <id>` -- reverse one extraction from the ledger, verbatim (V9).
@@ -72,6 +72,7 @@ V14: SELF-CONTAINED spec. ⊥ load-bearing reference outside this dir. Lineage r
 V15: ⊥ EGRESS of corpus content, ZERO exception. Memory & `CLAUDE.md` hold private user facts. `scan` READS; ⊥ ONE byte leaves the process. ⊥ a LAN host, ⊥ a user-named host, ⊥ an opt-in flag -- an egress path that EXISTS is an egress path that FIRES, & the corpus is the user's private facts.
 V16: harness memory dirs are READ-ONLY unless `apply` NAMED that file. A tool that mines memory ! ⊥ corrupt it.
 V17: ∀ verb -> `--format json` with the SAME anatomy as its human output. An agent ⊥ parse prose, & an unknown format is a USAGE error, ⊥ a silent fall back.
+V18: `recall` & `hook` share ONE matcher. `hook` = `recall` + `M`-rule firing + a stdin/stdout adapter; `recall` is the HUMAN & DEBUG view of the SAME decision. Two matchers is two rule sets -- the defect V8 names for two token counters -- & it is the INVISIBLE kind: each looks correct alone, & the divergence only shows where a skill fails to load in production but `recall` swears it would.
 
 ## §T TASKS
 
