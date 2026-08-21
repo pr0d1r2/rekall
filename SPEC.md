@@ -13,19 +13,19 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - Rust, edition **2024**, MSRV **1.95** = fleet pin (`nixpkgs-lock` -> nixos-26.05). MSRV is MEASURED, ⊥ copied: `itok`/`microlith` declare 1.96 & compile clean on 1.95 (R8).
 - ONE bin `rekall`; CRATE `rekall`; REPO `rekall`. MIT.
 - NAME: repo = crate = theme = invocation, ONE word, ⊥ a short form ∴ nothing here is an exception to record. 6 chars is the `cargo`/`docker` rung; an `rkl` abbreviation would buy nothing & cost muscle memory. Theme = Total Recall's memory-implant company, named ∵ the job is memory NOBODY has to hold. Three names were rejected & the REASONS are load-bearing: `tr` ∵ POSIX coreutils -- a bin on `PATH` would SHADOW it, hard ⊥ INDEPENDENT of any registry (R1); `total-recall` ∵ TAKEN (R2); `outception` ∵ Inception already NAMES its inverse -- extraction -- ∴ the coinage renames a thing that has a word, & `out-` reads as OUTPUT (R10).
-- CPU-ONLY core. Deterministic, offline, no model in `scan` · `verify` · `recall` · `ledger` · `restore`. Inference is an OPT-IN tier only (V5).
-- Network only behind `--ollama` (LAN, keyless). ⊥ any paid/authed cloud API. Core runs in a NETWORKLESS SANDBOX.
+- CPU-ONLY, WHOLE CRATE -- ⊥ a "core" qualifier, ∵ a qualifier is where an exception later hides. ∀ verb deterministic & offline. ⊥ an opt-in inference tier (V5).
+- ⊥ NETWORK, ⊥ MODEL, ⊥ INFERENCE, at any flag. The crate runs in a NETWORKLESS SANDBOX. Inference belongs to `blackbox` & is EXPERIMENTAL there (R11) ∴ importing it would make a GATE inherit an experiment's stability, & would stand up a SECOND inference client beside a sibling's -- the defect V8 already names for token counters.
 - ASCII-only Rust source (Trojan-Source, LLM-friendliness). SPEC symbols are FORMAT, ⊥ source.
 - Corpus is PRIVATE. Agent memory & `CLAUDE.md` hold user facts ∴ ⊥ egress (V15).
 - ONE config file `rekall.toml` from commit one. `itok` grew four dotfiles then began migrating back to unified (R6) -- start where it landed.
-- Token accounting is `itok`'s. ⊥ reimplemented here (V8).
+- Token accounting is `itok`'s, TOKENIZER-backed ∴ counts are MEASURED & deterministic, ⊥ estimated by a model & ⊥ a char/4 heuristic. ⊥ reimplemented here (V8).
 - `SPEC.md` FORMAT owned by `microlith`, enforced by `mth` in the gate.
 - Zero host-project internals ∴ extraction of THIS crate is a move.
 - Gate = `hk` (`hk.pkl`), same definition local & CI. Coverage floor RATCHETS.
 
 ## §I INTERFACES
 
-- `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|R|U` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `signals` · `tier`. Deterministic, report-only. THE CPU CORE.
+- `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|R|U` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `signals`. Deterministic, report-only. THE CPU CORE.
 - `rekall extract <id>...` -- `--dry-run` · `--to <dir>` · `--format json`. Materialize. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`restore`.
 - `rekall verify` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
 - `rekall recall <situation>` -- `--tool X` · `--path P` · `--cwd D` · `--format json`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands.
@@ -33,9 +33,8 @@ MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at 
 - `rekall ledger` -- `--format json` · `--dead` · `--since D`. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11).
 - `rekall catch [<session>]` -- `--format json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only; promotion goes through `extract`.
 - `rekall restore <id>` -- reverse one extraction from the ledger, verbatim (V9).
-- `--ollama[=HOSTS]` (`scan` · `catch`) -- classification tier. `[scheme://]host[:port]`, default `11434`, honors `OLLAMA_HOST`. Raises `U` rows only; ⊥ overrides a deterministic class.
 - Config: `rekall.toml` -- `[sources]` corpus roots & globs · `[signals]` classifier weights · `[triggers]` matcher defaults · `[budget]` ceilings.
-- Exit: 0 ok · 1 drift/violation · 2 usage · 7 network.
+- Exit: 0 ok · 1 drift/violation · 2 usage. ⊥ a network code ∵ ⊥ a network path.
 
 ## §R RESEARCH
 
@@ -50,6 +49,7 @@ R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judg
 R8|MSRV|`blackbox` MEASURED 1.95 clean while siblings DECLARE 1.96 ∴ the sibling floor is a stale pin mirror, ⊥ a minimum|../blackbox/SPEC.md §C
 R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in, ⊥ in request path (its V52/V53) ∴ proven shape, copy it|../itok/SPEC.md §I
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
+R11|inference|`blackbox` OWNS ollama: `src/ollama` 23,032B, its own hardware §R rows (`gpt-oss:20b` ctx 131,072 @ a LAN box), coverage 70.9% -- 13th of 14 nodes ∴ EXPERIMENTAL, ⊥ a foundation. A client here would DUPLICATE a sibling module & bind this crate's GATE to a moving target|../blackbox/SPEC.md §C,R9,R34,R50
 
 ## §V INVARIANTS
 
@@ -57,17 +57,17 @@ V1: extraction is a MOVE, ⊥ a copy. Source span deleted (pointer left) in the 
 V2: ∀ extracted `M` -> a RUNNER, same commit. Rule with no runner gates nothing.
 V3: ∀ extracted `S` -> a TRIGGER. A skill with no trigger is always-on prose, which is exactly what it was extracted FROM.
 V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence ⊥ provable from a positive description (`blackbox`'s `⊥owns` byte, R5).
-V5: CPU-ONLY core. `scan` · `verify` · `recall` · `ledger` · `restore` are deterministic & offline. A model ? raise `U` rows under `--ollama` ONLY, & ⊥ overrides a deterministic class.
+V5: CPU-ONLY, ∀ verb, ⊥ exception. Deterministic & offline everywhere. ⊥ model, ⊥ network, ⊥ inference tier at ANY opt-in. Inference is `blackbox`'s (R11) ∴ ⊥ reimplemented here -- two inference clients is exactly the defect V8 names for two token counters. An opt-in that CAN fire is a path that WILL fire, & then the classifier's floor is a remote model's uptime.
 V6: `verify` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
 V7: report-only DEFAULT. Only `extract` · `catch` -> ledger · `restore` mutate, & each NAMES every file touched before writing.
 V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same defect as two rule sets.
 V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `restore` is mechanical, ⊥ a rewrite.
-V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired + a tier. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate.
+V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate.
 V11: ledger counts FIRES ∴ a never-fired artifact is DETECTABLE. A rule that never fires is a wrong trigger or dead law; both need to be visible, ⊥ inferred.
 V12: spec CAPS ITSELF from commit one. `.context-limits` ceiling lands BEFORE the file grows into it -- a ceiling set after the growth RATIFIES it (`microlith` V9).
 V13: idempotent. `scan(scan(x))` identical; `extract` of an already-extracted id = no-op, exit 0.
 V14: SELF-CONTAINED spec. ⊥ load-bearing reference outside this dir. Lineage rows in §R are EVIDENCE; every invariant stands on its own reasoning.
-V15: ⊥ EGRESS of corpus content. Memory & `CLAUDE.md` hold private user facts. `scan` READS; the only bytes that leave are to a LAN host the user named under `--ollama`.
+V15: ⊥ EGRESS of corpus content, ZERO exception. Memory & `CLAUDE.md` hold private user facts. `scan` READS; ⊥ ONE byte leaves the process. ⊥ a LAN host, ⊥ a user-named host, ⊥ an opt-in flag -- an egress path that EXISTS is an egress path that FIRES, & the corpus is the user's private facts.
 V16: harness memory dirs are READ-ONLY unless `extract` NAMED that file. A tool that mines memory ! ⊥ corrupt it.
 V17: ∀ verb -> `--format json` with the SAME anatomy as its human output. An agent ⊥ parse prose, & an unknown format is a USAGE error, ⊥ a silent fall back.
 
@@ -90,7 +90,6 @@ T13|.|`rekall hook` adapter|I.hook,V5,R9
 T14|.|`rekall ledger` + `--dead`|V11
 T15|.|`rekall restore`|V9
 T16|.|`itok` delegation for token columns|V8
-T17|.|`--ollama` classification tier|V5,V15
 T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
