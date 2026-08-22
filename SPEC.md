@@ -42,6 +42,7 @@ CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WIN
 - `rekall apply <id>... | <PLAN>` -- `--format human|json` · `--auto-approve` · `--to <dir>`. EXECUTE. `M` -> script + runner wiring. `S` -> skill file + trigger. Deletes the source span & leaves a pointer (V1). Names EVERY file touched. The ONLY mutating verb besides `catch`/`revert`. Given a PLAN it re-checks the corpus FINGERPRINT first & REFUSES a stale plan (V19). Confirms on a tty; off-tty demands `--auto-approve` (V20).
 - `rekall check` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
 - `rekall recall <situation>` -- `--format human|json` · `--tool X` · `--path P` · `--cwd D`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands. SAME matcher as `hook` (V18).
+- TRIGGER FORMAT. `## Fires when` & `## Does NOT fire when` each carry a FENCED `rekall` block in TOML -- §C's ONE format & ONE parser, ⊥ a third grammar for three keys. Keys: `tool` (exact names) · `path` (globs) · `word` (literals vs the situation text). Within a key ANY value matches; across keys ALL PRESENT keys ! match. ⊥-fire takes the SAME keys & WINS (V29). `S1` admits `tool`/`path`, `S2` `word`, `S3` an EMPTY block (V29).
 - `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point. SAME matcher as `recall` (V18) ∴ what `recall` PRINTS is what `hook` DECIDES.
 - `rekall log` -- `--format human|json` · `--dead` · `--since D`. READS the ledger. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11). VERB is `log`, STORE is the ledger -- the store is a ledger & is called one everywhere it is described.
 - `rekall catch [<session>]` -- `--format human|json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only FOR THE CORPUS: it writes CANDIDATE rows to the ledger (V7) & touches ⊥ a source file, ⊥ an artifact. Promotion goes through `plan` then `apply`. A transcript is EPHEMERAL ∴ a violation seen at turn 200 is gone tomorrow unless the candidate outlives the session that produced it -- which is the whole reason this verb exists.
@@ -56,7 +57,7 @@ id|topic|finding|src
 R1|name `tr`|TAKEN crates.io v0.1.11 (i18n) AND `tr` = POSIX coreutils ∴ bin would SHADOW it -- ⊥ regardless of registry|crates.io/api/v1/crates/tr
 R2|name `total-recall`|TAKEN crates.io v0.3.0, GUI to-do app ∴ crate name unavailable|crates.io/api/v1/crates/total-recall
 R3|name `rekall`|FREE on crates.io @ 2026-08-21 ∴ repo · crate · bin collapse to ONE word, no bend to document|crates.io/api/v1/crates/rekall
-R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING on a 24GB M-series box @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware|MEASURED, internal
+R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware. BOX: M-series 24GB, ⊥ recorded further -- the defect V31 now forbids, left VISIBLE ⊥ back-filled with a guess. ⊥ either box in R14 ∴ RATIO stands, absolutes want re-measuring (T36)|MEASURED, internal
 R5|conditional load|~50% of a repo never loads for impl work; conditional slicing brings one node to ~6% of the whole ∴ trigger-gated load is MEASURED, ⊥ hoped|MEASURED, internal
 R6|config sprawl|`itok` main carries FOUR dotfiles LIVE -- `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts` ∴ the sprawl is the SHIPPED state, ⊥ a near miss. A unification to `itok.toml` (project root wins, `~/.config` the fallback) exists on an UNLANDED branch ∴ EVIDENCE OF INTENT, ⊥ of outcome. Unify from commit one & pay ⊥ the migration|github.com/pr0d1r2/itok SPEC.md @ main
 R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|github.com/pr0d1r2/microlith SPEC.md §I @ main
@@ -65,6 +66,7 @@ R9|adapter shape|`itok guard` = hook JSON stdin -> decision JSON stdout, opt-in,
 R10|name `outception`|FREE, but Inception's OWN word for the inverse of inception is EXTRACTION ∴ the coinage names an already-named thing; `extraction` also free but a generic-noun squat|the film's vocabulary
 R12|platforms|`nixpkgs-lock` -- the fleet PIN repo, ∴ the authority -- declares `supportedSystems` = `aarch64-darwin` · `x86_64-darwin` · `x86_64-linux` · `aarch64-linux`. Consumers `itok` & `microlith` each declare that list MINUS `x86_64-darwin` ∴ the 4 are SUPPORT & the 3 are what GitHub CI can BUILD, ⊥ two disagreeing support claims. Read a consumer as authority & you conclude Intel-mac is unsupported -- it is UNBUILT|github.com/pr0d1r2/nixpkgs-lock flake.nix @ main
 R13|instruction growth|MEASURED over 247,694 instruction lifetimes in 1,867 repos: agent instruction files grow +226% across their life at +4.9 net instructions/commit, & the deletion hazard FALLS with age (-0.032/commit) ∴ an old rule is never removed. A wholesale rewrite dropping ~40% is followed by FASTER regrowth (+4.9%/commit vs +4.1%) ∴ manual pruning is ⊥ a fix. "Catastrophic remembering" = the RATIONALE is lost ∴ deletion is UNSAFE, ⊥ merely unpleasant|alphaxiv.org/abs/2608.11095
+R14|dev boxes|TWO boxes, ~5x apart: timings @ 2026-08-22 ran on Apple M4 10-core 16GB; the BUILD box is M1 Pro 8-core 32GB. CONSEQUENCE: one `itok` spawn per statement = 57ms fast ∴ 11s / 200 statements, but ~57s slow -- past §C's bypass threshold -- while ONE batched call = 74ms. The RATIO decides, ⊥ either absolute ∴ ∀ timing ! name its box (V31)|MEASURED, internal
 
 ## §V INVARIANTS
 
@@ -97,6 +99,12 @@ V26: a MISSING runner is ⊥ a pass. A step this crate OWNS -> FAIL. An OPTIONAL
 V27: a RATCHET moves ONE WAY & its floor TRACKS REALITY. Its `fix` half REFUSES to record a regression -- a ratchet that writes down whatever it measures files down its own teeth on the commit it should have refused. & an UNRECORDED RISE is a FAILURE too: a floor below what the code actually reaches is a floor LYING about what it protects, & every line above it may silently go uncovered again. ∴ new code RAISES the floor, & the gate ⊥ green until it does -- the same shape as `cargo fmt --check` red on an unformatted file, cleared by ONE command.
 V28: success is SILENCE; a FAILING gate NAMES THE FIX. Output that ALWAYS appears is output nobody reads ∴ the one real failure hides in noise everyone learned to scroll past.
 
+V29: a TRIGGER is MACHINE-READABLE or it ⊥ FIRES. The fenced `rekall` block IS the trigger; prose beside it is for the human. EXCLUSION WINS -- a ⊥-fire match refuses the load even when the fire block matched, ∵ V4 makes absence a CLAUSE & a clause that loses to a positive match states NOTHING. An `S3` carries an EMPTY block ∴ ⊥ fires, BY CONSTRUCTION: its trigger is SEMANTIC & V5 forbids the model that would notice it. ⊥ a gap -- the LADDER being honest, ∵ V10 already calls a `3` the spec saying this artifact may never fire & V11's `--dead` MEASURES it. `check` REFUSES a block that ⊥ parses (V22).
+V30: `[signals]` WEIGHTS decide CLASS, ⊥ SHARPNESS. Class is a BALANCE -- directive evidence against hedge -- ∴ it takes a weight & a DEADBAND, & the deadband IS V10's "I do not know". Sharpness is a LADDER of KINDS (§I: `M2` = runner needs ONE human-set parameter) ∴ ⊥ a score: a sum cannot say WHICH KIND of runner a statement admits, & rounding one to a rung INVENTS the property V10 assigns to the STATEMENT. `show` prints ∀ signal WITH its weight ∴ the balance is ARGUABLE.
+V31: a MEASURED figure carries its BOX & DATE, or it is ⊥ EVIDENCE. V21 one level in: `src` says WHO can check it, the box says WHAT ! be re-created to check it. R14's two boxes are ~5x apart ∴ a timing compared across them without both names compares NOTHING, & what survives is the RATIO.
+V32: a SCRATCH path is unique PER CALL, ⊥ per process. A pid-named dir is shared by every thread in that process ∴ concurrent runs delete each other's files, & the symptom shows ONLY under load -- the kind that passes review & every hand-run.
+V33: a gate MESSAGE is DATA, ⊥ CODE. ⊥ backticks & ⊥ `$(...)` in a shell-quoted advisory: the shell EXECUTES them & the advice is REPLACED by what it ran.
+
 ## §T TASKS
 
 id|status|task|cites
@@ -111,13 +119,13 @@ T8|x|ledger store `.rekall/ledger.toml`: CANDIDATE & EXTRACTED rows, prefix look
 T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
 T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
-T12|.|`rekall recall` matcher|I.recall,V3
-T13|.|`rekall hook` adapter|I.hook,V5,R9
+T12|.|`rekall recall` matcher, reading the trigger BLOCK|I.recall,V3,V29
+T13|.|`rekall hook` adapter|I.hook,V5,V29,R9
 T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9
 T16|x|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
-T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
+T19|.|measure: tokens reclaimed on THIS repo's own `CLAUDE.md`, consumer #0, box NAMED|R4,R5,V31,T35
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
 T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
@@ -131,8 +139,13 @@ T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
 T30|x|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
 T31|x|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & SAY SO|V26
 T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
-T33|.|`[signals]` WEIGHTS: config table + weighted classifier + weight in `show`|§C,§I,V10,V22
+T33|.|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in `show`; sharpness stays a LADDER|§C,§I,V10,V22,V30
+T34|.|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
+T35|.|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
+T36|.|∀ MEASURED figure NAMES its box: re-measure R4, stamp T19's output|V31,R4,R14
 
 ## §B BUGS
 
 id|date|cause|fix
+B1|2026-08-22|`tokens` scratch dir named by PID alone ∴ concurrent counts in ONE process deleted each other's files mid-count. Symptom appeared ONLY under load, never on a hand-run|V32
+B2|2026-08-22|gate message wrote its fix in backticks inside a double-quoted shell string ∴ the shell EXECUTED `direnv` & printed `command not found` WHERE THE ADVICE SHOULD HAVE BEEN|V33

@@ -22,6 +22,27 @@
 #   SPEC.md    6773
 #   README.md   842
 #
+# RE-MEASURED 2026-08-22, after the amendment that unblocked T12/T13/T26,
+# T19 and T33:
+#   SPEC.md    8619
+#   README.md   842
+#
+# THE CEILING ROSE, 7700 -> 9700, and this is the review it was built to
+# force rather than a number moved to clear a red. What breached it:
+# V29-V33, R14, B1-B2, T34-T36 and one §I bullet -- five invariants, a
+# research row, the first two bug rows, three tasks. A tightening pass came
+# first and bought ~150 tokens; the remaining ~1850 is content, so cutting
+# further would have meant deleting reasoning rather than compressing it.
+#
+# The §B rows are the ones worth defending, because they are the format's
+# whole point and the section had been empty: a bug with no row is a bug
+# the next session repeats. Every other addition unblocks a task that was
+# stalled on a decision nobody had made.
+#
+# Slack is ~12.5%, the same discipline the first ceiling used. When this
+# one is next approached, compact §B before widening again -- oldest rows
+# first, per the ONE FILE RULE.
+#
 # WHY THIS FILE EXISTS AT ALL, stated here because it is the trap it was
 # born from: V12 required the ceiling from commit one, and for several
 # commits this repo declared one in section C while nothing read it. A
@@ -29,5 +50,5 @@
 # nothing reports them (V22). The runner landed with the number, in one
 # commit, which is what V22 actually asks for.
 
-SPEC.md    7700
+SPEC.md    9700
 README.md  1000
