@@ -13,6 +13,7 @@ pub mod config;
 pub mod corpus;
 pub mod init;
 pub mod ledger;
+pub mod log;
 pub mod plan;
 pub mod revert;
 pub mod scan;

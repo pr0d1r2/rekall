@@ -113,7 +113,7 @@ T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|.|`rekall recall` matcher|I.recall,V3
 T13|.|`rekall hook` adapter|I.hook,V5,R9
-T14|.|`rekall log` + `--dead`|V11
+T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9
 T16|.|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
