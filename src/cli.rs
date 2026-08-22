@@ -7,7 +7,7 @@
 
 use crate::{
     apply, check, classify, config, corpus, hook, init, ledger, log, plan,
-    recall, revert, scan, show, statement, tokens, trigger,
+    recall, revert, runner, scan, show, statement, tokens, trigger,
 };
 use std::path::{Path, PathBuf};
 
@@ -960,6 +960,20 @@ fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
     let parent = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     std::fs::write(&path, apply::artifact_text(step))
+        .map_err(|error| error.to_string())?;
+    if step.label.starts_with('M') {
+        make_runnable(&path)?;
+    }
+    Ok(())
+}
+
+/// An `M` artifact arrives EXECUTABLE. A runner nothing can execute is a
+/// rule with no runner, which V2 says gates nothing -- and the failure
+/// would surface as "permission denied" at a tool call rather than as
+/// something `check` could tell you about.
+fn make_runnable(path: &Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
         .map_err(|error| error.to_string())
 }
 
@@ -1661,10 +1675,39 @@ pub fn hook_command(
     let report = recall::decide(&candidates, &hook::situation(&payload));
     let loading = hook::loading(&report);
     count_fires(&path, &loading);
-    Ok(hook::decision(
-        payload.hook_event_name.as_deref(),
-        &injected(&loading, &held, &texts),
-    ))
+    let said = advice(&loading, &held, &texts, base);
+    Ok(hook::decision(payload.hook_event_name.as_deref(), &said))
+}
+
+/// What the harness is told, per firing row.
+///
+/// An `S` contributes its TEXT -- the skill is the advice. An `M`
+/// contributes what its RUNNER said, and only when the runner objected: a
+/// rule that looked and found nothing has nothing to add, and injecting
+/// "passed" on every tool call is the always-on cost this crate removes.
+fn advice(
+    loading: &[String],
+    held: &ledger::Ledger,
+    texts: &[Option<String>],
+    base: &Path,
+) -> Vec<String> {
+    held.extracted
+        .iter()
+        .zip(texts)
+        .filter(|(row, _)| loading.contains(&row.id))
+        .filter_map(|(row, text)| said_by(row, text.as_deref(), base))
+        .collect()
+}
+
+fn said_by(
+    row: &ledger::Extracted,
+    text: Option<&str>,
+    base: &Path,
+) -> Option<String> {
+    if !row.label.starts_with('M') {
+        return text.map(ToString::to_string);
+    }
+    runner::run(&base.join(&row.artifact), runner::LIMIT).advice()
 }
 
 /// V34: the counter, and the ONLY thing `hook` writes.
@@ -1678,20 +1721,6 @@ fn count_fires(path: &Path, loading: &[String]) {
     for id in loading {
         let _ = ledger::record_fire(&ledger::fires_beside(path), id);
     }
-}
-
-/// The artifact TEXT for each loading skill -- what actually gets injected.
-fn injected(
-    loading: &[String],
-    held: &ledger::Ledger,
-    texts: &[Option<String>],
-) -> Vec<String> {
-    held.extracted
-        .iter()
-        .zip(texts)
-        .filter(|(row, _)| loading.contains(&row.id))
-        .filter_map(|(_, text)| text.clone())
-        .collect()
 }
 
 /// Stdin to stdout, and NEVER a signal in the exit code (section I).
@@ -3901,6 +3930,115 @@ mod tests {
             perform(Action::Hook(args(&["--format", "json"])), &env()),
             USAGE_EXIT
         );
+    }
+
+    /// A project with one extracted `M` rule whose runner is real and
+    /// whose trigger fires on `*.rs`.
+    fn rule_project(name: &str, body: &str) -> PathBuf {
+        let dir = check_project(name);
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n",
+        );
+        let (id, _) = extracted(&dir);
+        let path = dir.join(artifact_of(&dir, &id));
+        let _ = std::fs::write(&path, body);
+        let _ = make_runnable(&path);
+        let skill = dir.join(artifact_of(&dir, &id));
+        let _ = skill;
+        write_trigger(&dir, &id, "path = [\"**/*.rs\"]");
+        dir
+    }
+
+    /// An `M` artifact carries its runner AND its trigger block: the
+    /// script is the rule, the block is when it arrives early (V37).
+    fn write_trigger(dir: &Path, id: &str, fire: &str) {
+        let path = dir.join(artifact_of(dir, id));
+        let held = std::fs::read_to_string(&path).unwrap_or_default();
+        let _ = std::fs::write(
+            &path,
+            format!(
+                "{held}\n# {}\n#\n# ```rekall\n# {fire}\n# ```\n#\n# {}\n#\n# ```rekall\n# ```\n",
+                apply::FIRES,
+                apply::NOT_FIRES
+            ),
+        );
+    }
+
+    /// V37 end to end: a rule with a trigger FIRES from the hook, and its
+    /// own words reach the model.
+    #[test]
+    fn a_mechanical_rule_with_a_trigger_advises() {
+        let dir = rule_project(
+            "m-fires",
+            "#!/bin/sh\necho 'do not commit to main' >&2\nexit 1\n",
+        );
+        let out = hook_in(&dir, "a.rs");
+        assert_eq!(
+            out.pointer("/hookSpecificOutput/additionalContext")
+                .and_then(serde_json::Value::as_str),
+            Some("do not commit to main"),
+            "{out}"
+        );
+    }
+
+    /// V38, THE ONE THAT MATTERS. A failing rule ADVISES; it must never
+    /// deny the tool call. A wrong rule that blocks costs the user their
+    /// work, and unwedging it means editing the corpus mid-task.
+    #[test]
+    fn a_failing_rule_never_denies_the_tool_call() {
+        let dir = rule_project("m-advises", "#!/bin/sh\necho no >&2\nexit 1\n");
+        let out = hook_in(&dir, "a.rs");
+        assert!(
+            out.pointer("/hookSpecificOutput/permissionDecision")
+                .is_none(),
+            "the hook tried to block a tool call: {out}"
+        );
+        assert_eq!(perform(Action::Hook(Vec::new()), &env()), 0);
+    }
+
+    /// A rule that looked and found nothing says NOTHING. Injecting
+    /// "passed" on every tool call is the always-on cost this crate
+    /// exists to remove.
+    #[test]
+    fn a_clean_rule_adds_no_context() {
+        let dir = rule_project("m-clean", "#!/bin/sh\nexit 0\n");
+        assert_eq!(hook_in(&dir, "a.rs"), serde_json::json!({}));
+    }
+
+    /// V38: bounded. A hung rule is killed and reported rather than
+    /// stalling the harness on every call.
+    #[test]
+    fn a_hanging_rule_does_not_stall_the_hook() {
+        let dir = rule_project("m-hang", "#!/bin/sh\nsleep 30\n");
+        let started = std::time::Instant::now();
+        let out = hook_in(&dir, "a.rs");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "the hook was not bounded"
+        );
+        let said = out
+            .pointer("/hookSpecificOutput/additionalContext")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        assert!(said.contains("timed out"), "{out}");
+    }
+
+    /// V2: a generated runner arrives EXECUTABLE. Otherwise the failure
+    /// surfaces as "permission denied" at a tool call rather than as
+    /// something `check` could have told you.
+    #[test]
+    fn a_generated_runner_is_executable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = check_project("m-mode");
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n",
+        );
+        let (id, _) = extracted(&dir);
+        let mode = std::fs::metadata(dir.join(artifact_of(&dir, &id)))
+            .map(|meta| meta.permissions().mode() & 0o111);
+        assert_eq!(mode.ok(), Some(0o111), "the runner is not executable");
     }
 
     #[test]

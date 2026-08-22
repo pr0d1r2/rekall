@@ -147,23 +147,56 @@ fn check_globs(held: &Trigger) -> Result<(), Fault> {
         .map_err(|error| Fault::BadGlob(error.to_string()))
 }
 
+/// A line's content with one COMMENT MARKER removed, if it has one.
+///
+/// An `M` artifact is a SCRIPT, so its block has to be commented out or
+/// the shell would try to run it. This is not a second format: it is the
+/// same fenced block, in a file where uncommented text executes.
+///
+/// The marker is `#` followed by a SPACE, which is exactly what keeps a
+/// markdown heading safe: `## Fires when` has no space after its first
+/// `#`, so it is left alone, while `# ## Fires when` in a shell script
+/// strips to the heading it names.
+fn bare(line: &str) -> &str {
+    let held = line.trim();
+    held.strip_prefix("# ").map_or(held, str::trim_start)
+}
+
+fn is_line(line: &str, want: &str) -> bool {
+    let held = line.trim();
+    held == want || bare(line) == want
+}
+
 /// The lines under a heading, up to the next one at the same level.
 fn section<'a>(text: &'a str, heading: &str) -> Option<Vec<&'a str>> {
-    let mut lines = text.lines().skip_while(|line| line.trim() != heading);
+    let mut lines = text.lines().skip_while(|line| !is_line(line, heading));
     lines.next()?;
     Some(
         lines
-            .take_while(|line| !line.trim_start().starts_with("## "))
+            .take_while(|line| !bare(line).starts_with("## "))
             .collect(),
     )
 }
 
 /// The body of the first `rekall` fence in these lines.
+///
+/// Whether the BODY is uncommented is decided by the FENCE line rather
+/// than guessed per line. A block whose fence was bare keeps its lines
+/// verbatim -- so a `#` inside it stays a TOML comment instead of being
+/// silently promoted to content.
 fn fenced(body: &[&str]) -> Option<String> {
-    let start = body.iter().position(|line| line.trim() == FENCE)?;
+    let start = body.iter().position(|line| is_line(line, FENCE))?;
+    let commented = body.get(start)?.trim() != FENCE;
     let rest = body.get(start.checked_add(1)?..)?;
-    let end = rest.iter().position(|line| line.trim() == "```")?;
-    Some(rest.get(..end)?.join("\n"))
+    let end = rest.iter().position(|line| is_line(line, "```"))?;
+    let held = rest.get(..end)?.iter();
+    Some(if commented {
+        held.map(|line| bare(line)).collect::<Vec<_>>().join("\n")
+    } else {
+        held.map(|line| line.trim_end())
+            .collect::<Vec<_>>()
+            .join("\n")
+    })
 }
 
 /// Whether a skill loads HERE.
@@ -347,6 +380,40 @@ mod tests {
                 .to_string()
                 .contains("nope")
         );
+    }
+
+    /// An `M` artifact is a SCRIPT, so its block is commented out or the
+    /// shell would run it. Same block, same keys -- only the marker
+    /// differs, and the file decides whether it needs one.
+    #[test]
+    fn a_commented_block_in_a_script_parses() {
+        let script = format!(
+            "#!/bin/sh\nexit 0\n\n# {FIRES}\n#\n# {FENCE}\n# path = [\"**/*.rs\"]\n# ```\n"
+        );
+        let held = parse_block(&script, FIRES).unwrap_or_default();
+        assert_eq!(held.path, vec!["**/*.rs".to_string()]);
+    }
+
+    /// THE LINE THAT KEEPS MARKDOWN SAFE. A comment marker is `#` plus a
+    /// SPACE; `## Fires when` has none after its first `#`, so a heading
+    /// is never mistaken for a commented one.
+    #[test]
+    fn a_markdown_heading_is_not_read_as_a_comment() {
+        assert_eq!(bare("## Fires when"), "## Fires when");
+        assert_eq!(bare("# ## Fires when"), "## Fires when");
+        assert_eq!(bare("# path = []"), "path = []");
+    }
+
+    /// A `#` INSIDE an uncommented block stays a TOML comment. Stripping
+    /// per line rather than per fence would promote it to content and
+    /// break a block that was perfectly valid.
+    #[test]
+    fn a_toml_comment_inside_a_bare_block_is_left_alone() {
+        let text = format!(
+            "{FIRES}\n\n{FENCE}\n# a note about why\ntool = [\"Edit\"]\n```\n"
+        );
+        let held = parse_block(&text, FIRES).unwrap_or_default();
+        assert_eq!(held.tool, vec!["Edit".to_string()]);
     }
 
     #[test]

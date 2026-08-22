@@ -18,6 +18,7 @@ pub mod log;
 pub mod plan;
 pub mod recall;
 pub mod revert;
+pub mod runner;
 pub mod scan;
 pub mod show;
 pub mod statement;

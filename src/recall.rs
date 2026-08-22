@@ -5,8 +5,9 @@
 //! given moment, whether the trigger is met -- and say it where a human
 //! can read the answer.
 //!
-//! REPORT-ONLY (V7). It does not fire an `M` rule and it does not count a
-//! firing: `hook` does both, and the counter V11 reads must mean "this
+//! REPORT-ONLY (V7). It JUDGES both classes -- V37 lets an `M` rule carry
+//! a trigger too -- but it never RUNS one and never counts a firing:
+//! `hook` does both, and the counter V11 reads must mean "this
 //! artifact was actually loaded", not "somebody asked about it". A `recall`
 //! that incremented would make `--dead` measure curiosity.
 //!
@@ -49,22 +50,21 @@ const REFUSED: &str =
     "refused by the do-not-fire block, which WINS over a match";
 const NO_MATCH: &str = "trigger did not match";
 const EMPTY: &str = "trigger is empty, so it matches nothing";
+const GATE_ONLY: &str = "no trigger, so it gates at commit only (V37)";
 const UNREADABLE: &str = "trigger could not be read";
 const GONE: &str = "artifact is missing -- run `rekall check`";
 
 /// Judge every candidate.
 ///
-/// `M` rows are skipped entirely: they are RULES, fired by `hook` at their
-/// own moment, and listing them here would answer a question nobody asked
-/// with rows nobody can act on.
+/// BOTH classes are judged. V37 lets an `M` rule carry a trigger too --
+/// its runner still gates at commit, and a trigger is how it
+/// ADDITIONALLY arrives uninvited. An `M` with an empty block is
+/// GATE-ONLY and says so, rather than being filtered out of the debug
+/// view that exists to answer "why did this not fire".
 #[must_use]
 pub fn decide(candidates: &[Candidate<'_>], at: &trigger::Situation) -> Report {
     Report {
-        rows: candidates
-            .iter()
-            .filter(|one| one.row.label.starts_with('S'))
-            .map(|one| judge(one, at))
-            .collect(),
+        rows: candidates.iter().map(|one| judge(one, at)).collect(),
     }
 }
 
@@ -98,7 +98,17 @@ fn verdict(
     ) else {
         return (false, UNREADABLE);
     };
-    weigh(&fire, &refuse, at)
+    weigh(&fire, &refuse, at, &one.row.label)
+}
+
+/// The SAME emptiness means different things by class (V37): for an `S`
+/// it is work nobody has done, for an `M` it is a deliberate choice to
+/// gate at commit and not in the tool path.
+fn empty_means(label: &str) -> &'static str {
+    if label.starts_with('M') {
+        return GATE_ONLY;
+    }
+    EMPTY
 }
 
 /// The order is V29's: refusal FIRST and outright.
@@ -106,9 +116,10 @@ fn weigh(
     fire: &trigger::Trigger,
     refuse: &trigger::Trigger,
     at: &trigger::Situation,
+    label: &str,
 ) -> (bool, &'static str) {
     if fire.is_empty() {
-        return (false, EMPTY);
+        return (false, empty_means(label));
     }
     if trigger::matches(refuse, at) {
         return (false, REFUSED);
@@ -246,13 +257,31 @@ mod tests {
         assert!(why.contains("rekall check"), "{why}");
     }
 
-    /// `M` rows are RULES, fired by `hook` at their own moment. Listing
-    /// them here would answer a question nobody asked.
+    /// V37: an `M` rule with a TRIGGER is judged like any other. Its
+    /// runner still gates at commit; the trigger is how it additionally
+    /// arrives uninvited.
     #[test]
-    fn mechanical_rules_are_not_candidates() {
+    fn a_mechanical_rule_with_a_trigger_loads() {
         let held = row("aaa", "M1");
         let text = skill("path = [\"**/*.rs\"]", "");
-        assert!(one(&held, &text).rows.is_empty());
+        assert_eq!(first(&one(&held, &text)), (true, LOADS.to_string()));
+    }
+
+    /// The SAME emptiness, read differently by class. For an `M` it is a
+    /// deliberate choice to gate at commit; for an `S` it is work nobody
+    /// has done. Reporting both as "empty" would hide the difference.
+    #[test]
+    fn an_empty_mechanical_block_is_gate_only_not_a_gap() {
+        let held = row("aaa", "M1");
+        assert_eq!(
+            first(&one(&held, &skill("", ""))),
+            (false, GATE_ONLY.to_string())
+        );
+        let skill_row = row("bbb", "S2");
+        assert_eq!(
+            first(&one(&skill_row, &skill("", ""))),
+            (false, EMPTY.to_string())
+        );
     }
 
     /// EVERY candidate is reported, hit or miss. A view that hid the

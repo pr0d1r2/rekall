@@ -408,6 +408,75 @@ mod tests {
         assert!(path.is_file());
     }
 
+    /// A saved ledger holding one row, ready to fire against.
+    fn one_row(name: &str) -> PathBuf {
+        let path = dir(name).join(FILE);
+        let mut held = Ledger::default();
+        held.record(row("aaa"));
+        let _ = save(&path, &held);
+        path
+    }
+
+    /// The JOURNAL, folded back on read. This is the whole of V34's
+    /// mechanism seen from outside: append, then `load` reports the sum.
+    #[test]
+    fn a_recorded_fire_is_folded_into_the_row_on_load() {
+        let path = one_row("journal");
+        let fires = fires_beside(&path);
+        let _ = record_fire(&fires, "aaa");
+        let _ = record_fire(&fires, "aaa");
+        assert_eq!(
+            load(&path)
+                .ok()
+                .and_then(|l| l.extracted.first().map(|r| r.fires)),
+            Some(2)
+        );
+    }
+
+    /// SAVE COMPACTS. The counts written already include the journal, so
+    /// leaving it behind would count every fire twice on the next read.
+    #[test]
+    fn saving_clears_the_journal_it_folded() {
+        let path = one_row("compact");
+        let _ = record_fire(&fires_beside(&path), "aaa");
+        let folded = load(&path).unwrap_or_default();
+        let _ = save(&path, &folded);
+        assert!(!fires_beside(&path).exists(), "the journal survived");
+        assert_eq!(
+            load(&path)
+                .ok()
+                .and_then(|l| l.extracted.first().map(|r| r.fires)),
+            Some(1),
+            "the fire was counted twice"
+        );
+    }
+
+    /// A journal line naming an id nothing holds is IGNORED, not fatal --
+    /// a revert racing a hook loses a count rather than corrupting a row.
+    #[test]
+    fn a_fire_for_an_unknown_id_is_ignored() {
+        let path = one_row("orphan-fire");
+        let _ = record_fire(&fires_beside(&path), "gone");
+        assert_eq!(
+            load(&path)
+                .ok()
+                .and_then(|l| l.extracted.first().map(|r| r.fires)),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn a_fire_that_cannot_be_written_names_the_path() {
+        let at = dir("stuck-journal");
+        let blocked = at.join("wall");
+        let _ = std::fs::write(&blocked, "not a directory");
+        let said = record_fire(&blocked.join(FIRES), "aaa")
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        assert!(said.contains("cannot write"), "{said}");
+    }
+
     #[test]
     fn a_write_to_an_impossible_path_names_it() {
         let path = Path::new("/definitely/not/writable/ledger.toml");
