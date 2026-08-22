@@ -119,7 +119,7 @@ T8|x|ledger store `.rekall/ledger.toml`: CANDIDATE & EXTRACTED rows, prefix look
 T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
 T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
-T12|.|`rekall recall` matcher, reading the trigger BLOCK|I.recall,V3,V29
+T12|x|`rekall recall` matcher, reading the trigger BLOCK|I.recall,V3,V29
 T13|.|`rekall hook` adapter|I.hook,V5,V29,R9
 T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9

@@ -65,8 +65,26 @@ impl Trigger {
 pub struct Situation {
     pub tool: Option<String>,
     pub path: Option<String>,
+    /// Where the agent is working. Section I gives `recall` a `--cwd`
+    /// separate from every other verb's `-C`: one says where the PROJECT
+    /// is, this says where the WORK is, and only the second is a fact a
+    /// trigger can turn on.
+    pub cwd: Option<String>,
     /// The free text a human typed, or the harness's description.
     pub text: String,
+}
+
+impl Situation {
+    /// THE path in play: the file when one is named, else the directory
+    /// the work is happening in.
+    ///
+    /// One value rather than matching both, because "either may match"
+    /// makes an EXCLUSION fire on the directory while the file it names is
+    /// somewhere else entirely -- a refusal nobody could predict from
+    /// reading it. The named file is the more specific fact, so it wins.
+    fn in_play(&self) -> Option<&String> {
+        self.path.as_ref().or(self.cwd.as_ref())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -194,8 +212,7 @@ fn path_ok(held: &Trigger, at: &Situation) -> bool {
     let Ok(set) = corpus::matcher(&held.path) else {
         return false;
     };
-    at.path
-        .as_ref()
+    at.in_play()
         .is_some_and(|path| set.is_match(std::path::Path::new(path)))
 }
 
@@ -225,7 +242,15 @@ mod tests {
         Situation {
             tool: Some(tool.to_string()),
             path: Some(path.to_string()),
+            cwd: None,
             text: text.to_string(),
+        }
+    }
+
+    fn in_dir(cwd: &str) -> Situation {
+        Situation {
+            cwd: Some(cwd.to_string()),
+            ..Situation::default()
         }
     }
 
@@ -366,6 +391,27 @@ mod tests {
     fn an_empty_exclusion_refuses_nothing() {
         let fire = only("tool = [\"Edit\"]");
         assert!(fires(&fire, &Trigger::default(), &at("Edit", "", "")));
+    }
+
+    /// With no file named, `path` tests the directory the work is in --
+    /// which is the only path in play when someone asks "what loads here"
+    /// before touching anything.
+    #[test]
+    fn the_cwd_stands_in_when_no_file_is_named() {
+        let held = only("path = [\"**/backend/**\"]");
+        assert!(matches(&held, &in_dir("srv/backend/api")));
+        assert!(!matches(&held, &in_dir("srv/web")));
+    }
+
+    /// The NAMED FILE WINS. Matching both would let an exclusion fire on
+    /// the directory while the file it names sits elsewhere -- a refusal
+    /// nobody could predict from reading the block.
+    #[test]
+    fn a_named_file_beats_the_directory_it_was_named_from() {
+        let held = only("path = [\"**/backend/**\"]");
+        let mut at = at("Edit", "srv/web/app.rs", "");
+        at.cwd = Some("srv/backend/api".to_string());
+        assert!(!matches(&held, &at));
     }
 
     /// The `S3` case, stated as a test because it is a CONSEQUENCE rather

@@ -15,6 +15,7 @@ pub mod init;
 pub mod ledger;
 pub mod log;
 pub mod plan;
+pub mod recall;
 pub mod revert;
 pub mod scan;
 pub mod show;

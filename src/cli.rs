@@ -6,8 +6,8 @@
 //! here instead of inside a macro.
 
 use crate::{
-    apply, check, config, corpus, init, ledger, log, plan, revert, scan, show,
-    statement, tokens,
+    apply, check, config, corpus, init, ledger, log, plan, recall, revert,
+    scan, show, statement, tokens, trigger,
 };
 use std::path::{Path, PathBuf};
 
@@ -181,6 +181,7 @@ pub enum Action {
     Revert(Vec<String>),
     Check(Vec<String>),
     Log(Vec<String>),
+    Recall(Vec<String>),
     /// A verb section I defines that this build cannot perform.
     Unimplemented(String),
     /// A verb the binary has never heard of -- a typo, not a backlog row.
@@ -220,6 +221,7 @@ fn verb_action(verb: &str, flags: Vec<String>) -> Action {
         "revert" => Action::Revert(flags),
         "check" => Action::Check(flags),
         "log" => Action::Log(flags),
+        "recall" => Action::Recall(flags),
         known if VERBS.contains(&known) => {
             Action::Unimplemented(known.to_string())
         }
@@ -258,6 +260,7 @@ pub fn perform(action: Action, env: &Env) -> u8 {
         Action::Revert(flags) => run_revert(&flags, env),
         Action::Check(flags) => run_check(&flags, env),
         Action::Log(flags) => run_log(&flags, env),
+        Action::Recall(flags) => run_recall(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
     }
@@ -1512,6 +1515,126 @@ fn run_log(flags: &[String], env: &Env) -> u8 {
     emit(log_command(flags, env))
 }
 
+/// `recall` takes the SITUATION: a free-text description plus whatever
+/// exact facts the caller has.
+#[derive(Debug, Default)]
+pub struct RecallArgs {
+    pub text: String,
+    pub tool: Option<String>,
+    pub path: Option<String>,
+    /// Where the WORK is. Section I gives this verb a `--cwd` distinct
+    /// from every other verb's `-C`, which says where the PROJECT is --
+    /// only the first is a fact a trigger can turn on.
+    pub cwd: Option<String>,
+    pub base: Option<PathBuf>,
+    pub json: bool,
+}
+
+pub fn parse_recall(args: &[String]) -> Result<RecallArgs, String> {
+    let mut out = RecallArgs::default();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        apply_recall_arg(&mut out, arg, &mut rest)?;
+    }
+    Ok(out)
+}
+
+fn apply_recall_arg<'a>(
+    out: &mut RecallArgs,
+    arg: &str,
+    rest: &mut impl Iterator<Item = &'a String>,
+) -> Result<(), String> {
+    match arg {
+        "--tool" => out.tool = Some(need(arg, rest)?),
+        "--path" => out.path = Some(need(arg, rest)?),
+        "--cwd" => out.cwd = Some(need(arg, rest)?),
+        "--format" => {
+            out.json = parse_format(&need(arg, rest)?)? == Format::Json;
+        }
+        "-C" => out.base = Some(PathBuf::from(need(arg, rest)?)),
+        other if other.starts_with('-') => {
+            return Err(format!("unknown flag `{other}`"));
+        }
+        // Every remaining positional joins the situation TEXT. A shell
+        // splits an unquoted description into words, and refusing the
+        // second one would make `rekall recall editing a test` a usage
+        // error for no reason a caller could guess.
+        word => out.text = join(&out.text, word),
+    }
+    Ok(())
+}
+
+fn join(held: &str, word: &str) -> String {
+    if held.is_empty() {
+        return word.to_string();
+    }
+    format!("{held} {word}")
+}
+
+/// Run `recall` end to end. Report-only, and it counts NO firing -- V11's
+/// counter must mean the artifact was loaded, not asked about.
+pub fn recall_command(flags: &[String], env: &Env) -> Result<Output, String> {
+    let args = parse_recall(flags)?;
+    let base = args.base.clone().unwrap_or_else(|| env.cwd.clone());
+    let held =
+        ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
+    let texts = read_artifacts(&base, &held);
+    let candidates = zip_candidates(&held, &texts);
+    let report = recall::decide(&candidates, &situation(&args));
+    render_recall(&report, args.json)
+}
+
+fn situation(args: &RecallArgs) -> trigger::Situation {
+    trigger::Situation {
+        tool: args.tool.clone(),
+        path: args.path.clone(),
+        cwd: args.cwd.clone(),
+        text: args.text.clone(),
+    }
+}
+
+fn read_artifacts(base: &Path, held: &ledger::Ledger) -> Vec<Option<String>> {
+    held.extracted
+        .iter()
+        .map(|row| std::fs::read_to_string(base.join(&row.artifact)).ok())
+        .collect()
+}
+
+fn zip_candidates<'a>(
+    held: &'a ledger::Ledger,
+    texts: &'a [Option<String>],
+) -> Vec<recall::Candidate<'a>> {
+    held.extracted
+        .iter()
+        .zip(texts)
+        .map(|(row, text)| recall::Candidate {
+            row,
+            artifact: text.as_deref(),
+        })
+        .collect()
+}
+
+fn render_recall(
+    report: &recall::Report,
+    json: bool,
+) -> Result<Output, String> {
+    let text = if json {
+        serde_json::to_string_pretty(report)
+            .map(|text| format!("{text}\n"))
+            .map_err(|error| error.to_string())?
+    } else {
+        recall::render_human(report)
+    };
+    Ok(Output {
+        text,
+        warnings: Vec::new(),
+    })
+}
+
+fn run_recall(flags: &[String], env: &Env) -> u8 {
+    emit(recall_command(flags, env))
+}
+
 /// Drift exits 1, a broken invocation exits 2 (section I).
 fn run_check(flags: &[String], env: &Env) -> u8 {
     match check_command(flags, env) {
@@ -1895,8 +2018,9 @@ mod tests {
     /// code, different message -- the distinction is the message's job.
     /// The verbs that actually do something. Kept beside the loop below so
     /// implementing a verb without dispatching it fails here.
-    const IMPLEMENTED: [&str; 8] = [
+    const IMPLEMENTED: [&str; 9] = [
         "scan", "init", "show", "plan", "apply", "revert", "check", "log",
+        "recall",
     ];
 
     #[test]
@@ -3505,6 +3629,145 @@ mod tests {
         let (id, _) = extracted(&dir);
         let _ = revert_in(&dir, &[&id, "--auto-approve"]);
         assert_eq!(log_in(&dir, &[]).map(|o| o.text).unwrap_or_default(), "");
+    }
+
+    /// A project with one extracted `S` skill whose blocks are filled.
+    fn recall_project(name: &str, fire: &str, refuse: &str) -> PathBuf {
+        let dir = check_project(name);
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- when editing Rust files, run clippy first\n",
+        );
+        let (id, _) = extracted(&dir);
+        let path = dir.join(artifact_of(&dir, &id));
+        let _ = std::fs::write(&path, skill_with(fire, refuse));
+        dir
+    }
+
+    fn skill_with(fire: &str, refuse: &str) -> String {
+        format!(
+            "# s\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
+            apply::FIRES,
+            apply::NOT_FIRES
+        )
+    }
+
+    fn recall_in(dir: &Path, extra: &[&str]) -> String {
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.extend(args(extra));
+        recall_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn recall_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["recall", "editing"])),
+            Action::Recall(args(&["editing"]))
+        );
+    }
+
+    /// V3's reload rule, answered end to end: an extracted skill with a
+    /// matching trigger LOADS here.
+    #[test]
+    fn a_matching_skill_loads() {
+        let dir = recall_project("hit", "path = [\"**/*.rs\"]", "");
+        let out = recall_in(&dir, &["--path", "src/main.rs"]);
+        assert!(out.starts_with("load"), "{out}");
+    }
+
+    #[test]
+    fn a_skill_whose_trigger_misses_is_reported_as_skipped() {
+        let dir = recall_project("miss", "path = [\"**/*.py\"]", "");
+        let out = recall_in(&dir, &["--path", "src/main.rs"]);
+        assert!(out.starts_with("skip"), "{out}");
+    }
+
+    /// V29 through the verb: the refusal beats the match, and says so.
+    #[test]
+    fn the_do_not_fire_block_wins_and_is_named() {
+        let dir = recall_project(
+            "refuse",
+            "path = [\"**/*.rs\"]",
+            "path = [\"src/**\"]",
+        );
+        let out = recall_in(&dir, &["--path", "src/main.rs"]);
+        assert!(out.starts_with("skip"), "{out}");
+        assert!(out.contains("WINS"), "{out}");
+    }
+
+    #[test]
+    fn the_tool_flag_reaches_the_matcher() {
+        let dir = recall_project("tool", "tool = [\"Edit\"]", "");
+        assert!(recall_in(&dir, &["--tool", "Edit"]).starts_with("load"));
+        assert!(recall_in(&dir, &["--tool", "Bash"]).starts_with("skip"));
+    }
+
+    /// `--cwd` is the situation's directory, and it stands in for the path
+    /// when no file is named -- which is the state someone is in when they
+    /// ask what loads here before touching anything.
+    #[test]
+    fn the_cwd_flag_stands_in_for_an_unnamed_path() {
+        let dir = recall_project("cwd", "path = [\"**/backend/**\"]", "");
+        assert!(
+            recall_in(&dir, &["--cwd", "srv/backend/api"]).starts_with("load")
+        );
+        assert!(recall_in(&dir, &["--cwd", "srv/web"]).starts_with("skip"));
+    }
+
+    /// A situation typed as bare words is ONE description, not a usage
+    /// error. A shell splits it and refusing the second word would fail
+    /// for a reason nobody could guess.
+    #[test]
+    fn a_multi_word_situation_is_joined_into_one_text() {
+        let held = parse_recall(&args(&["editing", "a", "test"]));
+        assert_eq!(held.map(|a| a.text).unwrap_or_default(), "editing a test");
+    }
+
+    #[test]
+    fn a_word_trigger_matches_the_situation_text() {
+        let dir = recall_project("word", "word = [\"clippy\"]", "");
+        assert!(recall_in(&dir, &["run", "clippy", "now"]).starts_with("load"));
+        assert!(recall_in(&dir, &["write", "docs"]).starts_with("skip"));
+    }
+
+    /// V7: report-only. Asking what loads must NOT count a firing -- V11's
+    /// counter has to mean the artifact was loaded, or `--dead` measures
+    /// curiosity instead of use.
+    #[test]
+    fn recall_counts_no_firing() {
+        let dir = recall_project("no-fire", "path = [\"**/*.rs\"]", "");
+        let _ = recall_in(&dir, &["--path", "src/main.rs"]);
+        let held = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        assert_eq!(held.extracted.first().map(|row| row.fires), Some(0));
+    }
+
+    #[test]
+    fn recall_json_is_parseable_and_carries_the_verdict() {
+        let dir = recall_project("json", "path = [\"**/*.rs\"]", "");
+        let text =
+            recall_in(&dir, &["--path", "src/main.rs", "--format", "json"]);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or_default();
+        let loads = parsed
+            .get("rows")
+            .and_then(|rows| rows.get(0))
+            .and_then(|first| first.get("loads"));
+        assert_eq!(loads, Some(&serde_json::json!(true)), "{text}");
+    }
+
+    #[test]
+    fn an_empty_ledger_recalls_nothing_and_exits_zero() {
+        let dir = check_project("recall-empty");
+        assert_eq!(recall_in(&dir, &["anything"]), "");
+        assert_eq!(perform(Action::Recall(dash_c(&dir)), &env()), 0);
+    }
+
+    #[test]
+    fn an_unknown_recall_flag_is_an_error() {
+        assert!(parse_recall(&args(&["--nope"])).is_err());
+        assert!(parse_recall(&args(&["--tool"])).is_err());
     }
 
     /// A reader that fails mid-line is an ERROR, not a silent yes.
