@@ -15,6 +15,11 @@ that stay are the ones that could not be made mechanical.
 - Commit straight to `main`. No feature branches in this repo.
 - One decision per commit, and the reasoning goes in the message, not in a
   comment nobody will find.
+- Decide in the spec before building. A judgment records what it rejected
+  and what would reverse it, so a wrong call can be undone knowingly
+  rather than archaeologically. `SPEC.md` V35 is the rule; this line only
+  points at it, because two copies of one rule is the defect this whole
+  tool exists to remove.
 - Run `hk check` before pushing.
 
 ## Code

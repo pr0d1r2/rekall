@@ -33,7 +33,7 @@ CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WIN
 
 ## §I INTERFACES
 
-- `rekall init` -- `--format human|json` · `--force`. THE COLD START. DETECT corpus roots (memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs) & write `rekall.toml`. Names every file before writing; ⊥ overwrites an existing config without `--force`. ⊥ this verb, first contact is `scan` failing on a config nothing ever wrote.
+- `rekall init` -- `--format human|json` · `--force`. THE COLD START. DETECT corpus roots (memory dir · `CLAUDE.md` · `AGENTS.md` · skill dirs) & write `rekall.toml`. Names every file before writing; ⊥ overwrites an existing config without `--force`. ⊥ this verb, first contact is `scan` failing on a config nothing ever wrote. The PROJECT file gets PROJECT roots ONLY (V36): a USER root is NAMED in output & left OUT of the tracked file.
 - `rekall scan [<path>...]` -- `--format human|json` · `--class M|S|U` · `--sharpness 1|2|3` · `--top N` · `--sources` · `-C <dir>`. Inventory the corpus: one row per STATEMENT -- `id` · `src` (`file:line-line`) · `tokens` · `class` · `sharpness` · `signals`. Deterministic, report-only. THE CPU CORE.
 - ID = `<hash>` -- the first 7 hex of a digest over the statement's NORMALIZED text, scoped by source PATH. A second identical statement in one file takes `<hash>.2`, `.3`. Input accepts any unambiguous PREFIX & a shorter one that matches two ids is a USAGE error, ⊥ a coin toss. STABLE means: an edit ELSEWHERE in the file ⊥ moves this id -- which is what `file:line` fails & why V13 rules it out. Editing THE STATEMENT ITSELF changes its id, & that is CORRECT: a reworded rule is a new CLAIM & ! be reclassified, ⊥ silently inherit a verdict passed on different words. Deterministic, offline, STATELESS ∴ `scan` stays report-only (V7) -- an id assigned at first sight would have to be PERSISTED, & then scanning would mutate.
 - CLASS × SHARPNESS. Class = `M`|`S`|`U`, R7's vocabulary UNCHANGED. Sharpness = `1`|`2`|`3`, printed joined ∴ `M2`. Sharpness is a property of the STATEMENT, ⊥ of the classifier: how sharp a runner or trigger the statement ADMITS, ⊥ how confident the classifier FEELS. `M1` runner deterministic, ⊥ judgment · `M2` runner needs ONE human-set parameter · `M3` runner DETECTS, ⊥ resolves. `S1` trigger EXACT (tool · path · extension) · `S2` trigger a signal-matchable CLASS of situations · `S3` trigger SEMANTIC ∴ only a model notices it. `U` carries ⊥ sharpness -- absence of a class has no ladder. Both ladders run SHARP -> FUZZY ∴ the digit PREDICTS fire rate & the `3` rows are where `--dead` (V11) comes from. ⊥ a third word (R7): `M`/`S` stand, the digit is a DEGREE. `--class M` matches ∀ `M*`; `--sharpness` filters across classes. JSON carries `class` · `sharpness` · `label` as SEPARATE fields ∴ an agent ⊥ string-surgery `M2` (V17).
@@ -43,7 +43,7 @@ CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WIN
 - `rekall check` -- `--format human|json`. THE GATE. ∀ extracted `M` ! has a runner (V2) · ∀ `S` ! has a trigger (V3) & a ⊥-fire clause (V4) · ⊥ orphan artifact · ⊥ source span still present. Exit 1 on drift. CPU-only ∴ runs in `hk` & CI with no key & no network (V6).
 - `rekall recall <situation>` -- `--format human|json` · `--tool X` · `--path P` · `--cwd D`. Which situational skills ! load HERE. Deterministic matcher, report-only. This is the reload rule V3 demands. SAME matcher as `hook` (V18).
 - TRIGGER FORMAT. `## Fires when` & `## Does NOT fire when` each carry a FENCED `rekall` block in TOML -- §C's ONE format & ONE parser, ⊥ a third grammar for three keys. Keys: `tool` (exact names) · `path` (globs) · `word` (literals vs the situation text). Within a key ANY value matches; across keys ALL PRESENT keys ! match. ⊥-fire takes the SAME keys & WINS (V29). `S1` admits `tool`/`path`, `S2` `word`, `S3` an EMPTY block (V29).
-- `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point. SAME matcher as `recall` (V18) ∴ what `recall` PRINTS is what `hook` DECIDES.
+- `rekall hook` -- harness hook JSON on stdin -> decision JSON on stdout. ADAPTER shape: no daemon, no interception, ⊥ in the request path. Signals in JSON, ⊥ via exit code. Fires `M` rules & injects `S` skills at the TRIGGER point. SAME matcher as `recall` (V18) ∴ what `recall` PRINTS is what `hook` DECIDES. COUNTS the fire (V11) & that counter is the ONLY thing it writes (V34).
 - `rekall log` -- `--format human|json` · `--dead` · `--since D`. READS the ledger. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11). VERB is `log`, STORE is the ledger -- the store is a ledger & is called one everywhere it is described.
 - `rekall catch [<session>]` -- `--format human|json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only FOR THE CORPUS: it writes CANDIDATE rows to the ledger (V7) & touches ⊥ a source file, ⊥ an artifact. Promotion goes through `plan` then `apply`. A transcript is EPHEMERAL ∴ a violation seen at turn 200 is gone tomorrow unless the candidate outlives the session that produced it -- which is the whole reason this verb exists.
 - `rekall revert <id>` -- `--format human|json` · `--auto-approve`. Reverse one extraction from the ledger, verbatim (V9). MUTATES ∴ confirms like `apply` (V20).
@@ -76,7 +76,7 @@ V3: ∀ extracted `S` -> a TRIGGER. A skill with no trigger is always-on prose, 
 V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence is ⊥ PROVABLE from a positive description: a list of what FIRES says nothing about what does ⊥, & a matcher ! decide both.
 V5: CPU-ONLY, ∀ verb, ⊥ exception. Deterministic & offline everywhere. ⊥ model, ⊥ network, ⊥ inference tier at ANY opt-in. An opt-in that CAN fire is a path that WILL fire, & then the classifier's floor is a remote model's uptime. If inference is EVER wanted it is a SEPARATE consumer reading `scan --format json`, ⊥ a tier inside this crate (V8).
 V6: `check` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
-V7: report-only DEFAULT. Only `apply` · `catch` -> ledger · `revert` touch the CORPUS or the LEDGER, & each NAMES every file touched before writing. `init` writes ONE file & only its OWN (`rekall.toml`), refusing an existing one without `--force` ∴ it is ⊥ in that set: it cannot reach a source span, & V20's confirm guards the DESTRUCTIVE path, ⊥ every write.
+V7: report-only DEFAULT. Only `apply` · `catch` -> ledger · `revert` touch the CORPUS or the LEDGER, & each NAMES every file touched before writing. `init` writes ONE file & only its OWN (`rekall.toml`), refusing an existing one without `--force` ∴ it is ⊥ in that set: it cannot reach a source span, & V20's confirm guards the DESTRUCTIVE path, ⊥ every write. `hook` is the ONE further exception & is narrower still (V34): it writes the FIRE COUNTER & nothing else.
 V8: token counts DELEGATED to `itok`. Two estimators disagreeing is the same defect as two rule sets. GENERALIZE it, ∵ the shape recurs: ⊥ a second implementation of a capability a sibling already OWNS, in ANY domain. Cite this row, ⊥ restate it.
 V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `revert` is mechanical, ⊥ a rewrite.
 V10: a class is a CLAIM, ⊥ truth. ∀ row carries the SIGNALS that fired & its SHARPNESS. `U` (unknown) is legal & is the DEFAULT. A classifier that never says "I do not know" is lying at a fixed rate. Sharpness is DERIVED from the same signals ∴ also a claim, & a `3` is the spec SAYING OUT LOUD that this artifact may never fire.
@@ -105,6 +105,10 @@ V31: a MEASURED figure carries its BOX & DATE, or it is ⊥ EVIDENCE. V21 one le
 V32: a SCRATCH path is unique PER CALL, ⊥ per process. A pid-named dir is shared by every thread in that process ∴ concurrent runs delete each other's files, & the symptom shows ONLY under load -- the kind that passes review & every hand-run.
 V33: a gate MESSAGE is DATA, ⊥ CODE. ⊥ backticks & ⊥ `$(...)` in a shell-quoted advisory: the shell EXECUTES them & the advice is REPLACED by what it ran.
 
+V34: `hook` writes the FIRE COUNTER & NOTHING ELSE -- ⊥ a source span, ⊥ an artifact, ⊥ a row's content. V7 named three writers & left V11's counter with NO author ∴ `--dead` would report every artifact dead forever & R13's argument (deletion becomes arithmetic) collapses. V20 does ⊥ apply: it guards the DESTRUCTIVE path & a counter deletes nothing -- & `hook` is unattended BY DEFINITION, so a prompt there would hang the harness V20 exists to protect. `recall` still counts NOTHING (V7): the counter ! mean LOADED, ⊥ asked about. The count ! survive CONCURRENT hooks -- one fires per tool call ∴ a read-modify-write of the whole ledger RACES & loses counts or corrupts the file. REJECTED: a second store (⊥ V11, & two stores disagree -- V8); `hook` report-only (nothing counts).
+V35: a JUDGMENT records what it REJECTED & what would REVERSE it. A decision whose alternatives are unrecorded cannot be UNDONE knowingly -- the next reader sees only the survivor & re-derives the argument or repeats the mistake. ONE decision per COMMIT ∴ `git revert <sha>` undoes exactly one, & spec-then-build means the spec commit & its build commit revert SEPARATELY & in that order. This is ⊥ ceremony: §C's three rejected NAMES (R1, R2, R10) are the load-bearing half of that bullet, & `mth check --records` can enforce the shape (T38).
+V36: a TRACKED config names only what the REPO owns. A USER-scope root written into `./rekall.toml` hard-codes one developer's home into every checkout & drags private memory into a measurement meant to be reproducible by anyone who clones it. Nothing is lost: roots UNION across scopes (§I) -- which is the entire reason two scopes exist.
+
 ## §T TASKS
 
 id|status|task|cites
@@ -120,12 +124,12 @@ T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
 T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|x|`rekall recall` matcher, reading the trigger BLOCK|I.recall,V3,V29
-T13|.|`rekall hook` adapter|I.hook,V5,V29,R9
+T13|.|`rekall hook` adapter, incl. the FIRE COUNTER|I.hook,V5,V29,V34,R9
 T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9
 T16|x|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
-T19|.|measure: tokens reclaimed on THIS repo's own `CLAUDE.md`, consumer #0, box NAMED|R4,R5,V31,T35
+T19|.|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T35
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
 T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
@@ -142,7 +146,9 @@ T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
 T33|.|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in `show`; sharpness stays a LADDER|§C,§I,V10,V22,V30
 T34|x|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
 T35|x|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
-T36|.|∀ MEASURED figure NAMES its box: re-measure R4, stamp T19's output|V31,R4,R14
+T36|.|RECORD in §R: re-measure R4 & T19's reclaim, each NAMING its box. A /spec write, ⊥ /build|V31,R4,R14,T19
+T37|.|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
+T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 
 ## §B BUGS
 
