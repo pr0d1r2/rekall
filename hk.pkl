@@ -20,6 +20,13 @@ amends "pkl/Config.pkl"
 /// it arrives fast.
 fail_fast = true
 
+/// V26: a SKIP MUST BE SAID. Kept even though the optional tools below no
+/// longer rely on it, because it is the setting that makes any FUTURE
+/// condition-skipped step visible instead of silent, and the default hides
+/// exactly that case. A skip nobody sees reads like a pass, and green is
+/// the most expensive lie a gate can tell.
+display_skip_reasons = List("profile-not-enabled", "condition-false")
+
 env {
   ["HK_HIDE_WHEN_DONE"] = "true"
 }
@@ -30,8 +37,36 @@ env {
 /// parallel; the second blocks on "Blocking waiting for file lock on build
 /// directory", which READS AS A HANG.
 local fast = new Mapping<String, Step> {
+  /// THE PRESENCE GATE (V26). A missing runner is NOT a pass.
+  ///
+  /// Every tool whose VERDICT this crate owns, checked in one place before
+  /// anything else runs: `cargo` for the build and the tests, `mth` for
+  /// SPEC.md's format, `itok` for the ceiling, `rekall` for its own corpus.
+  /// If one is absent the gate goes RED, because a step that silently did
+  /// not happen reports the same green as a step that passed.
+  ///
+  /// ONE definition rather than a guard pasted into ten steps (V23). It
+  /// carries no `glob`, so it always runs, and everything else chains from
+  /// it -- a presence check that only fires when a Rust file changed would
+  /// miss the case where nothing changed and nothing was checked.
+  ///
+  /// The optional third-party tools are deliberately NOT here. V26 draws
+  /// the line at ownership: this crate answers for what `cargo test` says,
+  /// and does not answer for whether `typos` is installed. Those skip and
+  /// SAY SO, which is the other half of the same rule.
+  ["runners"] {
+    check = """
+      missing=''
+      for tool in cargo mth itok rekall; do
+        command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+      done
+      [ -z "$missing" ] || { echo "hk: MISSING owned runner(s):$missing -- a missing runner is NOT a pass (V26), so this gate is RED rather than quietly shorter. Enter the dev shell: 'direnv allow', or 'nix develop' from the repo root." >&2; exit 1; }
+      """
+  }
+
   ["fmt"] {
     glob = List("**/*.rs")
+    depends = List("runners")
     check = "cargo fmt --check"
     fix = "cargo fmt"
   }
@@ -135,21 +170,49 @@ local fast = new Mapping<String, Step> {
 
   /// `nixfmt --check` gates the flake itself: that file decides what every
   /// other step runs with, so drift there is drift everywhere.
+  /// The four steps below are OPTIONAL THIRD-PARTY tools, and V26 gives
+  /// them the other treatment: absent means SKIP, and the skip is NAMED.
+  ///
+  /// The guard is a PRELUDE INSIDE the check, and it was hk's own
+  /// `step_condition` first. MEASURED: with `display_skip_reasons`
+  /// carrying "condition-false", a step whose condition evaluated false
+  /// was reported at DEBUG level and NOWHERE ELSE --
+  ///
+  ///     DEBUG typos: condition: exec('command -v typos') = false
+  ///
+  /// -- so the run exited 0 having said nothing about a check it never
+  /// performed. hk's native facility produces precisely the silent skip
+  /// V26 forbids, which is the whole reason to prefer it and the reason
+  /// it cannot be used.
+  ///
+  /// V24 still holds. Its rule is that hk decides WHEN and never what
+  /// passing MEANS; the verdict here is still `typos`'s, the prelude only
+  /// announces its absence, and the whole thing is still a plain command
+  /// a human can paste.
   ["nixfmt"] {
     glob = List("**/*.nix")
-    check = "nixfmt --check flake.nix"
+    check = """
+      command -v nixfmt >/dev/null 2>&1 || { echo "hk: SKIPPED nixfmt -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      nixfmt --check flake.nix
+      """
     fix = "nixfmt flake.nix"
   }
 
   ["taplo"] {
     glob = List("**/*.toml")
-    check = "taplo fmt --check"
+    check = """
+      command -v taplo >/dev/null 2>&1 || { echo "hk: SKIPPED taplo -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      taplo fmt --check
+      """
     fix = "taplo fmt"
   }
 
   ["typos"] {
     glob = List("**/*")
-    check = "typos"
+    check = """
+      command -v typos >/dev/null 2>&1 || { echo "hk: SKIPPED typos -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      typos
+      """
     fix = "typos --write-changes"
   }
 
@@ -157,7 +220,10 @@ local fast = new Mapping<String, Step> {
   /// says and nothing else, so a token-shaped secret walks straight past it.
   ["ripsecrets"] {
     glob = List("**/*")
-    check = "ripsecrets"
+    check = """
+      command -v ripsecrets >/dev/null 2>&1 || { echo "hk: SKIPPED ripsecrets -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      ripsecrets
+      """
   }
 }
 
