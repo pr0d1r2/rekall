@@ -20,3 +20,4 @@ pub mod scan;
 pub mod show;
 pub mod statement;
 pub mod tokens;
+pub mod trigger;

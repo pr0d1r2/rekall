@@ -14,7 +14,7 @@
 //! does the filesystem; everything that decides what counts as drift is
 //! testable without one.
 
-use crate::{apply, ledger, revert};
+use crate::{apply, ledger, revert, trigger};
 
 /// Stable machine names for each kind of drift.
 ///
@@ -29,6 +29,8 @@ pub const NO_RUNNER: &str = "no-runner";
 pub const NO_TRIGGER: &str = "no-trigger";
 pub const NO_REFUSAL_CLAUSE: &str = "no-refusal-clause";
 pub const ORPHAN_ARTIFACT: &str = "orphan-artifact";
+pub const BAD_TRIGGER_BLOCK: &str = "bad-trigger-block";
+pub const LADDER: &str = "ladder";
 
 /// One thing wrong.
 ///
@@ -188,70 +190,99 @@ fn runner_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
     )]
 }
 
-/// V3 and V4. A skill with no trigger is always-on prose, which is what it
-/// was extracted FROM. And absence is not provable from a positive
-/// description, so the refusal clause is required rather than inferred.
+/// V3, V4 and V29. The BLOCK is the trigger; the prose beside it is not
+/// read, so this reads the block or reports that it cannot.
+///
+/// An `S3` is judged by the OPPOSITE rule. Its trigger is semantic and V5
+/// forbids the model that would notice it, so an empty block is CORRECT
+/// there -- and a full one is a LADDER defect, a statement filed at `3`
+/// that turns out to admit a machine trigger after all (V11).
 fn skill_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
-    let mut out = Vec::new();
-    if !filled(text, apply::FIRES) {
-        out.push(drift(NO_TRIGGER, &row.id, &row.artifact, said_trigger(row)));
+    if row.label == "S3" {
+        return semantic_drift(row, text);
     }
-    if !filled(text, apply::NOT_FIRES) {
-        out.push(drift(
-            NO_REFUSAL_CLAUSE,
-            &row.id,
-            &row.artifact,
-            said_refusal(row),
-        ));
-    }
+    let mut out = block_drift(row, text, apply::FIRES, NO_TRIGGER);
+    out.extend(block_drift(row, text, apply::NOT_FIRES, NO_REFUSAL_CLAUSE));
     out
 }
 
-fn said_trigger(row: &ledger::Extracted) -> String {
-    format!(
-        "{} has no trigger under `{}`, so it is always-on prose -- which is what \
-         it was extracted FROM (V3). Name the exact tool, path or situation \
-         that loads it",
-        row.artifact,
-        apply::FIRES
-    )
-}
-
-fn said_refusal(row: &ledger::Extracted) -> String {
-    format!(
-        "{} has no `{}` clause (V4). A list of what fires says nothing about what \
-         does not, and a matcher has to decide both -- state the absence rather \
-         than leaving it to be inferred",
-        row.artifact,
-        apply::NOT_FIRES
-    )
-}
-
-/// Whether a heading exists AND carries something other than its TODO.
+/// One heading's block: unreadable is its OWN finding, empty is the
+/// obligation still outstanding.
 ///
-/// Both halves matter. A missing heading is an omission; a heading left
-/// holding the template's TODO is the same omission with a lid on it, and
-/// only one of them is visible by reading for the heading alone.
-fn filled(text: &str, heading: &str) -> bool {
-    let Some(body) = section(text, heading) else {
-        return false;
-    };
-    let said: Vec<&str> = body
-        .iter()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .collect();
-    !said.is_empty() && !said.iter().any(|line| line.starts_with("TODO:"))
+/// The two are separated because they send the reader to different places
+/// -- a block that will not parse is a typo, an empty one is work nobody
+/// has done yet -- and V28 asks the message to name the fix rather than
+/// the breach.
+fn block_drift(
+    row: &ledger::Extracted,
+    text: &str,
+    heading: &str,
+    empty_kind: &'static str,
+) -> Vec<Drift> {
+    let empty =
+        || drift(empty_kind, &row.id, &row.artifact, said_empty(row, heading));
+    match trigger::parse_block(text, heading) {
+        Ok(held) if held.is_empty() => vec![empty()],
+        Ok(_) => Vec::new(),
+        // No block at all is NO TRIGGER, not a broken one. The block IS
+        // the trigger (V29), so its absence is the obligation outstanding
+        // -- and that is the message a skill written before this format
+        // should get, rather than being told its syntax is wrong.
+        Err(trigger::Fault::Missing) => vec![empty()],
+        Err(fault) => vec![drift(
+            BAD_TRIGGER_BLOCK,
+            &row.id,
+            &row.artifact,
+            said_bad(row, heading, &fault),
+        )],
+    }
 }
 
-/// The lines under a heading, up to the next one at the same level.
-fn section<'a>(text: &'a str, heading: &str) -> Option<Vec<&'a str>> {
-    let mut lines = text.lines().skip_while(|line| line.trim() != heading);
-    lines.next()?;
-    Some(
-        lines
-            .take_while(|line| !line.trim_start().starts_with("## "))
-            .collect(),
+/// V29's other direction: an `S3` that grew a real trigger is misfiled.
+fn semantic_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
+    let filled = [apply::FIRES, apply::NOT_FIRES].iter().any(|heading| {
+        trigger::parse_block(text, heading).is_ok_and(|held| !held.is_empty())
+    });
+    if !filled {
+        return Vec::new();
+    }
+    vec![drift(LADDER, &row.id, &row.artifact, said_ladder(row))]
+}
+
+fn said_empty(row: &ledger::Extracted, heading: &str) -> String {
+    format!(
+        "{} has an empty or absent `{}` block, so nothing can match it -- and an \
+         unfilled trigger leaves the statement as always-on prose, which is what \
+         it was extracted FROM (V3, V4). Fill the {} block under it: `tool` for \
+         exact names, `path` for globs, `word` for literals",
+        row.artifact,
+        heading,
+        trigger::FENCE
+    )
+}
+
+fn said_bad(
+    row: &ledger::Extracted,
+    heading: &str,
+    fault: &trigger::Fault,
+) -> String {
+    format!(
+        "{} has a `{heading}` block this crate REFUSES to read rather than half \
+         understand (V29) -- {fault}",
+        row.artifact
+    )
+}
+
+/// V11 names both directions: a `1` gone dead is a classifier defect, a
+/// `3` that fires is a LADDER defect. This is the second one, caught at
+/// the only place it is visible.
+fn said_ladder(row: &ledger::Extracted) -> String {
+    format!(
+        "{} is filed `S3` -- semantic, so V5 forbids the matcher that would read \
+         it and it can never fire -- yet it carries a real trigger block. One of \
+         the two is wrong: reclassify the statement to `S1` or `S2` by rewording \
+         it and re-extracting, or empty the block",
+        row.artifact
     )
 }
 
@@ -318,8 +349,29 @@ mod tests {
     }
 
     const RUNNER: &str = "#!/bin/sh\ngrep -q main .git/HEAD && exit 1\n";
-    const SKILL: &str = "# s\n\n## Fires when\n\nEditing any `*.rs` file.\n\n\
-                         ## Does NOT fire when\n\nReading, or in a test.\n";
+    /// A skill whose BLOCKS are filled -- the state V29 asks for. The
+    /// prose is deliberately absent: it is never read, so a fixture that
+    /// carried some would test nothing.
+    const SKILL: &str = "# s\n\n## Fires when\n\n```rekall\npath = [\"**/*.rs\"]\n```\n\n\
+                         ## Does NOT fire when\n\n```rekall\npath = [\"**/tests/**\"]\n```\n";
+
+    /// A skill in the shape the OLD template wrote: both headings, words
+    /// under each, no block anywhere.
+    fn prose_skill() -> String {
+        format!(
+            "# s\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
+            apply::FIRES,
+            apply::NOT_FIRES
+        )
+    }
+
+    fn blocks(fire: &str, refuse: &str) -> String {
+        format!(
+            "# s\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
+            apply::FIRES,
+            apply::NOT_FIRES
+        )
+    }
 
     fn kinds(found: &[Drift]) -> Vec<&str> {
         found.iter().map(|one| one.kind).collect()
@@ -404,26 +456,13 @@ mod tests {
         assert_eq!(kinds(&audit(&seen, &[])), vec![NO_RUNNER]);
     }
 
-    /// A TODO that WRAPS. The continuation line does not start with
-    /// "TODO:", so a section judged by any single filled line would read
-    /// as done. Unfilled means the TODO is still anywhere in the section.
-    #[test]
-    fn a_todo_that_wraps_onto_a_second_line_is_still_a_todo() {
-        let wrapped = format!(
-            "{}\n\nTODO: name the exact tool, path\nor situation that loads it.\n",
-            apply::FIRES
-        );
-        assert!(!filled(&wrapped, apply::FIRES));
-    }
-
     /// V4 alone. A skill can name what fires it and still say nothing
-    /// about what does not -- which is the omission V4 exists to catch,
-    /// and the one a positive description hides.
+    /// about what does not -- the omission a positive description hides.
     #[test]
     fn a_trigger_without_a_refusal_clause_is_still_drift() {
         let held = row("S1");
         let source = extracted_source(&held);
-        let half = format!("# s\n\n{}\n\nEditing `*.rs`.\n", apply::FIRES);
+        let half = blocks("tool = [\"Edit\"]", "");
         let seen = vec![Seen {
             row: &held,
             source: Some(&source),
@@ -434,6 +473,79 @@ mod tests {
 
     #[test]
     fn a_filled_skill_passes() {
+        let held = row("S1");
+        let source = extracted_source(&held);
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(SKILL),
+        }];
+        assert!(audit(&seen, &[]).is_empty(), "{:?}", audit(&seen, &[]));
+    }
+
+    /// PROSE IS NOT A TRIGGER (V29). A skill written before this format --
+    /// or by someone who filled in the words and not the block -- reports
+    /// NO TRIGGER, which is accurate: nothing can match it.
+    #[test]
+    fn prose_under_the_heading_is_not_a_trigger() {
+        let held = row("S1");
+        let source = extracted_source(&held);
+        let prose = prose_skill();
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(&prose),
+        }];
+        assert_eq!(
+            kinds(&audit(&seen, &[])),
+            vec![NO_TRIGGER, NO_REFUSAL_CLAUSE]
+        );
+    }
+
+    /// A block that will not parse is its OWN finding, separate from an
+    /// empty one: a typo and unfinished work send the reader elsewhere.
+    #[test]
+    fn a_block_that_will_not_parse_is_reported_as_such() {
+        let held = row("S2");
+        let source = extracted_source(&held);
+        let broken = blocks("tolo = [\"Edit\"]", "word = [\"x\"]");
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(&broken),
+        }];
+        let found = audit(&seen, &[]);
+        assert_eq!(kinds(&found), vec![BAD_TRIGGER_BLOCK]);
+        assert!(said_of(&found).contains("REFUSES"), "{found:?}");
+    }
+
+    fn said_of(found: &[Drift]) -> String {
+        found
+            .first()
+            .map(|one| one.said.clone())
+            .unwrap_or_default()
+    }
+
+    /// V29: an `S3` trigger is SEMANTIC, V5 forbids the matcher that would
+    /// read it, so an EMPTY block is correct and the skill never fires.
+    /// That is the ladder being honest, not a gap.
+    #[test]
+    fn an_s3_with_empty_blocks_passes() {
+        let held = row("S3");
+        let source = extracted_source(&held);
+        let empty = blocks("", "");
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(&empty),
+        }];
+        assert!(audit(&seen, &[]).is_empty(), "{:?}", audit(&seen, &[]));
+    }
+
+    /// The OTHER direction, and the one V11 predicts: a `3` that turns out
+    /// to admit a real trigger is a LADDER defect, visible only here.
+    #[test]
+    fn an_s3_carrying_a_real_trigger_is_a_ladder_defect() {
         let held = row("S3");
         let source = extracted_source(&held);
         let seen = vec![Seen {
@@ -441,19 +553,14 @@ mod tests {
             source: Some(&source),
             artifact: Some(SKILL),
         }];
-        assert!(audit(&seen, &[]).is_empty());
-    }
-
-    /// An EMPTY section is as absent as a missing heading. A heading with
-    /// nothing under it answers the question by looking like it did.
-    #[test]
-    fn an_empty_section_counts_as_missing() {
-        assert!(!filled(
-            "## Fires when\n\n## Does NOT fire when\n",
-            apply::FIRES
-        ));
-        assert!(!filled("# s\n\nno headings here\n", apply::FIRES));
-        assert!(filled("## Fires when\n\nEditing `*.rs`.\n", apply::FIRES));
+        let found = audit(&seen, &[]);
+        assert_eq!(kinds(&found), vec![LADDER]);
+        assert!(
+            found
+                .first()
+                .is_some_and(|one| one.said.contains("reclassify")),
+            "{found:?}"
+        );
     }
 
     #[test]
@@ -586,9 +693,18 @@ mod tests {
     /// failure it guards against is a sentence that describes the breach
     /// and stops -- and that sentence has none of these.
     fn names_a_fix(said: &str) -> bool {
-        ["run ", "Name ", "state ", "Write ", "Delete ", "Restore "]
-            .iter()
-            .any(|verb| said.contains(verb))
+        [
+            "run ",
+            "Name ",
+            "state ",
+            "Write ",
+            "Delete ",
+            "Restore ",
+            "Fill ",
+            "reclassify",
+        ]
+        .iter()
+        .any(|verb| said.contains(verb))
     }
 
     fn stray() -> String {

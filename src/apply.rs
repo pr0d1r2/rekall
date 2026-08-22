@@ -166,13 +166,33 @@ Extracted by rekall from {SRC}:{START}-{END}.
 
 ## Fires when
 
-TODO: name the exact tool, path or situation. A skill with no trigger is
-always-on prose, which is what this was extracted FROM (V3).
+The block below IS the trigger. Prose here is for you and is never read
+(V29). Keys: `tool` (exact names), `path` (globs), `word` (literals tested
+against the situation text). Within a key ANY value matches; across keys
+ALL present keys must match.
+
+It arrives EMPTY, which matches nothing -- so this skill does not load
+until you say when. A trigger nobody filled in should fire never, not
+always: always-on prose is what this was extracted FROM (V3).
+
+```rekall
+tool = []
+path = []
+word = []
+```
 
 ## Does NOT fire when
 
-TODO: state this explicitly. Absence is not provable from a positive
-description, so a list of what fires says nothing about what does not (V4).
+State the absence rather than leaving it inferred (V4). A list of what
+fires says nothing about what does not, and a matcher has to decide both.
+This block WINS: a match here refuses the load even when the block above
+matched.
+
+```rekall
+tool = []
+path = []
+word = []
+```
 ";
 
 /// A ledger row for a step, ready to record.
@@ -394,6 +414,23 @@ mod tests {
         );
         let skill = artifact_text(&step("a", 1, 1, "S1"));
         assert!(skill.contains(FIRES) && skill.contains(NOT_FIRES));
+    }
+
+    /// V29: what `apply` writes must PARSE, and must arrive EMPTY. A
+    /// template whose block did not parse would make every fresh
+    /// extraction unreadable rather than merely unfinished, and one that
+    /// arrived non-empty would load the skill somewhere nobody chose.
+    #[test]
+    fn the_generated_skill_carries_two_parsable_empty_blocks() {
+        let skill = artifact_text(&step("abc1234", 1, 1, "S2"));
+        for heading in [FIRES, NOT_FIRES] {
+            let held = crate::trigger::parse_block(&skill, heading);
+            assert_eq!(
+                held.as_ref().map(crate::trigger::Trigger::is_empty),
+                Ok(true),
+                "{heading} did not parse to an empty block: {held:?}"
+            );
+        }
     }
 
     #[test]
