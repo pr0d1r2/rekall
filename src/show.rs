@@ -21,7 +21,13 @@ pub struct Found {
     pub class: String,
     pub sharpness: Option<u8>,
     pub label: String,
-    pub signals: Vec<String>,
+    /// Every signal that fired, WITH its weight (V30). Section I asks for
+    /// the weight here and nowhere else: `scan` prints a row, `show` is
+    /// where a class is argued with, and a balance you cannot see the
+    /// terms of is not arguable.
+    pub signals: Vec<classify::Signal>,
+    /// The sum those weights came to, against the deadband.
+    pub score: i32,
 }
 
 /// What a lookup produced.
@@ -49,7 +55,7 @@ pub fn lookup(
         .statements
         .iter()
         .filter(|found| found.id.starts_with(prefix))
-        .map(detail)
+        .map(|found| detail(found, at.weights))
         .collect();
     Ok(resolve(hits))
 }
@@ -66,8 +72,9 @@ fn resolve(mut hits: Vec<Found>) -> Lookup {
     }
 }
 
-fn detail(found: &statement::Statement) -> Found {
-    let verdict = classify::classify(&statement::normalize(&found.text));
+fn detail(found: &statement::Statement, weights: &classify::Weights) -> Found {
+    let verdict =
+        classify::classify(&statement::normalize(&found.text), weights);
     Found {
         id: found.id.clone(),
         src: format!("{}:{}-{}", found.path, found.line_start, found.line_end),
@@ -75,7 +82,8 @@ fn detail(found: &statement::Statement) -> Found {
         class: verdict.class.to_string(),
         sharpness: verdict.sharpness,
         label: verdict.label(),
-        signals: verdict.signals.iter().map(|s| (*s).to_string()).collect(),
+        signals: verdict.signals.clone(),
+        score: verdict.score,
     }
 }
 
@@ -85,7 +93,11 @@ pub fn render_human(found: &Found) -> String {
     let mut out = format!("id       {}\n", found.id);
     out.push_str(&format!("src      {}\n", found.src));
     out.push_str(&format!("class    {}\n", found.label));
-    out.push_str(&format!("signals  {}\n", found.signals.join(", ")));
+    out.push_str(&format!("score    {}\n", found.score));
+    out.push_str("signals\n");
+    for signal in &found.signals {
+        out.push_str(&format!("  {:+}  {}\n", signal.weight, signal.name));
+    }
     out.push_str("text\n");
     for line in found.text.lines() {
         out.push_str(&format!("  {line}\n"));
@@ -109,11 +121,13 @@ mod tests {
     fn look(base: &Path, prefix: &str) -> Lookup {
         let roots = vec![(".".to_string(), Scope::Project)];
         let globs = vec!["**/*.md".to_string()];
+        let weights = classify::Weights::default();
         let at = scan::Corpus {
             roots: &roots,
             globs: &globs,
             home: None,
             base,
+            weights: &weights,
         };
         lookup(&at, prefix).unwrap_or(Lookup::Missing)
     }
@@ -141,7 +155,9 @@ mod tests {
 
     fn signals_of(found: &Lookup) -> Vec<String> {
         match found {
-            Lookup::Unique(found) => found.signals.clone(),
+            Lookup::Unique(found) => {
+                found.signals.iter().map(|s| s.name.clone()).collect()
+            }
             _ => Vec::new(),
         }
     }
@@ -245,21 +261,29 @@ mod tests {
         assert!(matches!(look(&base, ""), Lookup::Unique(_)));
     }
 
-    #[test]
-    fn human_output_carries_text_class_and_signals() {
-        let found = Found {
+    fn a_found() -> Found {
+        Found {
             id: "abc1234".to_string(),
             src: "CLAUDE.md:1-1".to_string(),
             text: "- never commit to `main`".to_string(),
             class: "M".to_string(),
             sharpness: Some(1),
             label: "M1".to_string(),
-            signals: vec!["never".to_string()],
-        };
-        let text = render_human(&found);
+            signals: vec![classify::Signal {
+                name: "never".to_string(),
+                weight: 2,
+            }],
+            score: 2,
+        }
+    }
+
+    #[test]
+    fn human_output_carries_text_class_and_signals() {
+        let text = render_human(&a_found());
         assert!(text.contains("id       abc1234"));
         assert!(text.contains("class    M1"));
-        assert!(text.contains("signals  never"));
+        assert!(text.contains("score    2"), "{text}");
+        assert!(text.contains("  +2  never"), "{text}");
         assert!(text.contains("  - never commit to `main`"));
     }
 
@@ -273,6 +297,7 @@ mod tests {
             sharpness: None,
             label: "U".to_string(),
             signals: Vec::new(),
+            score: 0,
         };
         let text = render_human(&found);
         assert!(

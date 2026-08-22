@@ -22,6 +22,19 @@ pub const FILE_NAME: &str = "rekall.toml";
 pub struct Config {
     #[serde(default)]
     pub sources: Sources,
+    #[serde(default)]
+    pub signals: Signals,
+}
+
+/// Classifier weights (V30). `deadband` is how close to a tie still
+/// counts as `U`; `weight` is per signal word, positive pulling
+/// MECHANICAL and negative SITUATIONAL.
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Signals {
+    pub deadband: Option<i32>,
+    #[serde(default)]
+    pub weight: std::collections::BTreeMap<String, i32>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -177,7 +190,26 @@ pub fn merge(user: Config, project: Config) -> Config {
             roots: union(user.sources.roots, project.sources.roots),
             globs: project.sources.globs.or(user.sources.globs),
         },
+        signals: Signals {
+            deadband: project.signals.deadband.or(user.signals.deadband),
+            weight: per_word(user.signals.weight, project.signals.weight),
+        },
     }
+}
+
+/// Weights merge PER WORD, not per table.
+///
+/// Section I says merge is per key and the project wins. Read at the
+/// TABLE level that would make one project weight discard every word the
+/// user tuned -- the same silent loss the `[sources]` union exists to
+/// prevent, one level down. The word is the key.
+fn per_word(
+    user: std::collections::BTreeMap<String, i32>,
+    project: std::collections::BTreeMap<String, i32>,
+) -> std::collections::BTreeMap<String, i32> {
+    let mut out = user;
+    out.extend(project);
+    out
 }
 
 fn union(

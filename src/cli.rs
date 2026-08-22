@@ -6,8 +6,8 @@
 //! here instead of inside a macro.
 
 use crate::{
-    apply, check, config, corpus, init, ledger, log, plan, recall, revert,
-    scan, show, statement, tokens, trigger,
+    apply, check, classify, config, corpus, init, ledger, log, plan, recall,
+    revert, scan, show, statement, tokens, trigger,
 };
 use std::path::{Path, PathBuf};
 
@@ -114,12 +114,18 @@ pub fn resolve(cwd: &Path) -> Result<Resolved, String> {
     Ok(Resolved {
         roots: config::attribute(&user, &project),
         globs: merged.sources.globs.unwrap_or_default(),
+        weights: classify::Weights::from_config(
+            merged.signals.deadband,
+            &merged.signals.weight,
+        ),
     })
 }
 
 pub struct Resolved {
     pub roots: Vec<(String, config::Scope)>,
     pub globs: Vec<String>,
+    /// The classifier table both scopes agreed on (V30).
+    pub weights: classify::Weights,
 }
 
 /// A config file that is absent is fine; one that is present and broken is
@@ -442,6 +448,7 @@ fn find(
         globs: &resolved.globs,
         home: env.home.as_deref(),
         base,
+        weights: &resolved.weights,
     };
     show::lookup(&at, id).map_err(|error| error.to_string())
 }
@@ -524,7 +531,7 @@ pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let loaded = load_corpus(&base, env)?;
     let chosen = choose(&loaded.statements, &args.ids)?;
-    let built = plan::build(&chosen, &loaded.sources)
+    let built = plan::build(&chosen, &loaded.sources, &loaded.weights)
         .map_err(|error| error.to_string())?;
     emit_plan(&built, &args, &base)
 }
@@ -542,6 +549,7 @@ fn load_corpus(base: &Path, env: &Env) -> Result<scan::Loaded, String> {
         globs: &resolved.globs,
         home: env.home.as_deref(),
         base,
+        weights: &resolved.weights,
     };
     scan::load(&at).map_err(|error| error.to_string())
 }
@@ -761,7 +769,7 @@ fn resolve_plan(
         return Err(NO_APPLY_INPUT.to_string());
     }
     let split = split_requested(&args.ids, loaded, held)?;
-    let plan = plan::build(&split.chosen, &loaded.sources)
+    let plan = plan::build(&split.chosen, &loaded.sources, &loaded.weights)
         .map_err(|error| error.to_string())?;
     Ok(Requested {
         plan,
@@ -1750,6 +1758,7 @@ fn inventory(
         globs: &resolved.globs,
         home,
         base,
+        weights: &resolved.weights,
     };
     scan::run(&corpus, &args.filter).map_err(|error| error.to_string())
 }
@@ -3656,6 +3665,52 @@ mod tests {
         let mut flags = args(&["-C", &dir.to_string_lossy()]);
         flags.extend(args(extra));
         recall_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default()
+    }
+
+    /// V22, end to end: a `[signals]` table nothing read would be a wish.
+    /// This drives it from the CONFIG FILE through `scan` to a verdict --
+    /// the same statement is `U` with the shipped defaults and `M` once
+    /// the corpus names its own vocabulary.
+    #[test]
+    fn a_configured_weight_reaches_the_verdict() {
+        let dir = check_project("weights");
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- commit straight to `main`\n",
+        );
+        assert!(
+            scan_row(&dir).contains("  U  "),
+            "the defaults should not classify this: {}",
+            scan_row(&dir)
+        );
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = [\".\"]\n\n[signals.weight]\n\"commit straight to\" = 2\n",
+        );
+        assert!(scan_row(&dir).contains("  M"), "{}", scan_row(&dir));
+    }
+
+    /// The DEADBAND, from the same file. A corpus can ask for more
+    /// evidence before it accepts a verdict.
+    #[test]
+    fn a_configured_deadband_withholds_a_weak_verdict() {
+        let dir = check_project("deadband");
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- when editing `.rs`, never use unwrap\n",
+        );
+        assert!(scan_row(&dir).contains("  M"), "{}", scan_row(&dir));
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = [\".\"]\n\n[signals]\ndeadband = 1\n",
+        );
+        assert!(scan_row(&dir).contains("  U  "), "{}", scan_row(&dir));
+    }
+
+    fn scan_row(dir: &Path) -> String {
+        scan_command(&args(&["-C", &dir.to_string_lossy()]), &env())
             .map(|out| out.text)
             .unwrap_or_default()
     }

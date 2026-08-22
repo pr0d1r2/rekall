@@ -131,8 +131,12 @@ fn destination(label: &str, slug: &str) -> (String, String) {
 }
 
 /// Turn one statement into a step.
-fn step_for(found: &statement::Statement) -> Result<Step, Error> {
-    let verdict = classify::classify(&statement::normalize(&found.text));
+fn step_for(
+    found: &statement::Statement,
+    weights: &classify::Weights,
+) -> Result<Step, Error> {
+    let verdict =
+        classify::classify(&statement::normalize(&found.text), weights);
     let label = verdict.label();
     if label == "U" {
         return Err(Error::Unclassified(found.id.clone()));
@@ -162,10 +166,11 @@ fn assemble(found: &statement::Statement, label: String) -> Step {
 pub fn build(
     chosen: &[statement::Statement],
     sources: &[(String, String)],
+    weights: &classify::Weights,
 ) -> Result<Plan, Error> {
     let mut steps = Vec::new();
     for found in chosen {
-        steps.push(step_for(found)?);
+        steps.push(step_for(found, weights)?);
     }
     Ok(Plan {
         format: FORMAT,
@@ -298,7 +303,11 @@ mod tests {
     }
 
     fn plan_of(text: &str) -> Result<Plan, Error> {
-        build(&statements(text), &sources(text))
+        build(
+            &statements(text),
+            &sources(text),
+            &classify::Weights::default(),
+        )
     }
 
     fn steps_of(text: &str) -> Vec<Step> {
@@ -406,7 +415,12 @@ mod tests {
         let text = "- never commit to `main`\n";
         let mut with_extra = sources(text);
         with_extra.push(("NOTES.md".to_string(), "unrelated".to_string()));
-        let plan = build(&statements(text), &with_extra).ok();
+        let plan = build(
+            &statements(text),
+            &with_extra,
+            &classify::Weights::default(),
+        )
+        .ok();
         let names: Vec<String> = plan
             .map(|plan| {
                 plan.fingerprint.iter().map(|f| f.src.clone()).collect()
@@ -557,9 +571,10 @@ mod tests {
         let text = "- never commit to `main`\n";
         let mut doubled = sources(text);
         doubled.push(("CLAUDE.md".to_string(), text.to_string()));
-        let count = build(&statements(text), &doubled)
-            .map(|plan| plan.fingerprint.len())
-            .unwrap_or_default();
+        let count =
+            build(&statements(text), &doubled, &classify::Weights::default())
+                .map(|plan| plan.fingerprint.len())
+                .unwrap_or_default();
         assert_eq!(count, 1);
     }
     /// The fallback every test above relies on: a plan that failed to build

@@ -62,12 +62,13 @@ impl Filter {
     }
 }
 
-fn to_row(found: &statement::Statement) -> Row {
+fn to_row(found: &statement::Statement, weights: &classify::Weights) -> Row {
     // NORMALIZED, not raw. The raw text still carries its list marker, so
     // "- when editing ..." does not start with "when" and every conditional
     // signal was being missed -- silently, because the statement still got
     // a plausible class from its other words.
-    let verdict = classify::classify(&statement::normalize(&found.text));
+    let verdict =
+        classify::classify(&statement::normalize(&found.text), weights);
     Row {
         id: found.id.clone(),
         src: format!("{}:{}-{}", found.path, found.line_start, found.line_end),
@@ -75,7 +76,7 @@ fn to_row(found: &statement::Statement) -> Row {
         class: verdict.class.to_string(),
         sharpness: verdict.sharpness,
         label: verdict.label(),
-        signals: verdict.signals.iter().map(|s| (*s).to_string()).collect(),
+        signals: verdict.names(),
     }
 }
 
@@ -129,6 +130,11 @@ pub struct Corpus<'a> {
     pub globs: &'a [String],
     pub home: Option<&'a str>,
     pub base: &'a Path,
+    /// The classifier table, resolved from config (V30). Carried with the
+    /// corpus because a verdict depends on BOTH, and passing them apart
+    /// is how one caller ends up classifying with the defaults while
+    /// another uses the tuned table.
+    pub weights: &'a classify::Weights,
 }
 
 impl Corpus<'_> {
@@ -157,6 +163,9 @@ pub struct Loaded {
     /// Each source's stable name and its full text, for fingerprinting.
     pub sources: Vec<(String, String)>,
     pub unreadable: Vec<PathBuf>,
+    /// The table the corpus was read WITH, carried forward so a later
+    /// `plan` judges the same statements the same way `scan` did.
+    pub weights: classify::Weights,
 }
 
 /// Read every corpus file once and split it.
@@ -165,6 +174,7 @@ pub fn load(at: &Corpus<'_>) -> Result<Loaded, corpus::Error> {
         statements: Vec::new(),
         sources: Vec::new(),
         unreadable: Vec::new(),
+        weights: at.weights.clone(),
     };
     for (root, _) in at.roots {
         let walked = at.files_under(root)?;
@@ -196,7 +206,7 @@ pub fn run(
     let paired: Vec<(Row, String)> = loaded
         .statements
         .iter()
-        .map(|found| (to_row(found), found.text.clone()))
+        .map(|found| (to_row(found, corpus.weights), found.text.clone()))
         .collect();
     let (rows, texts) = keep(paired, filter);
     Ok(Outcome {
@@ -297,7 +307,9 @@ mod tests {
     fn row_of(text: &str) -> Row {
         statement::split(text, "CLAUDE.md")
             .first()
-            .map_or_else(empty_row, to_row)
+            .map_or_else(empty_row, |found| {
+                to_row(found, &classify::Weights::default())
+            })
     }
 
     /// The row a missing statement would produce: empty, so every
@@ -442,11 +454,13 @@ mod tests {
     fn scan_dir(dir: &Path, filter: &Filter) -> Outcome {
         let roots = vec![(".".to_string(), config::Scope::Project)];
         let globs = vec!["**/*.md".to_string()];
+        let weights = classify::Weights::default();
         let corpus = Corpus {
             roots: &roots,
             globs: &globs,
             home: None,
             base: dir,
+            weights: &weights,
         };
         run(&corpus, filter).unwrap_or_default()
     }
