@@ -1,0 +1,15 @@
+# rekall, pointed at rekall. Consumer #0 (SPEC.md T19).
+#
+# ONLY this repo's own corpus is listed. `rekall init` also detected
+# `~/.claude/CLAUDE.md` and `~/.claude/projects` on the box it ran on, and
+# both were left out ON PURPOSE: this file is TRACKED, so a user-scope root
+# written here would hard-code one developer's home layout into everyone
+# else's checkout, and would pull private memory into a measurement that is
+# supposed to be reproducible by anyone who clones this.
+#
+# Nothing is lost by leaving them out. Roots UNION across scopes, so a
+# personal `~/.config/rekall/rekall.toml` still contributes its own -- that
+# union is exactly why two scopes exist.
+
+[sources]
+roots = ["CLAUDE.md"]

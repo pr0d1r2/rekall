@@ -27,6 +27,13 @@
 #   SPEC.md    8619
 #   README.md   842
 #
+# CLAUDE.md JOINED THE REGISTRY at 600 against a measured 430. It is an
+# always-loaded entry cost like the other two -- an agent reads it before
+# doing anything here -- and V12 wants the ceiling to land BEFORE the file
+# grows into it, not after the growth ratifies whatever happened. It is
+# also the corpus rekall points at itself (T19, T35), so it is the one
+# file in this repo whose growth the tool is supposed to reverse.
+#
 # THE CEILING ROSE, 7700 -> 9700, and this is the review it was built to
 # force rather than a number moved to clear a red. What breached it:
 # V29-V33, R14, B1-B2, T34-T36 and one §I bullet -- five invariants, a
@@ -52,3 +59,4 @@
 
 SPEC.md    9700
 README.md  1000
+CLAUDE.md   600

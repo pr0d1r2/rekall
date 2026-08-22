@@ -141,7 +141,7 @@ T31|x|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & 
 T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
 T33|.|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in `show`; sharpness stays a LADDER|§C,§I,V10,V22,V30
 T34|x|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
-T35|.|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
+T35|x|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
 T36|.|∀ MEASURED figure NAMES its box: re-measure R4, stamp T19's output|V31,R4,R14
 
 ## §B BUGS
