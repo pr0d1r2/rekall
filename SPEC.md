@@ -115,7 +115,7 @@ T12|.|`rekall recall` matcher|I.recall,V3
 T13|.|`rekall hook` adapter|I.hook,V5,R9
 T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9
-T16|.|`itok` delegation for token columns|V8
+T16|x|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
 T19|.|measure: tokens reclaimed on THIS repo's own corpus, consumer #0|R4,R5
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-

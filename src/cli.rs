@@ -7,7 +7,7 @@
 
 use crate::{
     apply, check, config, corpus, init, ledger, log, plan, revert, scan, show,
-    statement,
+    statement, tokens,
 };
 use std::path::{Path, PathBuf};
 
@@ -1458,8 +1458,27 @@ pub fn log_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let held =
         ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
-    let report = log::report(&held, log_filter(&args)?);
-    render_log(&report, args.json)
+    let mut report = log::report(&held, log_filter(&args)?);
+    let skipped = fill_log_tokens(&mut report);
+    let mut out = render_log(&report, args.json)?;
+    out.warnings = skipped;
+    Ok(out)
+}
+
+/// The tokens RECLAIMED by each extraction, from the verbatim text the
+/// ledger kept (V9). One call for the whole log, same as `scan`.
+fn fill_log_tokens(report: &mut log::Report) -> Vec<String> {
+    let texts: Vec<String> = report
+        .entries
+        .iter()
+        .map(|entry| entry.text.clone())
+        .collect();
+    let counted = tokens::count_all(&texts);
+    spread(&mut report.entries, counted, set_entry_tokens)
+}
+
+fn set_entry_tokens(entry: &mut log::Entry, count: Option<u32>) {
+    entry.tokens = count;
 }
 
 /// The duration is resolved against the clock HERE, at the edge, so
@@ -1538,11 +1557,60 @@ pub fn scan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     if resolved.roots.is_empty() {
         return Err(NO_SOURCES.to_string());
     }
-    let outcome = inventory(&resolved, &args, &cwd, env.home.as_deref())?;
+    let mut outcome = inventory(&resolved, &args, &cwd, env.home.as_deref())?;
+    let skipped = fill_tokens(&mut outcome);
+    let mut warnings = warnings(&outcome);
+    warnings.extend(skipped);
     Ok(Output {
         text: render(&outcome, &args)?,
-        warnings: warnings(&outcome),
+        warnings,
     })
+}
+
+/// Fill the tokens column, or NAME why it is empty (V8, V26).
+///
+/// ONE call for the whole report rather than one per row. The sibling
+/// pays a tokenizer-table load per PROCESS, which is the entire cost, so
+/// the per-row shape is the same work multiplied by the number of
+/// statements -- see `tokens` for the measurement that settled it.
+///
+/// Returns the warnings to print rather than failing: a box without
+/// `itok` gets a report with an empty column and a line saying why, which
+/// is what V26 asks of an optional sibling.
+fn fill_tokens(outcome: &mut scan::Outcome) -> Vec<String> {
+    let counted = tokens::count_all(&outcome.texts);
+    spread(&mut outcome.report.rows, counted, set_row_tokens)
+}
+
+/// Named rather than a closure at each call site, so the one line that
+/// assigns the column is the SAME line in production and in the test that
+/// covers it -- an inline closure passed to the skip path is a body
+/// nothing ever runs.
+fn set_row_tokens(row: &mut scan::Row, count: Option<u32>) {
+    row.tokens = count;
+}
+
+/// Put counts on rows, or turn the fault into the line that says why the
+/// column is empty (V26).
+///
+/// Split from its callers so the SKIP path is testable. The alternative
+/// would be a test that removes `itok` from PATH, and `set_var` is unsafe
+/// in edition 2024 and would race every other test in the process -- so
+/// that path would go permanently unverified while looking covered.
+fn spread<T>(
+    into: &mut [T],
+    counted: Result<Vec<Option<u32>>, tokens::Fault>,
+    set: impl Fn(&mut T, Option<u32>),
+) -> Vec<String> {
+    match counted {
+        Ok(counts) => {
+            for (item, count) in into.iter_mut().zip(counts) {
+                set(item, count);
+            }
+            Vec::new()
+        }
+        Err(fault) => vec![fault.to_string()],
+    }
 }
 
 pub const NO_SOURCES: &str = "no corpus roots configured. \
@@ -1707,6 +1775,45 @@ mod tests {
         assert!(scan_command(&args(&["--nope"]), &env()).is_err());
     }
 
+    /// V26: an absent sibling leaves the column empty and SAYS SO. The
+    /// report still happens -- a missing column is a smaller loss than a
+    /// verb that refuses to run.
+    #[test]
+    fn a_token_fault_becomes_a_named_warning_and_leaves_the_column_empty() {
+        let mut rows = vec![row_for_spread()];
+        let said =
+            spread(&mut rows, Err(tokens::Fault::Absent), set_row_tokens);
+        assert_eq!(said.len(), 1);
+        assert!(
+            said.first().is_some_and(|line| line.contains(tokens::TOOL)),
+            "{said:?}"
+        );
+        assert_eq!(rows.first().and_then(|row| row.tokens), None);
+    }
+
+    #[test]
+    fn counts_land_on_the_rows_they_belong_to() {
+        let mut rows = vec![row_for_spread(), row_for_spread()];
+        let said = spread(&mut rows, Ok(vec![Some(7), None]), set_row_tokens);
+        assert!(said.is_empty(), "{said:?}");
+        assert_eq!(
+            rows.iter().map(|row| row.tokens).collect::<Vec<_>>(),
+            vec![Some(7), None]
+        );
+    }
+
+    fn row_for_spread() -> scan::Row {
+        scan::Row {
+            id: "aaa".to_string(),
+            src: "CLAUDE.md:1-1".to_string(),
+            tokens: None,
+            class: "M".to_string(),
+            sharpness: Some(1),
+            label: "M1".to_string(),
+            signals: Vec::new(),
+        }
+    }
+
     #[test]
     fn warnings_are_empty_when_everything_was_readable() {
         assert!(warnings(&empty_outcome()).is_empty());
@@ -1714,13 +1821,8 @@ mod tests {
 
     #[test]
     fn an_unreadable_file_is_named_in_the_warnings() {
-        let outcome = scan::Outcome {
-            report: scan::Report {
-                rows: Vec::new(),
-                sources: Vec::new(),
-            },
-            unreadable: vec![PathBuf::from("/secret/notes.md")],
-        };
+        let mut outcome = empty_outcome();
+        outcome.unreadable = vec![PathBuf::from("/secret/notes.md")];
         let found = warnings(&outcome);
         assert_eq!(found.len(), 1);
         assert!(
@@ -1738,6 +1840,7 @@ mod tests {
                 sources: Vec::new(),
             },
             unreadable: Vec::new(),
+            texts: Vec::new(),
         }
     }
 

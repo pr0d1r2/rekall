@@ -107,6 +107,14 @@ pub fn stable_name(path: &Path, base: &Path, home: Option<&str>) -> String {
 pub struct Outcome {
     pub report: Report,
     pub unreadable: Vec<PathBuf>,
+    /// The statement behind each REPORTED row, in row order.
+    ///
+    /// Beside the report rather than inside it: section I fixes the row's
+    /// anatomy and `text` is not one of its columns. But a token count
+    /// needs the bytes, and walking the corpus a second time to find them
+    /// again would be two readers of one thing -- the defect V8 names, in
+    /// the place where a disagreement would be hardest to see.
+    pub texts: Vec<String>,
 }
 
 /// Where the corpus is: the roots with the scope that named each, the
@@ -185,11 +193,40 @@ pub fn run(
     filter: &Filter,
 ) -> Result<Outcome, corpus::Error> {
     let loaded = load(corpus)?;
-    let rows: Vec<Row> = loaded.statements.iter().map(to_row).collect();
+    let paired: Vec<(Row, String)> = loaded
+        .statements
+        .iter()
+        .map(|found| (to_row(found), found.text.clone()))
+        .collect();
+    let (rows, texts) = keep(paired, filter);
     Ok(Outcome {
-        report: finish(rows, sources_of(corpus)?, filter),
+        report: Report {
+            rows,
+            sources: sources_of(corpus)?,
+        },
         unreadable: loaded.unreadable,
+        texts,
     })
+}
+
+/// Filter rows and their texts TOGETHER.
+///
+/// Paired through the filter rather than filtered twice: two passes with
+/// the same predicate is one predicate that can be edited in one place,
+/// and then a `--top 5` report would carry the first five texts of a
+/// different five rows.
+fn keep(
+    paired: Vec<(Row, String)>,
+    filter: &Filter,
+) -> (Vec<Row>, Vec<String>) {
+    let mut kept: Vec<(Row, String)> = paired
+        .into_iter()
+        .filter(|(row, _)| filter.keeps(row))
+        .collect();
+    if let Some(limit) = filter.top {
+        kept.truncate(limit);
+    }
+    kept.into_iter().unzip()
 }
 
 /// One source row per configured root, with the count of files it
@@ -213,18 +250,6 @@ fn source_of(root: &str, scope: config::Scope, files: usize) -> Source {
         root: root.to_string(),
         scope: scope.to_string(),
         files,
-    }
-}
-
-fn finish(rows: Vec<Row>, sources: Vec<Source>, filter: &Filter) -> Report {
-    let mut kept: Vec<Row> =
-        rows.into_iter().filter(|row| filter.keeps(row)).collect();
-    if let Some(limit) = filter.top {
-        kept.truncate(limit);
-    }
-    Report {
-        rows: kept,
-        sources,
     }
 }
 

@@ -28,12 +28,14 @@ pub struct Entry {
     pub label: String,
     pub artifact: String,
     pub fires: u64,
-    /// Tokens reclaimed. `None` until `itok` is wired in (V8, T16).
+    /// Tokens RECLAIMED -- what this statement cost the window before it
+    /// was moved out. Delegated to `itok` (V8) and filled by the caller,
+    /// so this module stays a pure function of the ledger.
     ///
-    /// NULL rather than a guess. This crate does not own token accounting,
-    /// and a char/4 stand-in printed in the same column a tokenizer will
-    /// later fill is a number that looks measured and is not.
-    pub tokens: Option<u64>,
+    /// NULL rather than a guess when the sibling is absent (V26). A
+    /// char/4 stand-in printed in the column a tokenizer fills is a
+    /// number that looks measured and is not.
+    pub tokens: Option<u32>,
     /// Unix seconds, as recorded.
     pub at: u64,
 }
