@@ -2,4 +2,16 @@
 # `target/package/rekall-0.1.0/Cargo.toml` that cargo generates and nobody
 # edits, and formatting a generated file is a verdict about cargo's
 # formatter rather than about this repo.
-exclude = ["target/**"]
+#
+# `.direnv/` is the same argument, louder. It holds the FLAKE INPUTS --
+# nixpkgs among them -- so leaving it in scope pointed this gate at
+# thousands of TOML files belonging to other projects, and reddened it on
+# their formatting. MEASURED: 221 files collected, and every failure was
+# under `.direnv/flake-inputs/`, none in this repo.
+#
+# That is the defect section C names for RUSTFLAGS reaching PATH
+# dependencies, arriving through a different tool: a verdict about code
+# this crate does not own, blocking a commit to code it does. Both
+# directories are gitignored, and a linter's scope should match what the
+# repo actually ships.
+exclude = ["target/**", ".direnv/**"]
