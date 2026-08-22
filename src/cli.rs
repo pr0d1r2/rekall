@@ -5,11 +5,46 @@
 //! 1 drift, 2 usage -- so the mapping from argument to exit stays visible
 //! here instead of inside a macro.
 
-use crate::{
-    apply, check, classify, config, corpus, hook, init, ledger, log, plan,
-    recall, revert, runner, scan, show, statement, tokens, trigger,
-};
+// The crate modules are reached by FULL PATH inside the verb modules,
+// because `mod apply;` below would otherwise shadow `crate::apply`.
+use crate::{classify, config, statement, tokens};
 use std::path::{Path, PathBuf};
+
+/// One module per VERB. `cli.rs` keeps dispatch, the shared parse
+/// helpers and the two report shapes; each verb took its own flags,
+/// orchestration, renderer and tests with it.
+///
+/// This file reached 1,878 lines of code while every FUNCTION in it
+/// passed its limits -- clippy caps methods and parameters but nothing
+/// caps a FILE, so the one dimension nobody measured is the one that
+/// drifted (V22, again). The gate measures it now.
+mod apply;
+mod check;
+mod hook;
+mod init;
+mod log;
+mod plan;
+mod recall;
+mod revert;
+mod scan;
+mod show;
+
+pub use apply::{
+    ApplyArgs, Consent, NEEDS_APPROVAL, NO_APPLY_INPUT, apply_command,
+    approved, parse_apply, read_answer, render_apply_human,
+};
+pub use check::{CheckArgs, Checked, check_command, parse_check};
+pub use hook::hook_command;
+pub use init::{InitArgs, init_command, parse_init};
+pub use log::{LogArgs, log_command, parse_log};
+pub use plan::{NO_PLAN_IDS, PlanArgs, parse_plan, plan_command};
+pub use recall::{RecallArgs, parse_recall, recall_command};
+pub use revert::{
+    NO_REVERT_INPUT, RevertArgs, parse_revert, render_revert_human,
+    revert_command,
+};
+pub use scan::{ScanArgs, parse_scan, scan_command};
+pub use show::{NO_ID, ShowArgs, parse_show, show_command};
 
 pub const USAGE_EXIT: u8 = 2;
 
@@ -25,6 +60,16 @@ pub enum Format {
     Json,
 }
 
+/// A flag that takes a value, and says so when it did not get one.
+pub(super) fn need<'a>(
+    flag: &str,
+    rest: &mut impl Iterator<Item = &'a String>,
+) -> Result<String, String> {
+    rest.next()
+        .cloned()
+        .ok_or_else(|| format!("`{flag}` needs a value"))
+}
+
 /// An unknown `--format` is a USAGE error, never a silent fall back to
 /// prose (V17). An agent that asked for json and received a table would
 /// parse garbage rather than fail.
@@ -36,72 +81,6 @@ pub fn parse_format(raw: &str) -> Result<Format, String> {
             "unknown --format `{other}` -- expected `human` or `json`"
         )),
     }
-}
-
-#[derive(Debug, Default)]
-pub struct ScanArgs {
-    pub filter: scan::Filter,
-    pub sources: bool,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-/// Parse `scan`'s flags.
-///
-/// A flag that takes a value and is given none is an error rather than a
-/// default: `--top` with nothing after it is a truncated command line, and
-/// guessing what was meant is how a scan silently reports the wrong slice.
-pub fn parse_scan(args: &[String]) -> Result<ScanArgs, String> {
-    let mut out = ScanArgs::default();
-    let mut rest = args.iter();
-    while let Some(flag) = rest.next() {
-        apply_scan_flag(&mut out, flag, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_scan_flag<'a>(
-    out: &mut ScanArgs,
-    flag: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match flag {
-        "--sources" => out.sources = true,
-        "--format" => {
-            out.json = parse_format(&need(flag, rest)?)? == Format::Json
-        }
-        "--class" => out.filter.class = Some(need(flag, rest)?),
-        "--sharpness" => {
-            out.filter.sharpness = Some(parse_level(&need(flag, rest)?)?)
-        }
-        "--top" => out.filter.top = Some(parse_count(&need(flag, rest)?)?),
-        "-C" => out.cwd = Some(PathBuf::from(need(flag, rest)?)),
-        other => return Err(format!("unknown flag `{other}`")),
-    }
-    Ok(())
-}
-
-fn need<'a>(
-    flag: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<String, String> {
-    rest.next()
-        .cloned()
-        .ok_or_else(|| format!("`{flag}` needs a value"))
-}
-
-fn parse_level(raw: &str) -> Result<u8, String> {
-    match raw {
-        "1" => Ok(1),
-        "2" => Ok(2),
-        "3" => Ok(3),
-        other => Err(format!("--sharpness must be 1, 2 or 3, got `{other}`")),
-    }
-}
-
-fn parse_count(raw: &str) -> Result<usize, String> {
-    raw.parse::<usize>()
-        .map_err(|_| format!("--top needs a whole number, got `{raw}`"))
 }
 
 /// Load both config scopes and report every root with the scope that named
@@ -272,7 +251,7 @@ pub fn perform(action: Action, env: &Env) -> u8 {
         // carries its verdict in the exit code (section I's drift 1), and
         // `hook` speaks the harness's JSON on both ends (V17's exception).
         Action::Check(flags) => run_check(&flags, env),
-        Action::Hook(flags) => run_hook(&flags, env),
+        Action::Hook(flags) => hook::run_hook(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
         reporting => emit(reported(reporting, env)),
@@ -342,1407 +321,6 @@ fn emit(result: Result<Output, String>) -> u8 {
     }
 }
 
-/// `init` flags. `--force` is separate from `--auto-approve` on purpose:
-/// this writes its OWN config, never the corpus, so it is not the
-/// destructive path V20 guards.
-#[derive(Debug, Default)]
-pub struct InitArgs {
-    pub force: bool,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_init(args: &[String]) -> Result<InitArgs, String> {
-    let mut out = InitArgs::default();
-    let mut rest = args.iter();
-    while let Some(flag) = rest.next() {
-        apply_init_flag(&mut out, flag, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_init_flag<'a>(
-    out: &mut InitArgs,
-    flag: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match flag {
-        "--force" => out.force = true,
-        "--format" => {
-            out.json = parse_format(&need(flag, rest)?)? == Format::Json
-        }
-        "-C" => out.cwd = Some(PathBuf::from(need(flag, rest)?)),
-        other => return Err(format!("unknown flag `{other}`")),
-    }
-    Ok(())
-}
-
-/// Run `init` end to end.
-pub fn init_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_init(flags)?;
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let report = init::run(&base, env.home.as_deref(), args.force)
-        .map_err(|error| error.to_string())?;
-    Ok(Output {
-        text: render_init(&report, args.json)?,
-        warnings: Vec::new(),
-    })
-}
-
-fn render_init(report: &init::Report, json: bool) -> Result<String, String> {
-    if json {
-        return serde_json::to_string_pretty(report)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string());
-    }
-    Ok(init::render_human(report))
-}
-
-/// `show` takes ONE id (or an unambiguous prefix of one) plus the usual
-/// format and directory flags.
-#[derive(Debug, Default)]
-pub struct ShowArgs {
-    pub id: Option<String>,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_show(args: &[String]) -> Result<ShowArgs, String> {
-    let mut out = ShowArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_show_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_show_arg<'a>(
-    out: &mut ShowArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json
-        }
-        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
-        other if other.starts_with('-') => {
-            return Err(format!("unknown flag `{other}`"));
-        }
-        id => return set_id(out, id),
-    }
-    Ok(())
-}
-
-/// A second positional is a MISTAKE, not a second lookup. `show a b` most
-/// likely means the shell split something, and quietly showing only `a`
-/// would answer a question nobody asked.
-fn set_id(out: &mut ShowArgs, id: &str) -> Result<(), String> {
-    if out.id.is_some() {
-        return Err(format!("`show` takes one id, got a second: `{id}`"));
-    }
-    out.id = Some(id.to_string());
-    Ok(())
-}
-
-/// Run `show` end to end.
-pub fn show_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_show(flags)?;
-    let id = args.id.clone().ok_or_else(|| NO_ID.to_string())?;
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let resolved = resolve(&base)?;
-    if resolved.roots.is_empty() {
-        return Err(NO_SOURCES.to_string());
-    }
-    render_lookup(&find(&resolved, &base, env, &id)?, &id, args.json)
-}
-
-pub const NO_ID: &str = "`show` needs an id -- copy one from `rekall scan`";
-
-fn find(
-    resolved: &Resolved,
-    base: &Path,
-    env: &Env,
-    id: &str,
-) -> Result<show::Lookup, String> {
-    let at = scan::Corpus {
-        roots: &resolved.roots,
-        globs: &resolved.globs,
-        home: env.home.as_deref(),
-        base,
-        weights: &resolved.weights,
-    };
-    show::lookup(&at, id).map_err(|error| error.to_string())
-}
-
-fn render_lookup(
-    found: &show::Lookup,
-    id: &str,
-    json: bool,
-) -> Result<Output, String> {
-    match found {
-        show::Lookup::Unique(found) => Ok(Output {
-            text: render_found(found, json)?,
-            warnings: Vec::new(),
-        }),
-        show::Lookup::Ambiguous(ids) => Err(format!(
-            "`{id}` matches {} statements: {}. Use more characters.",
-            ids.len(),
-            ids.join(", ")
-        )),
-        show::Lookup::Missing => Err(format!("no statement matches `{id}`")),
-    }
-}
-
-fn render_found(found: &show::Found, json: bool) -> Result<String, String> {
-    if json {
-        return serde_json::to_string_pretty(found)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string());
-    }
-    Ok(show::render_human(found))
-}
-
-/// `plan` takes one or more ids plus `--out` and the usual flags.
-#[derive(Debug, Default)]
-pub struct PlanArgs {
-    pub ids: Vec<String>,
-    pub out: Option<PathBuf>,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_plan(args: &[String]) -> Result<PlanArgs, String> {
-    let mut out = PlanArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_plan_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_plan_arg<'a>(
-    out: &mut PlanArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json
-        }
-        "--out" => out.out = Some(PathBuf::from(need(arg, rest)?)),
-        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
-        other if other.starts_with('-') => {
-            return Err(format!("unknown flag `{other}`"));
-        }
-        id => out.ids.push(id.to_string()),
-    }
-    Ok(())
-}
-
-/// Run `plan` end to end.
-pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_plan(flags)?;
-    if args.ids.is_empty() {
-        return Err(NO_PLAN_IDS.to_string());
-    }
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let loaded = load_corpus(&base, env)?;
-    let chosen = choose(&loaded.statements, &args.ids)?;
-    let built = plan::build(&chosen, &loaded.sources, &loaded.weights)
-        .map_err(|error| error.to_string())?;
-    emit_plan(&built, &args, &base)
-}
-
-pub const NO_PLAN_IDS: &str =
-    "`plan` needs at least one id -- copy them from `rekall scan`";
-
-fn load_corpus(base: &Path, env: &Env) -> Result<scan::Loaded, String> {
-    let resolved = resolve(base)?;
-    if resolved.roots.is_empty() {
-        return Err(NO_SOURCES.to_string());
-    }
-    let at = scan::Corpus {
-        roots: &resolved.roots,
-        globs: &resolved.globs,
-        home: env.home.as_deref(),
-        base,
-        weights: &resolved.weights,
-    };
-    scan::load(&at).map_err(|error| error.to_string())
-}
-
-/// Resolve each id prefix to exactly one statement.
-///
-/// Every id is resolved BEFORE any step is built, so a typo in the third
-/// id does not produce a partial plan for the first two.
-fn choose(
-    statements: &[statement::Statement],
-    ids: &[String],
-) -> Result<Vec<statement::Statement>, String> {
-    let mut out = Vec::new();
-    for id in ids {
-        out.push(one(statements, id)?);
-    }
-    Ok(out)
-}
-
-fn one(
-    statements: &[statement::Statement],
-    id: &str,
-) -> Result<statement::Statement, String> {
-    let hits: Vec<&statement::Statement> =
-        statements.iter().filter(|s| s.id.starts_with(id)).collect();
-    match hits.as_slice() {
-        [] => Err(plan::Error::Unknown(id.to_string()).to_string()),
-        [only] => Ok((*only).clone()),
-        many => Err(plan::Error::Ambiguous(
-            id.to_string(),
-            many.iter().map(|s| s.id.clone()).collect(),
-        )
-        .to_string()),
-    }
-}
-
-fn emit_plan(
-    built: &plan::Plan,
-    args: &PlanArgs,
-    base: &Path,
-) -> Result<Output, String> {
-    let mut warnings = Vec::new();
-    if let Some(path) = args.out.as_deref() {
-        // ANCHORED to `-C`, like every other path this command touches. A
-        // relative `--out` resolved against the PROCESS directory would
-        // write the plan somewhere the project it describes cannot see --
-        // the same split `-C` already had to fix for corpus roots.
-        let path = base.join(path);
-        write_plan(&path, built)?;
-        warnings.push(format!("wrote plan to {}", path.display()));
-    }
-    Ok(Output {
-        text: render_plan(built, args.json)?,
-        warnings,
-    })
-}
-
-/// The path is always base-joined by the caller, so it always has a
-/// parent and the directory creation needs no "if there is one" branch.
-fn write_plan(path: &Path, built: &plan::Plan) -> Result<(), String> {
-    let text =
-        toml::to_string_pretty(built).map_err(|error| error.to_string())?;
-    let parent = path.parent().unwrap_or(Path::new("."));
-    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    std::fs::write(path, text).map_err(|error| error.to_string())
-}
-
-fn render_plan(built: &plan::Plan, json: bool) -> Result<String, String> {
-    if json {
-        return serde_json::to_string_pretty(built)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string());
-    }
-    Ok(plan::render_human(built))
-}
-
-/// `apply` takes ids OR a plan file, plus `--auto-approve`.
-#[derive(Debug, Default)]
-pub struct ApplyArgs {
-    pub ids: Vec<String>,
-    /// A positional that names an EXISTING FILE is read as a plan; anything
-    /// else is an id. Section I writes the two as alternatives, and an id is
-    /// seven hex characters, so the collision is a file literally named
-    /// `95bae35` -- at which point reading it as a plan and failing to parse
-    /// is a better outcome than silently treating a plan path as an id.
-    pub plan_file: Option<PathBuf>,
-    pub auto_approve: bool,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_apply(args: &[String]) -> Result<ApplyArgs, String> {
-    let mut out = ApplyArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_apply_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_apply_arg<'a>(
-    out: &mut ApplyArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--auto-approve" => out.auto_approve = true,
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json
-        }
-        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
-        other if other.starts_with('-') => {
-            return Err(format!("unknown flag `{other}`"));
-        }
-        positional if Path::new(positional).is_file() => {
-            out.plan_file = Some(PathBuf::from(positional));
-        }
-        id => out.ids.push(id.to_string()),
-    }
-    Ok(())
-}
-
-/// How consent for a mutating run was obtained.
-///
-/// An enum rather than two booleans, because `approved(true, false)` at a
-/// call site says nothing about which is which -- the two-bool limit in
-/// clippy.toml exists for exactly this, and the three states here are a
-/// KIND rather than a pair of flags.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Consent {
-    /// `--auto-approve` was passed.
-    Flag,
-    /// A terminal was present and the user answered.
-    Answered(String),
-    /// No terminal and no flag. Silence is NOT consent: prompting into a
-    /// pipe hangs a CI job until someone kills it, and proceeding without
-    /// asking makes the DESTRUCTIVE path the quiet one (V20).
-    Unattended,
-}
-
-/// Whether this run may mutate.
-pub fn approved(consent: &Consent) -> Result<(), String> {
-    match consent {
-        Consent::Flag => Ok(()),
-        Consent::Unattended => Err(NEEDS_APPROVAL.to_string()),
-        Consent::Answered(answer) => match answer.trim() {
-            "y" | "Y" | "yes" => Ok(()),
-            _ => Err("cancelled".to_string()),
-        },
-    }
-}
-
-pub const NEEDS_APPROVAL: &str = "this would edit your corpus and stdin is not a terminal. \
-Re-run with --auto-approve if that is what you want";
-
-/// Run `apply` end to end.
-///
-/// Order matters and is the point: resolve the plan, CHECK IT IS FRESH
-/// (V19), name every file (V7), ask (V20), and only then write.
-pub fn apply_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_apply(flags)?;
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let loaded = load_corpus(&base, env)?;
-    let path = ledger::path_in(&base);
-    let held = ledger::load(&path).map_err(|error| error.to_string())?;
-    let requested = resolve_plan(&args, &loaded, &held)?;
-    refuse_if_stale(&requested.plan, &loaded)?;
-    let outcome = staged_outcome(&requested, &held);
-    let staged = Staged {
-        held,
-        outcome,
-        path,
-    };
-    commit(&args, &requested.plan, &base, staged)
-}
-
-fn staged_outcome(
-    requested: &Requested,
-    held: &ledger::Ledger,
-) -> apply::Outcome {
-    let mut outcome = apply::preview(&requested.plan.steps, held);
-    outcome.skipped.extend(requested.already.clone());
-    outcome
-}
-
-/// A plan, plus the requested ids that were ALREADY extracted.
-///
-/// Those come back together because an already-extracted id has no
-/// statement left in the corpus to plan from -- `apply` replaced it with a
-/// pointer -- so looking it up fails, and failing is exactly what V13 says
-/// must not happen.
-struct Requested {
-    plan: plan::Plan,
-    already: Vec<String>,
-}
-
-struct Staged {
-    held: ledger::Ledger,
-    outcome: apply::Outcome,
-    path: PathBuf,
-}
-
-/// Either the plan file the user handed us, or one built from ids.
-fn resolve_plan(
-    args: &ApplyArgs,
-    loaded: &scan::Loaded,
-    held: &ledger::Ledger,
-) -> Result<Requested, String> {
-    if let Some(path) = args.plan_file.as_deref() {
-        return from_file(path);
-    }
-    if args.ids.is_empty() {
-        return Err(NO_APPLY_INPUT.to_string());
-    }
-    let split = split_requested(&args.ids, loaded, held)?;
-    let plan = plan::build(&split.chosen, &loaded.sources, &loaded.weights)
-        .map_err(|error| error.to_string())?;
-    Ok(Requested {
-        plan,
-        already: split.already,
-    })
-}
-
-fn from_file(path: &Path) -> Result<Requested, String> {
-    let text =
-        std::fs::read_to_string(path).map_err(|error| error.to_string())?;
-    let plan = toml::from_str(&text).map_err(|error| error.to_string())?;
-    Ok(Requested {
-        plan,
-        already: Vec::new(),
-    })
-}
-
-/// Sort requested ids into "still in the corpus" and "already extracted".
-///
-/// An id the corpus does not hold but the LEDGER does is not an error: it
-/// is work already done. `apply` replaced that statement with a pointer,
-/// so there is nothing left to look up -- and V13 makes re-applying a
-/// no-op at exit 0, not an "unknown id" at exit 2.
-fn split_requested(
-    ids: &[String],
-    loaded: &scan::Loaded,
-    held: &ledger::Ledger,
-) -> Result<Split, String> {
-    let mut out = Split::default();
-    for id in ids {
-        match one(&loaded.statements, id) {
-            Ok(found) => out.chosen.push(found),
-            Err(message) => out.already.push(known_or_fail(id, held, message)?),
-        }
-    }
-    Ok(out)
-}
-
-#[derive(Default)]
-struct Split {
-    chosen: Vec<statement::Statement>,
-    already: Vec<String>,
-}
-
-fn known_or_fail(
-    id: &str,
-    held: &ledger::Ledger,
-    message: String,
-) -> Result<String, String> {
-    match held.find(id) {
-        Some(row) => Ok(row.id.clone()),
-        None => Err(message),
-    }
-}
-
-pub const NO_APPLY_INPUT: &str =
-    "`apply` needs ids or a plan file -- run `rekall plan` first";
-
-/// V19. A plan whose sources moved would delete the wrong lines, so it is
-/// REFUSED rather than adjusted. Re-planning is cheap and report-only.
-fn refuse_if_stale(
-    built: &plan::Plan,
-    loaded: &scan::Loaded,
-) -> Result<(), String> {
-    let current: Vec<(String, Option<String>)> = loaded
-        .sources
-        .iter()
-        .map(|(src, text)| (src.clone(), Some(text.clone())))
-        .collect();
-    let stale = plan::staleness(built, &current);
-    if stale.is_empty() {
-        return Ok(());
-    }
-    let reasons: Vec<String> = stale.iter().map(ToString::to_string).collect();
-    Err(format!("refusing a stale plan: {}", reasons.join("; ")))
-}
-
-fn commit(
-    args: &ApplyArgs,
-    built: &plan::Plan,
-    base: &Path,
-    mut staged: Staged,
-) -> Result<Output, String> {
-    let pending = apply::pending(&built.steps, &staged.held);
-    if pending.is_empty() {
-        return report(
-            &staged.outcome,
-            args.json,
-            vec!["nothing to do".to_string()],
-            render_apply_human,
-        );
-    }
-    let named = render_apply_human(&staged.outcome, &[]);
-    approved(&consent_for(args.auto_approve, &named)?)?;
-    let done = perform_apply(&pending, base, &mut staged)?;
-    report(&staged.outcome, args.json, done, render_apply_human)
-}
-
-fn perform_apply(
-    pending: &[plan::Step],
-    base: &Path,
-    staged: &mut Staged,
-) -> Result<Vec<String>, String> {
-    let mut done = write_all(pending, base)?;
-    for step in pending {
-        staged.held.record(apply::row_for(step, now()));
-    }
-    ledger::save(&staged.path, &staged.held)
-        .map_err(|error| error.to_string())?;
-    done.push(format!("recorded {} extraction(s)", pending.len()));
-    Ok(done)
-}
-
-/// Unix seconds. Zero if the clock is unreadable -- a missing timestamp is
-/// a worse ledger row than an old one, and neither is worth failing over.
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |since| since.as_secs())
-}
-
-/// V7: name every file BEFORE asking, so the question is informed.
-///
-/// Takes the rendered names rather than an outcome, because V20 is ONE
-/// rule and not one per verb: `apply` and `revert` both delete from the
-/// user's private memory, and a second confirm gate written for the second
-/// verb is a second place for the rule to be slightly wrong.
-fn consent_for(auto_approve: bool, named: &str) -> Result<Consent, String> {
-    if auto_approve {
-        return Ok(Consent::Flag);
-    }
-    eprint!("{named}");
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        return Ok(Consent::Unattended);
-    }
-    ask_at_terminal()
-}
-
-/// Read an answer from anywhere.
-///
-/// Takes the reader rather than reaching for stdin, so the parsing of a
-/// consent answer -- the part with a decision in it -- is testable without
-/// a terminal. What is left needing one is the two lines below.
-pub fn read_answer(
-    input: &mut impl std::io::BufRead,
-) -> Result<Consent, String> {
-    let mut answer = String::new();
-    input
-        .read_line(&mut answer)
-        .map_err(|error| error.to_string())?;
-    Ok(Consent::Answered(answer))
-}
-
-fn ask_at_terminal() -> Result<Consent, String> {
-    eprint!("apply these changes? [y/N] ");
-    read_answer(&mut std::io::stdin().lock())
-}
-
-fn write_all(
-    pending: &[plan::Step],
-    base: &Path,
-) -> Result<Vec<String>, String> {
-    let mut done = Vec::new();
-    for step in pending {
-        write_artifact(base, step)?;
-        done.push(format!("wrote {}", step.artifact));
-    }
-    edit_sources(pending, base, &mut done)?;
-    Ok(done)
-}
-
-fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
-    let path = base.join(&step.artifact);
-    let parent = path.parent().unwrap_or(Path::new("."));
-    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    std::fs::write(&path, apply::artifact_text(step))
-        .map_err(|error| error.to_string())?;
-    if step.label.starts_with('M') {
-        make_runnable(&path)?;
-    }
-    Ok(())
-}
-
-/// An `M` artifact arrives EXECUTABLE. A runner nothing can execute is a
-/// rule with no runner, which V2 says gates nothing -- and the failure
-/// would surface as "permission denied" at a tool call rather than as
-/// something `check` could tell you about.
-fn make_runnable(path: &Path) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
-        .map_err(|error| error.to_string())
-}
-
-/// One rewrite per source file, with every span for that file applied
-/// together and bottom-up. Rewriting per STEP would shift the spans of the
-/// steps that follow it.
-fn edit_sources(
-    pending: &[plan::Step],
-    base: &Path,
-    done: &mut Vec<String>,
-) -> Result<(), String> {
-    for src in sources_touched(pending) {
-        let steps: Vec<plan::Step> =
-            pending.iter().filter(|s| s.src == src).cloned().collect();
-        let path = base.join(&src);
-        let text = std::fs::read_to_string(&path)
-            .map_err(|error| error.to_string())?;
-        let edited = apply::splice_all(&text, &steps).ok_or_else(|| {
-            format!("{src}: a span no longer fits -- re-run `rekall plan`")
-        })?;
-        std::fs::write(&path, edited).map_err(|error| error.to_string())?;
-        done.push(format!("edited {src}"));
-    }
-    Ok(())
-}
-
-fn sources_touched(pending: &[plan::Step]) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    for step in pending {
-        if !out.contains(&step.src) {
-            out.push(step.src.clone());
-        }
-    }
-    out
-}
-
-/// Report what a MUTATING verb did, in either format.
-///
-/// `apply` and `revert` differ in what they RENDER, not in how they
-/// report: the machine-readable outcome goes to stdout and the list of
-/// what actually happened to stderr, so `--format json` stays parseable
-/// while the receipt is still visible (V17). Writing that branch twice
-/// would be two rule sets of the smallest and most forgettable kind.
-fn report<T: serde::Serialize>(
-    outcome: &T,
-    json: bool,
-    done: Vec<String>,
-    human: impl Fn(&T, &[String]) -> String,
-) -> Result<Output, String> {
-    if json {
-        let text = serde_json::to_string_pretty(outcome)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string())?;
-        return Ok(Output {
-            text,
-            warnings: done,
-        });
-    }
-    Ok(Output {
-        text: human(outcome, &done),
-        warnings: Vec::new(),
-    })
-}
-
-#[must_use]
-pub fn render_apply_human(outcome: &apply::Outcome, done: &[String]) -> String {
-    let mut out = String::new();
-    for path in &outcome.writes {
-        out.push_str(&format!("write   {path}\n"));
-    }
-    for path in &outcome.edits {
-        out.push_str(&format!("edit    {path}\n"));
-    }
-    for id in &outcome.skipped {
-        out.push_str(&format!("skip    {id} (already extracted)\n"));
-    }
-    for line in done {
-        out.push_str(&format!("done    {line}\n"));
-    }
-    out
-}
-
-/// `revert` takes ONE id plus `--auto-approve` and the usual flags.
-///
-/// One, because section I writes it `revert <id>` and because reverting is
-/// the deliberate undoing of a single decision. A batch revert would need
-/// its own answer to what happens when the third of five cannot be found,
-/// and that answer is better as five commands.
-#[derive(Debug, Default)]
-pub struct RevertArgs {
-    pub id: Option<String>,
-    pub auto_approve: bool,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_revert(args: &[String]) -> Result<RevertArgs, String> {
-    let mut out = RevertArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_revert_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_revert_arg<'a>(
-    out: &mut RevertArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--auto-approve" => out.auto_approve = true,
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json
-        }
-        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
-        other if other.starts_with('-') => {
-            return Err(format!("unknown flag `{other}`"));
-        }
-        id => return set_revert_id(out, id),
-    }
-    Ok(())
-}
-
-/// A second positional is a MISTAKE, not a second revert -- the same
-/// reasoning `show` uses, and it matters more here: quietly reverting only
-/// the first of two named ids would leave the second extraction in place
-/// while the command reported success.
-fn set_revert_id(out: &mut RevertArgs, id: &str) -> Result<(), String> {
-    if out.id.is_some() {
-        return Err(format!("`revert` takes one id, got a second: `{id}`"));
-    }
-    out.id = Some(id.to_string());
-    Ok(())
-}
-
-pub const NO_REVERT_INPUT: &str =
-    "`revert` needs an id -- copy one from `rekall log`";
-
-/// Run `revert` end to end.
-///
-/// Order is the point, as it is in `apply`: find the row, compute the
-/// restored bytes and REFUSE if the pointer is gone, name both files
-/// (V7), ask (V20), and only then write.
-pub fn revert_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_revert(flags)?;
-    let id = args.id.clone().ok_or_else(|| NO_REVERT_INPUT.to_string())?;
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let mut held = Held::open(&base)?;
-    let Some(row) = chosen_row(&held.ledger, &id, &base, env)? else {
-        return nothing_to_revert(&id, args.json);
-    };
-    undo(&row, &base, &args, &mut held)
-}
-
-/// V13: nothing left to undo is a no-op at exit 0, and says so.
-fn nothing_to_revert(id: &str, json: bool) -> Result<Output, String> {
-    report(
-        &revert::nothing_to_do(id),
-        json,
-        vec!["nothing to do".to_string()],
-        render_revert_human,
-    )
-}
-
-/// Compute, name, ask, write -- in that order (V7, V20).
-fn undo(
-    row: &ledger::Extracted,
-    base: &Path,
-    args: &RevertArgs,
-    held: &mut Held,
-) -> Result<Output, String> {
-    let restored = restored_text(row, base)?;
-    let outcome = revert::preview(row);
-    let named = render_revert_human(&outcome, &[]);
-    approved(&consent_for(args.auto_approve, &named)?)?;
-    let done = perform_revert(row, &restored, held)?;
-    report(&outcome, args.json, done, render_revert_human)
-}
-
-/// The ledger and where it lives, carried together so writing it back does
-/// not need the path threaded through every call beneath it.
-struct Held {
-    ledger: ledger::Ledger,
-    path: PathBuf,
-}
-
-impl Held {
-    fn open(base: &Path) -> Result<Self, String> {
-        let path = ledger::path_in(base);
-        let ledger = ledger::load(&path).map_err(|error| error.to_string())?;
-        Ok(Self { ledger, path })
-    }
-}
-
-/// Which ledger row to undo, or `None` when there is nothing left to undo.
-///
-/// A prefix the ledger does not hold is NOT automatically an error. If the
-/// statement is back in the corpus, this id has already been reverted --
-/// and its text rehashes to the same id, which is what makes the check
-/// possible at all. V13 makes that a no-op at exit 0, the mirror of
-/// re-applying an id the ledger already holds. An id in NEITHER place is
-/// still an error.
-fn chosen_row(
-    held: &ledger::Ledger,
-    id: &str,
-    base: &Path,
-    env: &Env,
-) -> Result<Option<ledger::Extracted>, String> {
-    match held.matching(id).as_slice() {
-        [only] => Ok(Some((*only).clone())),
-        [] => already_reverted(id, base, env),
-        many => Err(plan::Error::Ambiguous(
-            id.to_string(),
-            many.iter().map(|row| row.id.clone()).collect(),
-        )
-        .to_string()),
-    }
-}
-
-fn already_reverted(
-    id: &str,
-    base: &Path,
-    env: &Env,
-) -> Result<Option<ledger::Extracted>, String> {
-    let loaded = load_corpus(base, env)?;
-    one(&loaded.statements, id).map(|_| None)
-}
-
-/// The bytes to put back, computed BEFORE anything is asked or written.
-///
-/// Refusing before the prompt matters twice over: asking someone to
-/// approve an edit that cannot happen wastes the one deliberate act V20
-/// exists to require, and it fixes the ORDER -- the source is restored
-/// before the artifact is removed, so a failure never leaves the artifact
-/// deleted and the statement still absent, which would lose the rule
-/// outright.
-struct Restored {
-    path: PathBuf,
-    text: String,
-}
-
-fn restored_text(
-    row: &ledger::Extracted,
-    base: &Path,
-) -> Result<Restored, String> {
-    let path = base.join(&row.src);
-    let text =
-        std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
-    let text =
-        revert::unsplice(&text, row).map_err(|fault| fault.to_string())?;
-    Ok(Restored { path, text })
-}
-
-fn perform_revert(
-    row: &ledger::Extracted,
-    restored: &Restored,
-    held: &mut Held,
-) -> Result<Vec<String>, String> {
-    std::fs::write(&restored.path, &restored.text)
-        .map_err(|error| error.to_string())?;
-    let mut done = vec![format!("restored {}", row.src)];
-    done.push(remove_artifact(row, &restored.path)?);
-    held.ledger.take(&row.id);
-    ledger::save(&held.path, &held.ledger)
-        .map_err(|error| error.to_string())?;
-    done.push(format!("dropped the ledger row for {}", row.id));
-    Ok(done)
-}
-
-/// The other half of the move (V1).
-///
-/// An artifact that is ALREADY GONE is reported, not an error: the corpus
-/// still ends in the state the revert promised. An artifact that will not
-/// delete IS an error, and the ledger row is left in place on purpose --
-/// the extraction is not fully undone, and a ledger that said it was would
-/// hide the leftover from `check` as well as from the user.
-fn remove_artifact(
-    row: &ledger::Extracted,
-    source: &Path,
-) -> Result<String, String> {
-    let path = base_of(source, &row.src).join(&row.artifact);
-    if !path.exists() {
-        return Ok(format!("{} was already gone", row.artifact));
-    }
-    std::fs::remove_file(&path)
-        .map(|()| format!("removed {}", row.artifact))
-        .map_err(|cause| {
-            format!(
-                "{} is back in {}, but {} could not be removed: {cause}. \
-                 Delete it by hand -- the ledger row is kept so `rekall check` \
-                 still reports the leftover",
-                row.id, row.src, row.artifact
-            )
-        })
-}
-
-/// The project root, recovered from the source path that was just written.
-///
-/// Derived rather than passed, so the artifact and the source it pairs
-/// with can never be resolved against two different roots.
-fn base_of(source: &Path, src: &str) -> PathBuf {
-    let mut base = source.to_path_buf();
-    for _ in Path::new(src).components() {
-        base.pop();
-    }
-    base
-}
-
-#[must_use]
-pub fn render_revert_human(
-    outcome: &revert::Outcome,
-    done: &[String],
-) -> String {
-    let mut out = String::new();
-    if outcome.already {
-        out.push_str(&format!("skip    {} (nothing to revert)\n", outcome.id));
-    }
-    if !outcome.restores.is_empty() {
-        out.push_str(&format!("restore {}\n", outcome.restores));
-        out.push_str(&format!("remove  {}\n", outcome.removes));
-    }
-    for line in done {
-        out.push_str(&format!("done    {line}\n"));
-    }
-    out
-}
-
-/// `check` takes no ids. It audits EVERYTHING the ledger claims, because a
-/// gate you can point at a subset is a gate that reports green for the
-/// part you did not point it at.
-#[derive(Debug, Default)]
-pub struct CheckArgs {
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_check(args: &[String]) -> Result<CheckArgs, String> {
-    let mut out = CheckArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_check_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_check_arg<'a>(
-    out: &mut CheckArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json;
-        }
-        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
-        other => return Err(format!("unknown flag `{other}`")),
-    }
-    Ok(())
-}
-
-/// A finished audit, with the exit code it earned.
-///
-/// The count travels WITH the output because drift is not an error: the
-/// command ran correctly and the answer is bad news. Folding it into
-/// `Err` would make a working gate indistinguishable from a broken one.
-pub struct Checked {
-    pub output: Output,
-    pub drift: usize,
-}
-
-/// Run `check` end to end.
-///
-/// CPU-only, and it reads nothing but the ledger and the files the ledger
-/// names (V6). No key, no network, so it runs in `hk` on every commit and
-/// in a CI that can reach nothing.
-pub fn check_command(flags: &[String], env: &Env) -> Result<Checked, String> {
-    let args = parse_check(flags)?;
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let held =
-        ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
-    let bytes = read_rows(&base, &held);
-    let seen = zip_rows(&held, &bytes);
-    let on_disk = artifacts_on_disk(&base, env)?;
-    render_check(&check::audit(&seen, &on_disk), args.json)
-}
-
-/// The bytes each row is judged against, read once.
-///
-/// A file that cannot be read comes back as `None` rather than an error.
-/// It IS a finding -- a ledger naming a file nobody can open is exactly
-/// the drift this gate exists for -- and aborting on the first one would
-/// report a single problem where there may be five.
-struct Bytes {
-    source: Option<String>,
-    artifact: Option<String>,
-}
-
-fn read_rows(base: &Path, held: &ledger::Ledger) -> Vec<Bytes> {
-    held.extracted
-        .iter()
-        .map(|row| Bytes {
-            source: std::fs::read_to_string(base.join(&row.src)).ok(),
-            artifact: std::fs::read_to_string(base.join(&row.artifact)).ok(),
-        })
-        .collect()
-}
-
-fn zip_rows<'a>(
-    held: &'a ledger::Ledger,
-    bytes: &'a [Bytes],
-) -> Vec<check::Seen<'a>> {
-    held.extracted
-        .iter()
-        .zip(bytes)
-        .map(|(row, read)| check::Seen {
-            row,
-            source: read.source.as_deref(),
-            artifact: read.artifact.as_deref(),
-        })
-        .collect()
-}
-
-/// Where `plan` materializes artifacts, and therefore the only places an
-/// ORPHAN can be found.
-///
-/// Two named roots rather than a walk of the project: everything outside
-/// them is somebody else's file, and a gate that called every unclaimed
-/// file in the repo an orphan would be unusable on its first run.
-const ARTIFACT_ROOTS: [&str; 2] = [".rekall/rules", ".claude/skills"];
-const ARTIFACT_GLOBS: [&str; 2] = ["**/*.sh", "**/SKILL.md"];
-
-fn artifacts_on_disk(base: &Path, env: &Env) -> Result<Vec<String>, String> {
-    let roots: Vec<String> =
-        ARTIFACT_ROOTS.iter().map(|r| (*r).to_string()).collect();
-    let globs: Vec<String> =
-        ARTIFACT_GLOBS.iter().map(|g| (*g).to_string()).collect();
-    let walked = corpus::files(&roots, &globs, env.home.as_deref(), base)
-        .map_err(|error| error.to_string())?;
-    Ok(walked
-        .files
-        .iter()
-        .map(|path| scan::stable_name(path, base, env.home.as_deref()))
-        .collect())
-}
-
-/// V17: both formats, same anatomy. V28: human output is SILENT when
-/// clean -- output that always appears is output nobody reads.
-fn render_check(found: &[check::Drift], json: bool) -> Result<Checked, String> {
-    let text = if json {
-        serde_json::to_string_pretty(&Report { drift: found })
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string())?
-    } else {
-        check::render_human(found)
-    };
-    Ok(Checked {
-        output: Output {
-            text,
-            warnings: Vec::new(),
-        },
-        drift: found.len(),
-    })
-}
-
-/// The JSON envelope. An OBJECT rather than a bare array, so a later
-/// field -- a count, a summary -- can be added without changing the type
-/// every consumer already parses.
-#[derive(serde::Serialize)]
-struct Report<'a> {
-    drift: &'a [check::Drift],
-}
-
-/// `log` reads the ledger. Report-only, and the one verb whose whole job
-/// is to make a rule's uselessness measurable rather than suspected.
-#[derive(Debug, Default)]
-pub struct LogArgs {
-    pub dead: bool,
-    pub since: Option<String>,
-    pub cwd: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_log(args: &[String]) -> Result<LogArgs, String> {
-    let mut out = LogArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_log_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_log_arg<'a>(
-    out: &mut LogArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--dead" => out.dead = true,
-        "--since" => out.since = Some(need(arg, rest)?),
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json;
-        }
-        "-C" => out.cwd = Some(PathBuf::from(need(arg, rest)?)),
-        other => return Err(format!("unknown flag `{other}`")),
-    }
-    Ok(())
-}
-
-/// Run `log` end to end.
-pub fn log_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_log(flags)?;
-    let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let held =
-        ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
-    let mut report = log::report(&held, log_filter(&args)?);
-    let skipped = fill_log_tokens(&mut report);
-    let mut out = render_log(&report, args.json)?;
-    out.warnings = skipped;
-    Ok(out)
-}
-
-/// The tokens RECLAIMED by each extraction, from the verbatim text the
-/// ledger kept (V9). One call for the whole log, same as `scan`.
-fn fill_log_tokens(report: &mut log::Report) -> Vec<String> {
-    let texts: Vec<String> = report
-        .entries
-        .iter()
-        .map(|entry| entry.text.clone())
-        .collect();
-    let counted = tokens::count_all(&texts);
-    spread(&mut report.entries, counted, set_entry_tokens)
-}
-
-fn set_entry_tokens(entry: &mut log::Entry, count: Option<u32>) {
-    entry.tokens = count;
-}
-
-/// The duration is resolved against the clock HERE, at the edge, so
-/// `log`'s own filtering stays a pure function of two numbers.
-fn log_filter(args: &LogArgs) -> Result<log::Filter, String> {
-    let since = match args.since.as_deref() {
-        Some(raw) => Some(log::floor(now(), log::duration(raw)?)),
-        None => None,
-    };
-    Ok(log::Filter {
-        dead: args.dead,
-        since,
-    })
-}
-
-fn render_log(report: &log::Report, json: bool) -> Result<Output, String> {
-    let text = if json {
-        serde_json::to_string_pretty(report)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string())?
-    } else {
-        log::render_human(report)
-    };
-    Ok(Output {
-        text,
-        warnings: Vec::new(),
-    })
-}
-
-/// `recall` takes the SITUATION: a free-text description plus whatever
-/// exact facts the caller has.
-#[derive(Debug, Default)]
-pub struct RecallArgs {
-    pub text: String,
-    pub tool: Option<String>,
-    pub path: Option<String>,
-    /// Where the WORK is. Section I gives this verb a `--cwd` distinct
-    /// from every other verb's `-C`, which says where the PROJECT is --
-    /// only the first is a fact a trigger can turn on.
-    pub cwd: Option<String>,
-    pub base: Option<PathBuf>,
-    pub json: bool,
-}
-
-pub fn parse_recall(args: &[String]) -> Result<RecallArgs, String> {
-    let mut out = RecallArgs::default();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        apply_recall_arg(&mut out, arg, &mut rest)?;
-    }
-    Ok(out)
-}
-
-fn apply_recall_arg<'a>(
-    out: &mut RecallArgs,
-    arg: &str,
-    rest: &mut impl Iterator<Item = &'a String>,
-) -> Result<(), String> {
-    match arg {
-        "--tool" => out.tool = Some(need(arg, rest)?),
-        "--path" => out.path = Some(need(arg, rest)?),
-        "--cwd" => out.cwd = Some(need(arg, rest)?),
-        "--format" => {
-            out.json = parse_format(&need(arg, rest)?)? == Format::Json;
-        }
-        "-C" => out.base = Some(PathBuf::from(need(arg, rest)?)),
-        other if other.starts_with('-') => {
-            return Err(format!("unknown flag `{other}`"));
-        }
-        // Every remaining positional joins the situation TEXT. A shell
-        // splits an unquoted description into words, and refusing the
-        // second one would make `rekall recall editing a test` a usage
-        // error for no reason a caller could guess.
-        word => out.text = join(&out.text, word),
-    }
-    Ok(())
-}
-
-fn join(held: &str, word: &str) -> String {
-    if held.is_empty() {
-        return word.to_string();
-    }
-    format!("{held} {word}")
-}
-
-/// Run `recall` end to end. Report-only, and it counts NO firing -- V11's
-/// counter must mean the artifact was loaded, not asked about.
-pub fn recall_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_recall(flags)?;
-    let base = args.base.clone().unwrap_or_else(|| env.cwd.clone());
-    let held =
-        ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
-    let texts = read_artifacts(&base, &held);
-    let candidates = zip_candidates(&held, &texts);
-    let report = recall::decide(&candidates, &situation(&args));
-    render_recall(&report, args.json)
-}
-
-fn situation(args: &RecallArgs) -> trigger::Situation {
-    trigger::Situation {
-        tool: args.tool.clone(),
-        path: args.path.clone(),
-        cwd: args.cwd.clone(),
-        text: args.text.clone(),
-    }
-}
-
-fn read_artifacts(base: &Path, held: &ledger::Ledger) -> Vec<Option<String>> {
-    held.extracted
-        .iter()
-        .map(|row| std::fs::read_to_string(base.join(&row.artifact)).ok())
-        .collect()
-}
-
-fn zip_candidates<'a>(
-    held: &'a ledger::Ledger,
-    texts: &'a [Option<String>],
-) -> Vec<recall::Candidate<'a>> {
-    held.extracted
-        .iter()
-        .zip(texts)
-        .map(|(row, text)| recall::Candidate {
-            row,
-            artifact: text.as_deref(),
-        })
-        .collect()
-}
-
-fn render_recall(
-    report: &recall::Report,
-    json: bool,
-) -> Result<Output, String> {
-    let text = if json {
-        serde_json::to_string_pretty(report)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string())?
-    } else {
-        recall::render_human(report)
-    };
-    Ok(Output {
-        text,
-        warnings: Vec::new(),
-    })
-}
-
-/// Run `hook`: payload in, decision out.
-///
-/// Takes the payload as a STRING rather than reading stdin itself, so
-/// everything with a decision in it is testable without a pipe. The two
-/// lines that touch stdin and stdout are in `run_hook`.
-///
-/// V18 made literal: this calls `recall::decide`, the same function the
-/// `recall` verb prints. There is no second matcher to disagree with.
-pub fn hook_command(
-    stdin: &str,
-    base: &Path,
-) -> Result<serde_json::Value, String> {
-    let payload = hook::parse(stdin);
-    let path = ledger::path_in(base);
-    let held = ledger::load(&path).map_err(|e| e.to_string())?;
-    let texts = read_artifacts(base, &held);
-    let candidates = zip_candidates(&held, &texts);
-    let report = recall::decide(&candidates, &hook::situation(&payload));
-    let loading = hook::loading(&report);
-    count_fires(&path, &loading);
-    let said = advice(&loading, &held, &texts, base);
-    Ok(hook::decision(payload.hook_event_name.as_deref(), &said))
-}
-
-/// What the harness is told, per firing row.
-///
-/// An `S` contributes its TEXT -- the skill is the advice. An `M`
-/// contributes what its RUNNER said, and only when the runner objected: a
-/// rule that looked and found nothing has nothing to add, and injecting
-/// "passed" on every tool call is the always-on cost this crate removes.
-fn advice(
-    loading: &[String],
-    held: &ledger::Ledger,
-    texts: &[Option<String>],
-    base: &Path,
-) -> Vec<String> {
-    held.extracted
-        .iter()
-        .zip(texts)
-        .filter(|(row, _)| loading.contains(&row.id))
-        .filter_map(|(row, text)| said_by(row, text.as_deref(), base))
-        .collect()
-}
-
-fn said_by(
-    row: &ledger::Extracted,
-    text: Option<&str>,
-    base: &Path,
-) -> Option<String> {
-    if !row.label.starts_with('M') {
-        return text.map(ToString::to_string);
-    }
-    runner::run(&base.join(&row.artifact), runner::LIMIT).advice()
-}
-
-/// V34: the counter, and the ONLY thing `hook` writes.
-///
-/// A failure to record is SWALLOWED. This runs in the request path of
-/// every tool call, and a read-only checkout or a full disk must not turn
-/// "your skill loaded" into "your tool broke" -- a lost count is a smaller
-/// harm than a wedged harness, and `--dead` degrades toward reporting
-/// MORE artifacts dead, which is the safe direction.
-fn count_fires(path: &Path, loading: &[String]) {
-    for id in loading {
-        let _ = ledger::record_fire(&ledger::fires_beside(path), id);
-    }
-}
-
-/// Stdin to stdout, and NEVER a signal in the exit code (section I).
-///
-/// Exit 0 even when the ledger cannot be read: a harness reads the
-/// document, and a nonzero exit here would read as "the tool broke" on
-/// every single tool call.
-fn run_hook(flags: &[String], env: &Env) -> u8 {
-    if !flags.is_empty() {
-        eprintln!(
-            "rekall: `hook` takes no flags -- it reads one payload on stdin"
-        );
-        return USAGE_EXIT;
-    }
-    let mut stdin = String::new();
-    let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin);
-    let decision = hook_command(&stdin, &env.cwd)
-        .unwrap_or_else(|_| serde_json::json!({}));
-    println!("{decision}");
-    0
-}
-
 /// Drift exits 1, a broken invocation exits 2 (section I).
 fn run_check(flags: &[String], env: &Env) -> u8 {
     match check_command(flags, env) {
@@ -1776,47 +354,6 @@ pub struct Output {
     pub warnings: Vec<String>,
 }
 
-/// Run `scan` end to end: parse flags, resolve config, inventory, render.
-pub fn scan_command(flags: &[String], env: &Env) -> Result<Output, String> {
-    let args = parse_scan(flags)?;
-    let cwd = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let resolved = resolve(&cwd)?;
-    if resolved.roots.is_empty() {
-        return Err(NO_SOURCES.to_string());
-    }
-    let mut outcome = inventory(&resolved, &args, &cwd, env.home.as_deref())?;
-    let skipped = fill_tokens(&mut outcome);
-    let mut warnings = warnings(&outcome);
-    warnings.extend(skipped);
-    Ok(Output {
-        text: render(&outcome, &args)?,
-        warnings,
-    })
-}
-
-/// Fill the tokens column, or NAME why it is empty (V8, V26).
-///
-/// ONE call for the whole report rather than one per row. The sibling
-/// pays a tokenizer-table load per PROCESS, which is the entire cost, so
-/// the per-row shape is the same work multiplied by the number of
-/// statements -- see `tokens` for the measurement that settled it.
-///
-/// Returns the warnings to print rather than failing: a box without
-/// `itok` gets a report with an empty column and a line saying why, which
-/// is what V26 asks of an optional sibling.
-fn fill_tokens(outcome: &mut scan::Outcome) -> Vec<String> {
-    let counted = tokens::count_all(&outcome.texts);
-    spread(&mut outcome.report.rows, counted, set_row_tokens)
-}
-
-/// Named rather than a closure at each call site, so the one line that
-/// assigns the column is the SAME line in production and in the test that
-/// covers it -- an inline closure passed to the skip path is a body
-/// nothing ever runs.
-fn set_row_tokens(row: &mut scan::Row, count: Option<u32>) {
-    row.tokens = count;
-}
-
 /// Put counts on rows, or turn the fault into the line that says why the
 /// column is empty (V26).
 ///
@@ -1824,7 +361,7 @@ fn set_row_tokens(row: &mut scan::Row, count: Option<u32>) {
 /// would be a test that removes `itok` from PATH, and `set_var` is unsafe
 /// in edition 2024 and would race every other test in the process -- so
 /// that path would go permanently unverified while looking covered.
-fn spread<T>(
+pub(super) fn spread<T>(
     into: &mut [T],
     counted: Result<Vec<Option<u32>>, tokens::Fault>,
     set: impl Fn(&mut T, Option<u32>),
@@ -1843,42 +380,92 @@ fn spread<T>(
 pub const NO_SOURCES: &str = "no corpus roots configured. \
 Run `rekall init` to detect them, or add [sources].roots to rekall.toml";
 
-fn inventory(
-    resolved: &Resolved,
-    args: &ScanArgs,
+pub(super) fn load_corpus(
     base: &Path,
-    home: Option<&str>,
-) -> Result<scan::Outcome, String> {
-    let corpus = scan::Corpus {
+    env: &Env,
+) -> Result<crate::scan::Loaded, String> {
+    let resolved = resolve(base)?;
+    if resolved.roots.is_empty() {
+        return Err(NO_SOURCES.to_string());
+    }
+    let at = crate::scan::Corpus {
         roots: &resolved.roots,
         globs: &resolved.globs,
-        home,
+        home: env.home.as_deref(),
         base,
         weights: &resolved.weights,
     };
-    scan::run(&corpus, &args.filter).map_err(|error| error.to_string())
+    crate::scan::load(&at).map_err(|error| error.to_string())
 }
 
-fn render(outcome: &scan::Outcome, args: &ScanArgs) -> Result<String, String> {
-    if args.json {
-        return serde_json::to_string_pretty(&outcome.report)
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string());
+/// Resolve each id prefix to exactly one statement.
+///
+/// Every id is resolved BEFORE any step is built, so a typo in the third
+/// id does not produce a partial plan for the first two.
+pub(super) fn choose(
+    statements: &[statement::Statement],
+    ids: &[String],
+) -> Result<Vec<statement::Statement>, String> {
+    let mut out = Vec::new();
+    for id in ids {
+        out.push(one(statements, id)?);
     }
-    Ok(scan::render_human(&outcome.report, args.sources))
+    Ok(out)
 }
 
-fn warnings(outcome: &scan::Outcome) -> Vec<String> {
-    outcome
-        .unreadable
-        .iter()
-        .map(|path| format!("could not read {} -- skipped", path.display()))
-        .collect()
+pub(super) fn one(
+    statements: &[statement::Statement],
+    id: &str,
+) -> Result<statement::Statement, String> {
+    let hits: Vec<&statement::Statement> =
+        statements.iter().filter(|s| s.id.starts_with(id)).collect();
+    match hits.as_slice() {
+        [] => Err(crate::plan::Error::Unknown(id.to_string()).to_string()),
+        [only] => Ok((*only).clone()),
+        many => Err(crate::plan::Error::Ambiguous(
+            id.to_string(),
+            many.iter().map(|s| s.id.clone()).collect(),
+        )
+        .to_string()),
+    }
+}
+/// Report what a MUTATING verb did, in either format.
+///
+/// `apply` and `revert` differ in what they RENDER, not in how they
+/// report: the machine-readable outcome goes to stdout and the list of
+/// what actually happened to stderr, so `--format json` stays parseable
+/// while the receipt is still visible (V17). Writing that branch twice
+/// would be two rule sets of the smallest and most forgettable kind.
+pub(super) fn report<T: serde::Serialize>(
+    outcome: &T,
+    json: bool,
+    done: Vec<String>,
+    human: impl Fn(&T, &[String]) -> String,
+) -> Result<Output, String> {
+    if json {
+        let text = serde_json::to_string_pretty(outcome)
+            .map(|text| format!("{text}\n"))
+            .map_err(|error| error.to_string())?;
+        return Ok(Output {
+            text,
+            warnings: done,
+        });
+    }
+    Ok(Output {
+        text: human(outcome, &done),
+        warnings: Vec::new(),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The CRATE modules, named explicitly. `use super::*` now also pulls in
+    // the cli submodules of the same name, and an explicit import beats a
+    // glob -- so this is what keeps `plan::Plan` meaning the domain type.
+    use super::apply as apply_cli;
+    use super::scan::{render, set_row_tokens, warnings};
+    use crate::{apply, check, ledger, plan, scan};
 
     fn args(items: &[&str]) -> Vec<String> {
         items.iter().map(|item| (*item).to_string()).collect()
@@ -3943,7 +2530,7 @@ mod tests {
         let (id, _) = extracted(&dir);
         let path = dir.join(artifact_of(&dir, &id));
         let _ = std::fs::write(&path, body);
-        let _ = make_runnable(&path);
+        let _ = apply_cli::make_runnable(&path);
         let skill = dir.join(artifact_of(&dir, &id));
         let _ = skill;
         write_trigger(&dir, &id, "path = [\"**/*.rs\"]");

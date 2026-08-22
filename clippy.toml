@@ -10,6 +10,18 @@
 # exists costs nothing; the same limit adopted after ratifies whatever is
 # already there (SPEC.md V12, V22).
 
+# MODULE SIZE is NOT here, because clippy has no such lint -- it caps
+# methods, parameters, nesting and complexity, and nothing caps a FILE.
+# That gap is why `src/cli.rs` reached 1,878 lines of code while every
+# function inside it passed: the one dimension nobody measured is the one
+# that drifted (SPEC.md V22). Sandi's list has a class-size rule and this
+# repo had adopted every other one.
+#
+# The limit is 500 CODE lines -- everything before `#[cfg(test)]` -- and it
+# lives in `hk.pkl` next to the runner that reads it. Code rather than total
+# because a thorough test module is not the smell; a file doing eight jobs
+# is, and `cli.rs` was doing ten.
+
 # Sandi's "four parameters", verbatim. Past four, the call site stops being
 # readable and the argument order starts being memorized.
 too-many-arguments-threshold = 4

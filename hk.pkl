@@ -105,6 +105,26 @@ local fast = new Mapping<String, Step> {
       """
   }
 
+  /// MODULE SIZE, the limit clippy does not have.
+  ///
+  /// It caps methods, parameters, nesting and complexity -- and nothing
+  /// caps a FILE. `src/cli.rs` reached 1,878 lines of code with every
+  /// function inside it passing, because the one dimension nobody
+  /// measured is the one that drifted. V22, in the gate that was missing.
+  ///
+  /// CODE lines only: everything before `#[cfg(test)]`. A thorough test
+  /// module is not the smell -- a file doing ten jobs is.
+  ["module-size"] {
+    glob = List("**/*.rs")
+    check = """
+      over=$(for f in $(find src -name '*.rs'); do
+        n=$(awk 'index($0, "#[cfg(test)]") == 1 {print NR-1; found=1; exit} END{if (!found) print NR}' "$f")
+        if [ "$n" -gt 500 ]; then echo "  $n  $f"; fi
+      done)
+      [ -z "$over" ] || { echo 'hk: module over 500 CODE lines (lines before `#[cfg(test)]`):' >&2; echo "$over" >&2; echo 'Split it by responsibility -- clippy caps functions but nothing caps a file, which is how cli.rs reached 1,878. Do NOT raise this to make it pass.' >&2; exit 1; }
+      """
+  }
+
   ["test"] {
     /// A step's glob must name every INPUT its tests read, not just the
     /// language they are written in. Cargo.toml is here because the version
