@@ -128,7 +128,7 @@ T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
 T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
 T28|x|`id` shape DECIDED: path-scoped hash of normalized text, 7 hex, `.n` for repeats, prefix input|§I,T5,V13
 T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8
-T30|.|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
+T30|x|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
 T31|x|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & SAY SO|V26
 T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
 T33|.|`[signals]` WEIGHTS: config table + weighted classifier + weight in `show`|§C,§I,V10,V22

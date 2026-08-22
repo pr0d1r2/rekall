@@ -82,7 +82,9 @@ local fast = new Mapping<String, Step> {
   ["clippy"] {
     glob = List("**/*.rs")
     depends = List("fmt")
-    check = "cargo clippy --all-targets -- -D warnings"
+    check = """
+      cargo clippy --all-targets -- -D warnings || { echo 'hk: clippy is RED. Fix the code, not the threshold -- raising a number in clippy.toml to clear a limit is the exact reflex those limits exist to catch. An allow added instead must NAME what it exempts and why.' >&2; exit 1; }
+      """
   }
 
   /// ASCII-only Rust source (SPEC.md §C): Trojan-Source resistance, and
@@ -110,7 +112,9 @@ local fast = new Mapping<String, Step> {
     /// it, which T19 makes inevitable.
     glob = List("**/*.rs", "Cargo.toml")
     depends = List("clippy")
-    check = "cargo test"
+    check = """
+      cargo test || { echo 'hk: a test failed. Decide WHICH kind before editing: a code bug, or a spec gap. A gap goes through SPEC.md first -- append the cause to section B so the invariant that would have caught it exists before the fix does.' >&2; exit 1; }
+      """
   }
 
   /// THE FORMAT OWNER. `mth` owns SPEC.md's format (§C) and arrives as a
@@ -126,7 +130,9 @@ local fast = new Mapping<String, Step> {
   ["spec-check"] {
     glob = List("SPEC.md")
     depends = List("spec-fmt")
-    check = "mth check SPEC.md"
+    check = """
+      mth check SPEC.md || { echo 'hk: SPEC.md failed its own format check. Fix the spec, not the checker -- mth owns this format (section C) and this repo is its consumer.' >&2; exit 1; }
+      """
   }
 
   /// THE CEILING'S RUNNER (V22). `itok check` reads `.context-limits` and
@@ -144,7 +150,9 @@ local fast = new Mapping<String, Step> {
   /// written and defended.
   ["context-limits"] {
     glob = List("SPEC.md", "README.md", ".context-limits")
-    check = "itok check"
+    check = """
+      itok check || { echo 'hk: a path is over its ceiling in .context-limits. Cut the file, or RAISE the number in a commit that says why -- a threshold raised reflexively trains the reflex instead of catching the problem (V12, V22).' >&2; exit 1; }
+      """
   }
 
   /// CONSUMER #0 (T19). This crate checks its OWN corpus with its own
@@ -165,7 +173,9 @@ local fast = new Mapping<String, Step> {
   /// the obligation actually appears.
   ["rekall-check"] {
     glob = List(".rekall/**", "CLAUDE.md", "AGENTS.md", ".claude/skills/**")
-    check = "rekall check"
+    check = """
+      rekall check || { echo 'hk: rekall found drift in its own corpus. Every line above already names its fix -- this note only says the failure is real and not a tooling error.' >&2; exit 1; }
+      """
   }
 
   /// `nixfmt --check` gates the flake itself: that file decides what every
@@ -222,7 +232,7 @@ local fast = new Mapping<String, Step> {
     glob = List("**/*")
     check = """
       command -v ripsecrets >/dev/null 2>&1 || { echo "hk: SKIPPED ripsecrets -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
-      ripsecrets
+      ripsecrets || { echo 'hk: a secret is in a tracked file. ROTATE it -- deleting the line does not help, because git history keeps every version of it.' >&2; exit 1; }
       """
   }
 }
@@ -242,13 +252,17 @@ local all = (fast) {
   ["doctest"] {
     glob = List("**/*.rs")
     depends = List("test")
-    check = "cargo test --doc"
+    check = """
+      cargo test --doc || { echo 'hk: a doc example failed. Doc examples are TESTS: fix the example or the code, and do not reach for no_run to quiet it.' >&2; exit 1; }
+      """
   }
 
   ["rustdoc"] {
     glob = List("**/*.rs")
     depends = List("doctest")
-    check = "cargo doc --no-deps --quiet"
+    check = """
+      cargo doc --no-deps --quiet || { echo 'hk: rustdoc failed, usually a broken intra-doc link. Fix the link target or spell it out in backticks.' >&2; exit 1; }
+      """
   }
 
   /// The crate must build with no default features, because a consumer may
@@ -256,7 +270,9 @@ local all = (fast) {
   ["no-default-features"] {
     glob = List("**/*.rs", "Cargo.toml")
     depends = List("rustdoc")
-    check = "cargo build --no-default-features --quiet"
+    check = """
+      cargo build --no-default-features --quiet || { echo 'hk: the crate does not build without default features, and a consumer may take it that way. Gate the feature-dependent code with cfg, or make the dependency non-optional and say why.' >&2; exit 1; }
+      """
   }
 
   /// Publishing does not ship the REPO, it ships a tarball whose file set is
@@ -265,7 +281,9 @@ local all = (fast) {
   ["package"] {
     glob = List("**/*.rs", "Cargo.toml")
     depends = List("no-default-features")
-    check = "cargo package --quiet --allow-dirty"
+    check = """
+      cargo package --quiet --allow-dirty || { echo 'hk: cargo package failed. It ships a DERIVED file set -- git-tracked minus exclude -- so this is usually a path the tarball needs and does not have, or an exclude in Cargo.toml that took too much.' >&2; exit 1; }
+      """
   }
 
   /// THE RATCHET (V27). The floor may RISE, never fall, and it MUST rise
