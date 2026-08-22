@@ -125,7 +125,7 @@ T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
 T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
 T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|x|`rekall recall` matcher, reading the trigger BLOCK|I.recall,V3,V29
-T13|.|`rekall hook`: adapter + `S` injection + the FIRE COUNTER|I.hook,V5,V29,V34,R9
+T13|x|`rekall hook`: adapter + `S` injection + the FIRE COUNTER|I.hook,V5,V29,V34,R9
 T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9
 T16|x|`itok` delegation for token columns|V8
@@ -137,7 +137,7 @@ T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
 T23|x|`rekall plan`: extraction DIFF, artifact + wiring named, `--out` anchored to `-C`|§I,V7
 T24|x|plan FINGERPRINT + `apply` REFUSES a stale plan|V19
 T25|x|confirm gate on `apply`: tty prompt, `--auto-approve` off-tty. `revert` waits on T15|V20
-T26|.|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
+T26|x|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
 T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
 T28|x|`id` shape DECIDED: path-scoped hash of normalized text, 7 hex, `.n` for repeats, prefix input|§I,T5,V13
 T29|.|CONFIRM `catch` persists CANDIDATE rows (assumed, ⊥ chosen)|V7,T8

@@ -21,6 +21,20 @@ use std::path::{Path, PathBuf};
 pub const DIR: &str = ".rekall";
 pub const FILE: &str = "ledger.toml";
 
+/// The fire JOURNAL: one id per line, appended, never rewritten in place.
+///
+/// V34 requires a fire count that survives CONCURRENT hooks, and one hook
+/// runs per tool call. A read-modify-write of `ledger.toml` would have two
+/// hooks read the same number, both add one, and one increment vanish --
+/// silently, and only under load.
+///
+/// Appending sidesteps it: `O_APPEND` puts a short write at the end
+/// atomically, so two hooks cannot overwrite each other. This is NOT a
+/// second store in V8's sense -- it is the SAME number with a
+/// write-optimised tail, folded back on every read, the shape a
+/// write-ahead log has.
+pub const FIRES: &str = "fires";
+
 /// One extraction, with everything `revert` needs.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Extracted {
@@ -127,6 +141,12 @@ pub fn path_in(base: &Path) -> PathBuf {
 /// error -- treating it as empty would report every extraction as absent
 /// and invite `apply` to redo work that was already done.
 pub fn load(path: &Path) -> Result<Ledger, Error> {
+    let mut held = read_toml(path)?;
+    fold(&mut held, &tally(&fires_beside(path)));
+    Ok(held)
+}
+
+fn read_toml(path: &Path) -> Result<Ledger, Error> {
     if !path.is_file() {
         return Ok(Ledger::default());
     }
@@ -140,7 +160,80 @@ pub fn load(path: &Path) -> Result<Ledger, Error> {
     })
 }
 
+#[must_use]
+pub fn fires_beside(path: &Path) -> PathBuf {
+    path.parent().unwrap_or(Path::new(".")).join(FIRES)
+}
+
+/// Count one firing (V34). APPENDS -- see `FIRES`.
+///
+/// A line naming an id nothing holds is harmless: `fold` ignores it, so a
+/// revert racing a hook loses a count rather than corrupting a row.
+pub fn record_fire(path: &Path, id: &str) -> Result<(), Error> {
+    use std::io::Write;
+    ensure_dir(path)?;
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(path)
+        .map_err(|cause| Error::Write {
+            path: path.to_path_buf(),
+            cause,
+        })?;
+    // ONE `write_all`, never `writeln!`. `write_fmt` may issue a syscall
+    // per fragment -- the id, then the newline -- and only a SINGLE write
+    // is atomic under `O_APPEND`. Split across two, concurrent hooks
+    // interleave mid-line and the ids merge into each other. MEASURED
+    // before this line existed: 8 parallel fires tallied as 3.
+    file.write_all(format!("{id}\n").as_bytes())
+        .map_err(|cause| Error::Write {
+            path: path.to_path_buf(),
+            cause,
+        })
+}
+
+fn ensure_dir(path: &Path) -> Result<(), Error> {
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+    std::fs::create_dir_all(parent).map_err(|cause| Error::Write {
+        path: parent.to_path_buf(),
+        cause,
+    })
+}
+
+/// How many times each id appears in the journal. A missing journal is an
+/// empty tally, not an error: nothing has fired yet is the normal state.
+fn tally(path: &Path) -> std::collections::BTreeMap<String, u64> {
+    let mut out = std::collections::BTreeMap::new();
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return out;
+    };
+    for id in text.lines().map(str::trim).filter(|id| !id.is_empty()) {
+        *out.entry(id.to_string()).or_insert(0) =
+            out.get(id).copied().unwrap_or(0).saturating_add(1);
+    }
+    out
+}
+
+fn fold(held: &mut Ledger, tally: &std::collections::BTreeMap<String, u64>) {
+    for row in &mut held.extracted {
+        let extra = tally.get(&row.id).copied().unwrap_or(0);
+        row.fires = row.fires.saturating_add(extra);
+    }
+}
+
 /// Write the ledger, creating `.rekall/` if needed.
+///
+/// This is also the JOURNAL's compaction: the counts being written already
+/// include everything the journal held (`load` folded them in), so the
+/// journal is cleared or the next read would count those fires twice.
+///
+/// A hook appending between the fold and this truncation loses ONE count.
+/// That window is a few milliseconds inside `apply`/`revert`, which are
+/// interactive and rare; the alternative -- read-modify-write on every
+/// tool call -- loses counts continuously and only under load, which is
+/// the failure V34 actually names.
 pub fn save(path: &Path, ledger: &Ledger) -> Result<(), Error> {
     let text = toml::to_string_pretty(ledger).map_err(Error::Encode)?;
     if let Some(parent) = path.parent() {
@@ -152,7 +245,9 @@ pub fn save(path: &Path, ledger: &Ledger) -> Result<(), Error> {
     std::fs::write(path, text).map_err(|cause| Error::Write {
         path: path.to_path_buf(),
         cause,
-    })
+    })?;
+    let _ = std::fs::remove_file(fires_beside(path));
+    Ok(())
 }
 
 impl Ledger {

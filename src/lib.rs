@@ -11,6 +11,7 @@ pub mod classify;
 pub mod cli;
 pub mod config;
 pub mod corpus;
+pub mod hook;
 pub mod init;
 pub mod ledger;
 pub mod log;

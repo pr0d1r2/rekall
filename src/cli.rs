@@ -6,8 +6,8 @@
 //! here instead of inside a macro.
 
 use crate::{
-    apply, check, classify, config, corpus, init, ledger, log, plan, recall,
-    revert, scan, show, statement, tokens, trigger,
+    apply, check, classify, config, corpus, hook, init, ledger, log, plan,
+    recall, revert, scan, show, statement, tokens, trigger,
 };
 use std::path::{Path, PathBuf};
 
@@ -188,6 +188,7 @@ pub enum Action {
     Check(Vec<String>),
     Log(Vec<String>),
     Recall(Vec<String>),
+    Hook(Vec<String>),
     /// A verb section I defines that this build cannot perform.
     Unimplemented(String),
     /// A verb the binary has never heard of -- a typo, not a backlog row.
@@ -217,22 +218,31 @@ pub fn decide(args: &[String]) -> Action {
 /// The verb table. Split from `decide` when the line limit fired on it,
 /// and the split is a real seam: the two flag cases above are fixed
 /// forever, while this table grows by one row per verb the crate learns.
+/// The verb table as DATA. A tuple variant is already a constructor
+/// function, so the mapping needs no match arm per verb -- which is what
+/// the line limit kept objecting to as this list grew.
+type Make = fn(Vec<String>) -> Action;
+const IMPLEMENTS: [(&str, Make); 10] = [
+    ("scan", Action::Scan),
+    ("init", Action::Init),
+    ("show", Action::Show),
+    ("plan", Action::Plan),
+    ("apply", Action::Apply),
+    ("revert", Action::Revert),
+    ("check", Action::Check),
+    ("log", Action::Log),
+    ("recall", Action::Recall),
+    ("hook", Action::Hook),
+];
+
 fn verb_action(verb: &str, flags: Vec<String>) -> Action {
-    match verb {
-        "scan" => Action::Scan(flags),
-        "init" => Action::Init(flags),
-        "show" => Action::Show(flags),
-        "plan" => Action::Plan(flags),
-        "apply" => Action::Apply(flags),
-        "revert" => Action::Revert(flags),
-        "check" => Action::Check(flags),
-        "log" => Action::Log(flags),
-        "recall" => Action::Recall(flags),
-        known if VERBS.contains(&known) => {
-            Action::Unimplemented(known.to_string())
-        }
-        other => Action::Unknown(other.to_string()),
+    if let Some((_, make)) = IMPLEMENTS.iter().find(|(name, _)| *name == verb) {
+        return make(flags);
     }
+    if VERBS.contains(&verb) {
+        return Action::Unimplemented(verb.to_string());
+    }
+    Action::Unknown(verb.to_string())
 }
 
 /// Perform the decided action and return the EXIT CODE as a value.
@@ -258,17 +268,33 @@ pub fn perform(action: Action, env: &Env) -> u8 {
     match action {
         Action::PrintUsage { code } => show_usage(code),
         Action::PrintVersion => show_version(),
-        Action::Scan(flags) => run_scan(&flags, env),
-        Action::Init(flags) => run_init(&flags, env),
-        Action::Show(flags) => run_show(&flags, env),
-        Action::Plan(flags) => run_plan(&flags, env),
-        Action::Apply(flags) => run_apply(&flags, env),
-        Action::Revert(flags) => run_revert(&flags, env),
+        // The two verbs that do NOT answer with an `Output`: `check`
+        // carries its verdict in the exit code (section I's drift 1), and
+        // `hook` speaks the harness's JSON on both ends (V17's exception).
         Action::Check(flags) => run_check(&flags, env),
-        Action::Log(flags) => run_log(&flags, env),
-        Action::Recall(flags) => run_recall(&flags, env),
+        Action::Hook(flags) => run_hook(&flags, env),
         Action::Unimplemented(verb) => say_unimplemented(&verb),
         Action::Unknown(other) => say_unknown(&other),
+        reporting => emit(reported(reporting, env)),
+    }
+}
+
+/// Every verb that answers with an `Output` -- same shape, same emit.
+///
+/// Split from `perform` when the line limit fired, along the seam that
+/// was already there: these eight are interchangeable at the call site
+/// and the four above are each special for a stated reason.
+fn reported(action: Action, env: &Env) -> Result<Output, String> {
+    match action {
+        Action::Scan(flags) => scan_command(&flags, env),
+        Action::Init(flags) => init_command(&flags, env),
+        Action::Show(flags) => show_command(&flags, env),
+        Action::Plan(flags) => plan_command(&flags, env),
+        Action::Apply(flags) => apply_command(&flags, env),
+        Action::Revert(flags) => revert_command(&flags, env),
+        Action::Log(flags) => log_command(&flags, env),
+        Action::Recall(flags) => recall_command(&flags, env),
+        other => Err(format!("{other:?} does not report an Output")),
     }
 }
 
@@ -370,10 +396,6 @@ fn render_init(report: &init::Report, json: bool) -> Result<String, String> {
             .map_err(|error| error.to_string());
     }
     Ok(init::render_human(report))
-}
-
-fn run_init(flags: &[String], env: &Env) -> u8 {
-    emit(init_command(flags, env))
 }
 
 /// `show` takes ONE id (or an unambiguous prefix of one) plus the usual
@@ -479,10 +501,6 @@ fn render_found(found: &show::Found, json: bool) -> Result<String, String> {
             .map_err(|error| error.to_string());
     }
     Ok(show::render_human(found))
-}
-
-fn run_show(flags: &[String], env: &Env) -> u8 {
-    emit(show_command(flags, env))
 }
 
 /// `plan` takes one or more ids plus `--out` and the usual flags.
@@ -624,10 +642,6 @@ fn render_plan(built: &plan::Plan, json: bool) -> Result<String, String> {
             .map_err(|error| error.to_string());
     }
     Ok(plan::render_human(built))
-}
-
-fn run_plan(flags: &[String], env: &Env) -> u8 {
-    emit(plan_command(flags, env))
 }
 
 /// `apply` takes ids OR a plan file, plus `--auto-approve`.
@@ -1028,10 +1042,6 @@ pub fn render_apply_human(outcome: &apply::Outcome, done: &[String]) -> String {
     out
 }
 
-fn run_apply(flags: &[String], env: &Env) -> u8 {
-    emit(apply_command(flags, env))
-}
-
 /// `revert` takes ONE id plus `--auto-approve` and the usual flags.
 ///
 /// One, because section I writes it `revert <id>` and because reverting is
@@ -1278,10 +1288,6 @@ pub fn render_revert_human(
     out
 }
 
-fn run_revert(flags: &[String], env: &Env) -> u8 {
-    emit(revert_command(flags, env))
-}
-
 /// `check` takes no ids. It audits EVERYTHING the ledger claims, because a
 /// gate you can point at a subset is a gate that reports green for the
 /// part you did not point it at.
@@ -1519,10 +1525,6 @@ fn render_log(report: &log::Report, json: bool) -> Result<Output, String> {
     })
 }
 
-fn run_log(flags: &[String], env: &Env) -> u8 {
-    emit(log_command(flags, env))
-}
-
 /// `recall` takes the SITUATION: a free-text description plus whatever
 /// exact facts the caller has.
 #[derive(Debug, Default)]
@@ -1639,8 +1641,77 @@ fn render_recall(
     })
 }
 
-fn run_recall(flags: &[String], env: &Env) -> u8 {
-    emit(recall_command(flags, env))
+/// Run `hook`: payload in, decision out.
+///
+/// Takes the payload as a STRING rather than reading stdin itself, so
+/// everything with a decision in it is testable without a pipe. The two
+/// lines that touch stdin and stdout are in `run_hook`.
+///
+/// V18 made literal: this calls `recall::decide`, the same function the
+/// `recall` verb prints. There is no second matcher to disagree with.
+pub fn hook_command(
+    stdin: &str,
+    base: &Path,
+) -> Result<serde_json::Value, String> {
+    let payload = hook::parse(stdin);
+    let path = ledger::path_in(base);
+    let held = ledger::load(&path).map_err(|e| e.to_string())?;
+    let texts = read_artifacts(base, &held);
+    let candidates = zip_candidates(&held, &texts);
+    let report = recall::decide(&candidates, &hook::situation(&payload));
+    let loading = hook::loading(&report);
+    count_fires(&path, &loading);
+    Ok(hook::decision(
+        payload.hook_event_name.as_deref(),
+        &injected(&loading, &held, &texts),
+    ))
+}
+
+/// V34: the counter, and the ONLY thing `hook` writes.
+///
+/// A failure to record is SWALLOWED. This runs in the request path of
+/// every tool call, and a read-only checkout or a full disk must not turn
+/// "your skill loaded" into "your tool broke" -- a lost count is a smaller
+/// harm than a wedged harness, and `--dead` degrades toward reporting
+/// MORE artifacts dead, which is the safe direction.
+fn count_fires(path: &Path, loading: &[String]) {
+    for id in loading {
+        let _ = ledger::record_fire(&ledger::fires_beside(path), id);
+    }
+}
+
+/// The artifact TEXT for each loading skill -- what actually gets injected.
+fn injected(
+    loading: &[String],
+    held: &ledger::Ledger,
+    texts: &[Option<String>],
+) -> Vec<String> {
+    held.extracted
+        .iter()
+        .zip(texts)
+        .filter(|(row, _)| loading.contains(&row.id))
+        .filter_map(|(_, text)| text.clone())
+        .collect()
+}
+
+/// Stdin to stdout, and NEVER a signal in the exit code (section I).
+///
+/// Exit 0 even when the ledger cannot be read: a harness reads the
+/// document, and a nonzero exit here would read as "the tool broke" on
+/// every single tool call.
+fn run_hook(flags: &[String], env: &Env) -> u8 {
+    if !flags.is_empty() {
+        eprintln!(
+            "rekall: `hook` takes no flags -- it reads one payload on stdin"
+        );
+        return USAGE_EXIT;
+    }
+    let mut stdin = String::new();
+    let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin);
+    let decision = hook_command(&stdin, &env.cwd)
+        .unwrap_or_else(|_| serde_json::json!({}));
+    println!("{decision}");
+    0
 }
 
 /// Drift exits 1, a broken invocation exits 2 (section I).
@@ -1664,10 +1735,6 @@ fn report_check(checked: &Checked) -> u8 {
         checked.drift
     );
     DRIFT_EXIT
-}
-
-fn run_scan(flags: &[String], env: &Env) -> u8 {
-    emit(scan_command(flags, env))
 }
 
 /// What a scan produced for a caller to print.
@@ -2027,9 +2094,9 @@ mod tests {
     /// code, different message -- the distinction is the message's job.
     /// The verbs that actually do something. Kept beside the loop below so
     /// implementing a verb without dispatching it fails here.
-    const IMPLEMENTED: [&str; 9] = [
+    const IMPLEMENTED: [&str; 10] = [
         "scan", "init", "show", "plan", "apply", "revert", "check", "log",
-        "recall",
+        "recall", "hook",
     ];
 
     #[test]
@@ -3715,6 +3782,127 @@ mod tests {
             .unwrap_or_default()
     }
 
+    fn payload(dir: &Path, path: &str) -> String {
+        format!(
+            "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Edit\",\
+             \"tool_input\":{{\"file_path\":\"{path}\"}},\"cwd\":\"{}\"}}",
+            dir.to_string_lossy()
+        )
+    }
+
+    fn hook_in(dir: &Path, path: &str) -> serde_json::Value {
+        hook_command(&payload(dir, path), dir).unwrap_or_default()
+    }
+
+    #[test]
+    fn hook_is_dispatched() {
+        assert_eq!(decide(&args(&["hook"])), Action::Hook(Vec::new()));
+    }
+
+    /// V18, made literal. What `recall` PRINTS is what `hook` DECIDES,
+    /// asserted by driving both from the same project and comparing --
+    /// two matchers is the invisible defect, where each looks right alone
+    /// and the divergence only shows in production.
+    #[test]
+    fn hook_decides_what_recall_prints() {
+        let dir = recall_project("agree", "path = [\"**/*.rs\"]", "");
+        let printed = recall_in(&dir, &["--tool", "Edit", "--path", "a.rs"]);
+        let decided = hook_in(&dir, "a.rs");
+        assert!(printed.starts_with("load"), "{printed}");
+        assert!(decided.get("hookSpecificOutput").is_some(), "{decided}");
+
+        let printed = recall_in(&dir, &["--tool", "Edit", "--path", "a.md"]);
+        let decided = hook_in(&dir, "a.md");
+        assert!(printed.starts_with("skip"), "{printed}");
+        assert_eq!(decided, serde_json::json!({}), "{decided}");
+    }
+
+    /// The skill's TEXT is what reaches the model. Injecting an id would
+    /// tell it a rule exists without saying what the rule is.
+    #[test]
+    fn the_skill_text_is_what_gets_injected() {
+        let dir = recall_project("inject", "path = [\"**/*.rs\"]", "");
+        let out = hook_in(&dir, "a.rs");
+        let context = out
+            .pointer("/hookSpecificOutput/additionalContext")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        assert!(context.contains("Fires when"), "{context}");
+    }
+
+    /// V34: the counter, and V11 finally has an author. A skill that
+    /// LOADS is a skill that fired.
+    #[test]
+    fn a_loaded_skill_is_counted_as_fired() {
+        let dir = recall_project("counted", "path = [\"**/*.rs\"]", "");
+        assert_eq!(fires_of(&dir), 0);
+        let _ = hook_in(&dir, "a.rs");
+        assert_eq!(fires_of(&dir), 1);
+        let _ = hook_in(&dir, "a.rs");
+        assert_eq!(fires_of(&dir), 2, "the second fire was lost");
+    }
+
+    /// A skill that did NOT load must not count. Otherwise `--dead`
+    /// measures how often the hook ran, not how often the rule mattered.
+    #[test]
+    fn a_skill_that_did_not_load_is_not_counted() {
+        let dir = recall_project("uncounted", "path = [\"**/*.rs\"]", "");
+        let _ = hook_in(&dir, "notes.md");
+        assert_eq!(fires_of(&dir), 0);
+    }
+
+    /// V34's hazard, exercised the way it would actually bite: one hook
+    /// per tool call means concurrent writers. A read-modify-write of the
+    /// ledger would lose counts here and only here.
+    #[test]
+    fn concurrent_hooks_do_not_lose_counts() {
+        let dir = recall_project("concurrent", "path = [\"**/*.rs\"]", "");
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                let at = dir.clone();
+                scope.spawn(move || hook_in(&at, "a.rs"));
+            }
+        });
+        assert_eq!(fires_of(&dir), 8, "a concurrent fire was lost");
+    }
+
+    /// V11 reads the folded number: `--dead` must stop calling an
+    /// artifact dead once a hook has fired it.
+    #[test]
+    fn a_fired_skill_leaves_the_dead_list() {
+        let dir = recall_project("dead", "path = [\"**/*.rs\"]", "");
+        assert!(!dead_text(&dir).is_empty(), "should start dead");
+        let _ = hook_in(&dir, "a.rs");
+        assert_eq!(dead_text(&dir), "", "still dead after firing");
+    }
+
+    fn fires_of(dir: &Path) -> u64 {
+        ledger::load(&ledger::path_in(dir))
+            .unwrap_or_default()
+            .extracted
+            .first()
+            .map_or(0, |row| row.fires)
+    }
+
+    /// Section I: the signal is in the JSON, NEVER the exit code. A
+    /// harness reading a nonzero exit would call the tool broken on every
+    /// tool use.
+    #[test]
+    fn a_broken_payload_still_exits_zero_with_valid_json() {
+        let dir = check_project("hook-garbage");
+        let out = hook_command("not json", &dir).unwrap_or_default();
+        assert_eq!(out, serde_json::json!({}));
+        assert_eq!(perform(Action::Hook(Vec::new()), &env()), 0);
+    }
+
+    #[test]
+    fn hook_takes_no_flags() {
+        assert_eq!(
+            perform(Action::Hook(args(&["--format", "json"])), &env()),
+            USAGE_EXIT
+        );
+    }
+
     #[test]
     fn recall_is_dispatched() {
         assert_eq!(
@@ -3823,6 +4011,19 @@ mod tests {
     fn an_unknown_recall_flag_is_an_error() {
         assert!(parse_recall(&args(&["--nope"])).is_err());
         assert!(parse_recall(&args(&["--tool"])).is_err());
+    }
+
+    /// `reported` routes only the verbs that answer with an `Output`.
+    /// The catch-all is unreachable through `perform`, which is why it is
+    /// asserted HERE: an arm nothing can reach and nothing tests is an
+    /// arm that silently rots into the wrong behaviour.
+    #[test]
+    fn a_verb_that_does_not_report_an_output_says_so() {
+        let said = reported(Action::PrintVersion, &env()).err();
+        assert!(
+            said.is_some_and(|s| s.contains("does not report an Output")),
+            "the catch-all changed shape"
+        );
     }
 
     /// A reader that fails mid-line is an ERROR, not a silent yes.

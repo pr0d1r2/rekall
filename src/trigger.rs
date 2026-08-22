@@ -319,6 +319,36 @@ mod tests {
         assert_eq!(parse_block(&text, FIRES), Err(Fault::Missing));
     }
 
+    /// A glob that will not compile REFUSES to match rather than
+    /// matching everything. `parse_block` rejects these, so this is the
+    /// hand-built case -- and "fail closed" is the only safe direction
+    /// for a trigger.
+    #[test]
+    fn a_trigger_with_an_impossible_glob_matches_nothing() {
+        let held = Trigger {
+            path: vec!["[".to_string()],
+            ..Trigger::default()
+        };
+        assert!(!matches(&held, &at("Edit", "src/a.rs", "")));
+    }
+
+    #[test]
+    fn every_fault_explains_itself() {
+        let faults = [
+            Fault::Missing,
+            Fault::Unreadable("bad".to_string()),
+            Fault::BadGlob("nope".to_string()),
+        ];
+        for fault in faults {
+            assert!(!fault.to_string().is_empty(), "{fault:?}");
+        }
+        assert!(
+            Fault::BadGlob("nope".to_string())
+                .to_string()
+                .contains("nope")
+        );
+    }
+
     #[test]
     fn an_empty_block_parses_and_matches_nothing() {
         let held = only("");
