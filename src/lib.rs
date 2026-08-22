@@ -6,6 +6,7 @@
 //! formatted output.
 
 pub mod apply;
+pub mod check;
 pub mod classify;
 pub mod cli;
 pub mod config;

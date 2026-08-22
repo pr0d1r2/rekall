@@ -185,6 +185,7 @@ mod tests {
             line_start: 3,
             line_end: 3,
             text: text.to_string(),
+            label: "M1".to_string(),
             artifact: ".rekall/rules/no-main.sh".to_string(),
             fires: 0,
             at: 0,

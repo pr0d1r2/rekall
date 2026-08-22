@@ -110,7 +110,7 @@ T7|x|`rekall scan` human + json, filters, `--sources`, `-C`|I.scan,V7,V13,V17
 T8|x|ledger store `.rekall/ledger.toml`: CANDIDATE & EXTRACTED rows, prefix lookup, fire count|V7,V9,V11,V13
 T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
 T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
-T11|.|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
+T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
 T12|.|`rekall recall` matcher|I.recall,V3
 T13|.|`rekall hook` adapter|I.hook,V5,R9
 T14|.|`rekall log` + `--dead`|V11

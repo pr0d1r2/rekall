@@ -33,6 +33,15 @@ pub struct Extracted {
     /// VERBATIM. This is the half that makes V9 true: without it `revert`
     /// would be regenerating prose from a rule, which is a rewrite.
     pub text: String,
+    /// The class the extraction was made under -- `M1`, `S2` and so on.
+    ///
+    /// RECORDED rather than re-derived. `check` needs it to know which
+    /// obligation applies (a runner for `M`, a trigger for `S`), and the
+    /// artifact's PATH would answer the same question by inference about a
+    /// decision that was already made and printed. V10 says a class is a
+    /// CLAIM; a claim that leaves no record cannot be argued with later.
+    #[serde(default)]
+    pub label: String,
     pub artifact: String,
     /// How many times the artifact fired. V11 makes a never-fired artifact
     /// DETECTABLE -- a rule that never fires is a wrong trigger or a dead
@@ -244,6 +253,7 @@ mod tests {
             line_start: 3,
             line_end: 3,
             text: "- never commit to `main`".to_string(),
+            label: "M1".to_string(),
             artifact: ".claude/rules/no-main.sh".to_string(),
             fires: 0,
             at: 1_700_000_000,

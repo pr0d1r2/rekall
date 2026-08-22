@@ -112,6 +112,27 @@ local fast = new Mapping<String, Step> {
     check = "itok check"
   }
 
+  /// CONSUMER #0 (T19). This crate checks its OWN corpus with its own
+  /// binary -- a tool that gates other people's extractions and not its own
+  /// is a tool nobody has run in anger.
+  ///
+  /// `rekall` reaches PATH through the dev shell's cargo-run shim, so this
+  /// is the crate's own build and not a stale global install. It is an
+  /// OWNED step: if the binary is missing the step FAILS rather than
+  /// skipping, because a silent skip is a pass nobody earned (V26).
+  ///
+  /// On the COMMIT tier because it is cheap -- it reads a ledger and the
+  /// handful of files that ledger names, with no network and no key (V6).
+  ///
+  /// The glob is the LEDGER and the places extraction touches. Today this
+  /// repo has extracted nothing, so the step has nothing to say; it starts
+  /// biting the moment the first statement moves, which is the commit where
+  /// the obligation actually appears.
+  ["rekall-check"] {
+    glob = List(".rekall/**", "CLAUDE.md", "AGENTS.md", ".claude/skills/**")
+    check = "rekall check"
+  }
+
   /// `nixfmt --check` gates the flake itself: that file decides what every
   /// other step runs with, so drift there is drift everywhere.
   ["nixfmt"] {

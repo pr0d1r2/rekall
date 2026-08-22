@@ -126,6 +126,19 @@ fn fill(template: &str, step: &plan::Step) -> String {
         .replace("{TEXT}", step.text.trim())
 }
 
+/// What a generated runner says about itself until someone writes the
+/// check, and the two headings a generated skill must end up carrying.
+///
+/// CONSTS because `check` reads them back out of the artifact (V2, V3,
+/// V4). A template and the gate that judges it are two halves of one rule,
+/// and two string literals that must match is the invisible kind of
+/// divergence: each looks right alone, and the gate silently stops
+/// noticing the placeholder it was written to catch. The tests below pin
+/// each const to the template that carries it.
+pub const UNIMPLEMENTED: &str = "is not implemented yet";
+pub const FIRES: &str = "## Fires when";
+pub const NOT_FIRES: &str = "## Does NOT fire when";
+
 /// Arrives INERT and LOUD: exits nonzero until the check is written, so
 /// wiring it into the gate before implementing it fails visibly rather
 /// than passing green.
@@ -171,6 +184,7 @@ pub fn row_for(step: &plan::Step, at: u64) -> ledger::Extracted {
         line_start: step.line_start,
         line_end: step.line_end,
         text: step.text.clone(),
+        label: step.label.clone(),
         artifact: step.artifact.clone(),
         fires: 0,
         at,
@@ -365,8 +379,21 @@ mod tests {
     #[test]
     fn a_generated_skill_carries_both_headings() {
         let text = artifact_text(&step("abc1234", 1, 1, "S2"));
-        assert!(text.contains("## Fires when"), "{text}");
-        assert!(text.contains("## Does NOT fire when"), "{text}");
+        assert!(text.contains(FIRES), "{text}");
+        assert!(text.contains(NOT_FIRES), "{text}");
+    }
+
+    /// PINS the template to the const `check` reads back. If the wording
+    /// moved on one side only, the gate would stop noticing the very
+    /// placeholder it exists to catch -- and would report green.
+    #[test]
+    fn the_markers_check_reads_are_the_ones_the_templates_write() {
+        assert!(
+            artifact_text(&step("a", 1, 1, "M1")).contains(UNIMPLEMENTED),
+            "the runner template no longer announces itself unimplemented"
+        );
+        let skill = artifact_text(&step("a", 1, 1, "S1"));
+        assert!(skill.contains(FIRES) && skill.contains(NOT_FIRES));
     }
 
     #[test]
