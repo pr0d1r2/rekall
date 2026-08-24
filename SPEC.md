@@ -167,7 +167,7 @@ T48|.|`plan` NAMES the host's own format gates before rewriting a file this crat
 T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,V13
 T50|.|slug ⊥ truncates mid-phrase|§I
 
-T51|.|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
+T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
 
 ## §B BUGS
 

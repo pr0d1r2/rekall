@@ -1,5 +1,5 @@
 use super::recall::{read_artifacts, zip_candidates};
-use super::{Env, USAGE_EXIT};
+use super::{Env, USAGE_EXIT, resolve};
 use crate::{hook, ledger, recall, runner};
 use std::path::Path;
 /// Run `hook`: payload in, decision out.
@@ -15,6 +15,11 @@ pub fn hook_command(
     base: &Path,
 ) -> Result<serde_json::Value, String> {
     let payload = hook::parse(stdin);
+    // The runner's bound comes from config (B5). Read here at the edge, so
+    // everything below stays a function of its arguments.
+    let limit = runner::limit_from(
+        resolve(base).ok().and_then(|held| held.runner_timeout_ms),
+    );
     let path = ledger::path_in(base);
     let held = ledger::load(&path).map_err(|e| e.to_string())?;
     let texts = read_artifacts(base, &held);
@@ -22,7 +27,7 @@ pub fn hook_command(
     let report = recall::decide(&candidates, &hook::situation(&payload));
     let loading = hook::loading(&report);
     count_fires(&path, &loading);
-    let said = advice(&loading, &held, &texts, base);
+    let said = advice(&loading, &held, &texts, &At { base, limit });
     Ok(hook::decision(payload.hook_event_name.as_deref(), &said))
 }
 
@@ -36,25 +41,32 @@ fn advice(
     loading: &[String],
     held: &ledger::Ledger,
     texts: &[Option<String>],
-    base: &Path,
+    at: &At<'_>,
 ) -> Vec<String> {
     held.extracted
         .iter()
         .zip(texts)
         .filter(|(row, _)| loading.contains(&row.id))
-        .filter_map(|(row, text)| said_by(row, text.as_deref(), base))
+        .filter_map(|(row, text)| said_by(row, text.as_deref(), at))
         .collect()
 }
 
 fn said_by(
     row: &ledger::Extracted,
     text: Option<&str>,
-    base: &Path,
+    at: &At<'_>,
 ) -> Option<String> {
     if !row.label.starts_with('M') {
         return text.map(ToString::to_string);
     }
-    runner::run(&base.join(&row.artifact), runner::LIMIT).advice()
+    runner::run(&at.base.join(&row.artifact), at.limit).advice()
+}
+
+/// Where the corpus is and how long a rule gets. Bundled because they
+/// travel together into every runner call and mean nothing apart.
+struct At<'a> {
+    base: &'a Path,
+    limit: std::time::Duration,
 }
 
 /// V34: the counter, and the ONLY thing `hook` writes.

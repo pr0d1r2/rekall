@@ -18,6 +18,18 @@ use std::time::{Duration, Instant};
 /// fast rule costs its own runtime and nothing more.
 pub const LIMIT: Duration = Duration::from_millis(2000);
 
+/// The limit from config, or the shipped default.
+///
+/// The bound is WALL-CLOCK, so it is not really a statement about the
+/// rule: it is a statement about the rule AND the machine. On a loaded box
+/// a script whose whole body is `echo` can exceed two seconds, be killed,
+/// and report a timeout that never happened (B5). Raising it is a
+/// legitimate answer for a slow box, which is why it is configurable.
+#[must_use]
+pub fn limit_from(configured: Option<u64>) -> Duration {
+    configured.map_or(LIMIT, Duration::from_millis)
+}
+
 /// How often the wait wakes to check. Small enough that a millisecond
 /// rule is not rounded up to the poll interval.
 const POLL: Duration = Duration::from_millis(5);
@@ -33,7 +45,11 @@ pub enum Fired {
     /// Past the limit, and killed. Reported rather than swallowed: a rule
     /// that always times out is as dead as one that never fires, and V11
     /// only measures the second.
-    TimedOut,
+    ///
+    /// Carries the limit it BLEW, because the bound is wall-clock and the
+    /// honest reading is "this did not finish in time HERE" -- which a
+    /// reader can act on by raising `[triggers].runner_timeout_ms`.
+    TimedOut(u128),
     /// The artifact could not be executed at all.
     Unrunnable(String),
 }
@@ -45,11 +61,12 @@ impl Fired {
         match self {
             Self::Clean => None,
             Self::Violated(said) => Some(said.clone()),
-            Self::TimedOut => Some(format!(
-                "rekall: the rule timed out after {}ms and was killed. \
-                 A rule that cannot answer quickly cannot run in the tool \
-                 path -- see `rekall check`",
-                LIMIT.as_millis()
+            Self::TimedOut(ms) => Some(format!(
+                "rekall: the rule did not finish within {ms}ms and was \
+                 killed. That bound is WALL-CLOCK, so a busy machine can \
+                 trip it on a fast rule -- raise \
+                 `[triggers].runner_timeout_ms` if this box is loaded, or \
+                 make the rule answer sooner"
             )),
             Self::Unrunnable(said) => {
                 Some(format!("rekall: the rule could not run: {said}"))
@@ -89,7 +106,7 @@ fn wait(mut child: std::process::Child, limit: Duration) -> Fired {
         if deadline.is_some_and(|end| Instant::now() >= end) {
             let _ = child.kill();
             let _ = child.wait();
-            return Fired::TimedOut;
+            return Fired::TimedOut(limit.as_millis());
         }
         std::thread::sleep(POLL);
     }
@@ -207,17 +224,40 @@ mod tests {
         let path = script("hang.sh", "#!/bin/sh\nsleep 30\n");
         let started = Instant::now();
         let out = run(&path, Duration::from_millis(80));
-        assert_eq!(out, Fired::TimedOut);
+        assert!(matches!(out, Fired::TimedOut(_)), "{out:?}");
         assert!(
             started.elapsed() < Duration::from_secs(5),
             "the wait was not bounded: {:?}",
             started.elapsed()
         );
-        assert!(out.advice().is_some_and(|said| said.contains("timed out")));
+        assert!(
+            out.advice()
+                .is_some_and(|said| said.contains("did not finish")),
+            "{out:?}"
+        );
     }
 
     /// An artifact that cannot be executed is reported, not silently
     /// treated as passing -- V26's shape, inside one rule.
+    /// B5: the bound is CONFIGURED, and the shipped default is what a
+    /// config without the key gets.
+    #[test]
+    fn the_limit_comes_from_config_or_falls_back() {
+        assert_eq!(limit_from(None), LIMIT);
+        assert_eq!(limit_from(Some(50)), Duration::from_millis(50));
+    }
+
+    /// The timeout REPORTS the bound it blew, and names the knob. The old
+    /// message quoted a constant, which on a loaded box was advice about
+    /// the wrong thing entirely.
+    #[test]
+    fn a_timeout_names_its_own_limit_and_the_knob() {
+        let said = Fired::TimedOut(50).advice().unwrap_or_default();
+        assert!(said.contains("50ms"), "{said}");
+        assert!(said.contains("runner_timeout_ms"), "{said}");
+        assert!(said.contains("WALL-CLOCK"), "{said}");
+    }
+
     #[test]
     fn an_unrunnable_artifact_is_reported() {
         let out = run(Path::new("/definitely/not/here"), LIMIT);

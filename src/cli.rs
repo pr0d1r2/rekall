@@ -133,6 +133,7 @@ pub fn resolve(cwd: &Path) -> Result<Resolved, String> {
             merged.signals.deadband,
             &merged.signals.weight,
         ),
+        runner_timeout_ms: merged.triggers.runner_timeout_ms,
     })
 }
 
@@ -141,6 +142,8 @@ pub struct Resolved {
     pub globs: Vec<String>,
     /// The classifier table both scopes agreed on (V30).
     pub weights: classify::Weights,
+    /// How long a fired `M` rule gets, from `[triggers]` (B5).
+    pub runner_timeout_ms: Option<u64>,
 }
 
 /// A config file that is absent is fine; one that is present and broken is
@@ -1392,9 +1395,15 @@ mod tests {
         let dir = PathBuf::from("target").join("cli-apply").join(name);
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::create_dir_all(&dir);
+        // A GENEROUS runner bound, and B5 is exactly why. This suite runs
+        // ~490 tests in parallel, many spawning `itok`, which is enough
+        // contention to blow a 2s WALL-CLOCK limit on a script whose body
+        // is `echo`. That is not a test artifact -- it is the production
+        // failure in miniature, so the tests answer it the way a user on a
+        // loaded box would: by setting the knob.
         let _ = std::fs::write(
             dir.join("rekall.toml"),
-            "[sources]\nroots = [\".\"]\n",
+            "[sources]\nroots = [\".\"]\n\n[triggers]\nrunner_timeout_ms = 30000\n",
         );
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
@@ -2633,7 +2642,10 @@ mod tests {
     /// stalling the harness on every call.
     #[test]
     fn a_hanging_rule_does_not_stall_the_hook() {
+        // This one wants the bound to BITE, so it sets a SHORT one --
+        // through the same config key, which is the point.
         let dir = rule_project("m-hang", "#!/bin/sh\nsleep 30\n");
+        set_runner_timeout(&dir, 150);
         let started = std::time::Instant::now();
         let out = hook_in(&dir, "a.rs");
         assert!(
@@ -2644,7 +2656,7 @@ mod tests {
             .pointer("/hookSpecificOutput/additionalContext")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        assert!(said.contains("timed out"), "{out}");
+        assert!(said.contains("did not finish"), "{out}");
     }
 
     /// V2: a generated runner arrives EXECUTABLE. Otherwise the failure
@@ -2745,6 +2757,15 @@ mod tests {
         assert!(text.contains(check::NO_RUNNER), "{text}");
         assert!(!text.contains(check::BAD_TRIGGER_BLOCK), "{text}");
         assert!(!text.contains(check::NO_REFUSAL_CLAUSE), "{text}");
+    }
+
+    fn set_runner_timeout(dir: &Path, ms: u64) {
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            format!(
+                "[sources]\nroots = [\".\"]\n\n[triggers]\nrunner_timeout_ms = {ms}\n"
+            ),
+        );
     }
 
     /// A project with one extracted `M` rule, left exactly as `apply`

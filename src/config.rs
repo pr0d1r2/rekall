@@ -23,6 +23,8 @@ pub struct Config {
     #[serde(default)]
     pub sources: Sources,
     #[serde(default)]
+    pub triggers: Triggers,
+    #[serde(default)]
     pub signals: Signals,
 }
 
@@ -35,6 +37,19 @@ pub struct Signals {
     pub deadband: Option<i32>,
     #[serde(default)]
     pub weight: std::collections::BTreeMap<String, i32>,
+}
+
+/// Matcher defaults, and the runner TIMEOUT (V38, B5).
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Triggers {
+    /// How long a fired `M` rule gets, in milliseconds.
+    ///
+    /// CONFIGURABLE rather than constant, because the bound is WALL-CLOCK:
+    /// on a busy box a rule costing milliseconds of CPU can exceed it and
+    /// be killed, reporting a timeout that never happened (B5). A limit
+    /// nobody can raise is one that lies about what happened.
+    pub runner_timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -190,6 +205,7 @@ pub fn merge(user: Config, project: Config) -> Config {
             roots: union(user.sources.roots, project.sources.roots),
             globs: project.sources.globs.or(user.sources.globs),
         },
+        triggers: merge_triggers(user.triggers, project.triggers),
         signals: Signals {
             deadband: project.signals.deadband.or(user.signals.deadband),
             weight: per_word(user.signals.weight, project.signals.weight),
@@ -203,6 +219,14 @@ pub fn merge(user: Config, project: Config) -> Config {
 /// TABLE level that would make one project weight discard every word the
 /// user tuned -- the same silent loss the `[sources]` union exists to
 /// prevent, one level down. The word is the key.
+/// Per key, project wins -- the ordinary rule (section I). The corpus
+/// union is `[sources].roots`, and only that.
+fn merge_triggers(user: Triggers, project: Triggers) -> Triggers {
+    Triggers {
+        runner_timeout_ms: project.runner_timeout_ms.or(user.runner_timeout_ms),
+    }
+}
+
 fn per_word(
     user: std::collections::BTreeMap<String, i32>,
     project: std::collections::BTreeMap<String, i32>,
