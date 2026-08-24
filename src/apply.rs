@@ -147,12 +147,29 @@ fn runner_note(step: &plan::Step) -> String {
     )
 }
 
+/// The statement, with EVERY line commented (V42).
+///
+/// A wrapped bullet is the normal case in real prose, and its second line
+/// lands inside a shell script. Unprefixed, that line is a COMMAND: the
+/// first extraction this crate ever made of its own corpus produced
+/// `line 6: here.: command not found` (B6). The corpus is input, and the
+/// one place this crate quotes it is the one place that has to quote it.
+#[must_use]
+pub fn commented(text: &str) -> String {
+    text.trim()
+        .lines()
+        .map(|line| format!("# {}", line.trim()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Templates are CONSTS, not inline format walls. The generated artifact is
 /// the thing a human edits next, so its text should be readable and
 /// editable here rather than reassembled from fragments.
 fn fill(template: &str, step: &plan::Step) -> String {
     template
         .replace("{RUNNER_NOTE}\n", &runner_note(step))
+        .replace("{TEXT_SH}", &commented(&step.text))
         .replace("{ID}", &step.id)
         .replace("{SRC}", &step.src)
         .replace("{START}", &step.line_start.to_string())
@@ -182,7 +199,7 @@ const RULE_TEMPLATE: &str = "\
 # Extracted by rekall from {SRC}:{START}-{END} (id {ID}).
 #
 # THE RULE, verbatim:
-# {TEXT}
+{TEXT_SH}
 #
 {RUNNER_NOTE}
 # Exits NONZERO until the check is written. A runner that passes without
@@ -628,5 +645,28 @@ mod tests {
         let text = artifact_text(&step("a", 1, 1, "M1"));
         assert!(!text.contains("MOVE THE CHECK HERE"), "{text}");
         assert!(!text.contains("RUNNER_NOTE"), "{text}");
+    }
+    /// V42, B6. A wrapped statement is the normal case in real prose, and
+    /// its second line lands inside a shell script -- where, unprefixed,
+    /// it is a command. Every line carries the comment marker.
+    #[test]
+    fn every_line_of_a_wrapped_statement_is_commented() {
+        let mut wrapped = step("a", 1, 2, "M1");
+        wrapped.text =
+            "- Rust source is ASCII only. `SPEC.md` symbols are FORMAT\n  and do not apply here."
+                .to_string();
+        let text = artifact_text(&wrapped);
+        assert!(text.contains("# and do not apply here."), "{text}");
+        assert!(!text.contains("\nand do not apply here."), "{text}");
+    }
+
+    /// The helper alone, so the rule is legible without reading a template
+    /// around it: blank lines and indentation do not survive as commands.
+    #[test]
+    fn commenting_covers_every_line_it_is_given() {
+        let out = commented("first\n  second\n\tthird");
+        for line in out.lines() {
+            assert!(line.starts_with("# "), "{out}");
+        }
     }
 }

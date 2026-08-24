@@ -31,6 +31,7 @@ pub const NO_REFUSAL_CLAUSE: &str = "no-refusal-clause";
 pub const ORPHAN_ARTIFACT: &str = "orphan-artifact";
 pub const BAD_TRIGGER_BLOCK: &str = "bad-trigger-block";
 pub const LADDER: &str = "ladder";
+pub const LOOSE_QUOTE: &str = "loose-quote";
 
 /// One thing wrong.
 ///
@@ -174,6 +175,9 @@ fn said_missing_artifact(row: &ledger::Extracted) -> String {
 /// someone writes the check -- and a placeholder wired into a gate is the
 /// wish V22 forbids.
 fn runner_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
+    if let Some(loose) = loose_quote(row, text) {
+        return vec![loose];
+    }
     if !text.trim().is_empty() && !text.contains(apply::UNIMPLEMENTED) {
         return Vec::new();
     }
@@ -181,13 +185,42 @@ fn runner_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
         NO_RUNNER,
         &row.id,
         &row.artifact,
-        format!(
-            "{} is still the generated placeholder, so the rule extracted from {} \
-             gates nothing (V2). Write the check in that script and remove the \
-             line that says it is unimplemented",
-            row.artifact, row.src
-        ),
+        said_placeholder(row),
     )]
+}
+
+fn said_placeholder(row: &ledger::Extracted) -> String {
+    format!(
+        "{} is still the generated placeholder, so the rule extracted from {} \
+         gates nothing (V2). Write the check in that script and remove the \
+         line that says it is unimplemented",
+        row.artifact, row.src
+    )
+}
+
+/// V42: a line of the statement that reaches the script UNCOMMENTED is a
+/// COMMAND.
+///
+/// Judged against the LEDGER's verbatim text rather than by parsing the
+/// script, because the ledger is what the statement actually said (V9) and
+/// a parser would be guessing where the quote ends. The teeth live here
+/// rather than in the template on purpose: the template is edited by the
+/// same hand that will forget (V22, B6).
+fn loose_quote(row: &ledger::Extracted, text: &str) -> Option<Drift> {
+    let loose = row.text.lines().map(str::trim).find(|line| {
+        !line.is_empty() && text.lines().any(|written| written.trim() == *line)
+    })?;
+    Some(drift(
+        LOOSE_QUOTE,
+        &row.id,
+        &row.artifact,
+        format!(
+            "{} quotes the statement from {} on a line the shell would RUN: `{loose}`. \
+             Every line of a quoted statement is a comment (V42) -- put `# ` in front \
+             of it, or regenerate the artifact with `rekall revert {}` then `rekall apply {}`",
+            row.artifact, row.src, row.id, row.id
+        ),
+    ))
 }
 
 /// V3, V4 and V29. The BLOCK is the trigger; the prose beside it is not
@@ -750,5 +783,54 @@ mod tests {
             source: None,
             artifact: None,
         }
+    }
+    /// A WRAPPED statement, which is what B6 was made of. Every fixture in
+    /// this file was one line, which is exactly why 509 green tests said
+    /// nothing about the first statement a human actually wrote.
+    fn wrapped_row() -> ledger::Extracted {
+        ledger::Extracted {
+            text: "- Rust source is ASCII only. `SPEC.md` symbols are FORMAT\n  and do not apply here."
+                .to_string(),
+            line_end: 4,
+            ..row("M1")
+        }
+    }
+
+    /// V42. A line of the statement reaching the script uncommented is a
+    /// COMMAND, and the gate says so before someone writes a real check
+    /// and the line starts running.
+    #[test]
+    fn a_statement_line_the_shell_would_run_is_drift() {
+        let held = wrapped_row();
+        let source = extracted_source(&held);
+        let loose = "#!/bin/sh\n# - Rust source is ASCII only. `SPEC.md` symbols are FORMAT\nand do not apply here.\nexit 1\n";
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(loose),
+        }];
+        let found = audit(&seen, std::slice::from_ref(&held.artifact));
+        assert_eq!(kinds(&found), vec![LOOSE_QUOTE], "{found:?}");
+        assert!(found.iter().any(|one| one.said.contains("# ")), "{found:?}");
+    }
+
+    /// The round trip: what `apply` writes for a wrapped statement must
+    /// pass the check that judges it. Two halves of one rule, tested
+    /// against each other rather than against a hand-typed fixture.
+    #[test]
+    fn what_apply_writes_for_a_wrapped_statement_is_not_loose() {
+        let held = wrapped_row();
+        let source = extracted_source(&held);
+        let written = generated(&held);
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(&written),
+        }];
+        let found = audit(&seen, std::slice::from_ref(&held.artifact));
+        assert!(
+            !kinds(&found).contains(&LOOSE_QUOTE),
+            "{found:?}\n{written}"
+        );
     }
 }
