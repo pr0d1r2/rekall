@@ -136,6 +136,28 @@
 # hardware -- which is an argument for extracting more of it, not for a
 # larger number.
 
-SPEC.md   11900
+# THE CEILING RISES AGAIN, 11900 -> 12400, in the same session as the last
+# raise. That is the reflex this file exists to catch, so here is the case.
+#
+# What arrived between the two raises: V40, V41 and V42, six tasks, and two
+# bug rows -- and every one of them came from pointing rekall at rekall for
+# the first time (T19). B6 and B7 are defects the tool found in itself
+# within minutes of the first extraction, of a kind 500 green tests had
+# nothing to say about. A spec that cannot absorb its own findings is a
+# spec that stops being written down.
+#
+# WHAT WAS TRIED FIRST, and rejected on measurement: compacting B1 and B2
+# saves ~30 tokens and they are already two lines each; trimming B5 and B6
+# means deleting the MEASURED narrative that makes them useful, which is
+# deleting reasoning rather than compressing it.
+#
+# THE STANDING ANSWER IS NO LONGER A RAISE. R4 measures this crate at
+# 136,279 tokens of spec plus code against a 131,072 window. FORMAT.md
+# federates a spec at 500 lines and this file is at 185, so the next honest
+# move is one of: federate early and say why, or extract this file the way
+# CLAUDE.md is being extracted. A third raise without one of those is the
+# reflex, not the review.
+
+SPEC.md   12400
 README.md  1000
 CLAUDE.md   600
