@@ -71,3 +71,14 @@ label = "M1"
 artifact = ".rekall/rules/run-hk-check-before-pushing.sh"
 fires = 0
 at = 1787590925
+
+[[extracted]]
+id = "551a009"
+src = "CLAUDE.md"
+line_start = 15
+line_end = 15
+text = "- Commit straight to `main`. No feature branches in this repo."
+label = "M1"
+artifact = ".rekall/rules/commit-straight-to-main-no-feature.sh"
+fires = 0
+at = 1787591127

@@ -118,6 +118,12 @@ local fast = new Mapping<String, Step> {
     check = "sh .rekall/rules/run-hk-check-before-pushing.sh"
   }
 
+  /// EXTRACTED from CLAUDE.md by rekall (id 551a009). No glob: the branch
+  /// you are on is not something a file change announces.
+  ["on-main"] {
+    check = "sh .rekall/rules/commit-straight-to-main-no-feature.sh"
+  }
+
   /// MODULE SIZE, the limit clippy does not have.
   ///
   /// It caps methods, parameters, nesting and complexity -- and nothing

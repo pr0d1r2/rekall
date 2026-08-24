@@ -12,7 +12,7 @@ that stay are the ones that could not be made mechanical.
 
 ## Working agreement
 
-- Commit straight to `main`. No feature branches in this repo.
+<!-- rekall 551a009 -->
 - One decision per commit, and the reasoning goes in the message, not in a
   comment nobody will find.
 - Decide in the spec before building. A judgment records what it rejected
