@@ -96,6 +96,13 @@ local fast = new Mapping<String, Step> {
     check = "sh .rekall/rules/rust-source-is-ascii-only-specmd.sh"
   }
 
+  /// EXTRACTED from CLAUDE.md by rekall (id b2c5684). The rule and its
+  /// runner live in one file; this step decides only WHEN it runs (V24).
+  ["allow-is-explained"] {
+    glob = List("**/*.rs")
+    check = "sh .rekall/rules/an-allow-must-name-what-it.sh"
+  }
+
   /// MODULE SIZE, the limit clippy does not have.
   ///
   /// It caps methods, parameters, nesting and complexity -- and nothing

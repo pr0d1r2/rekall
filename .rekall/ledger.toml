@@ -36,3 +36,16 @@ label = "M2"
 artifact = ".rekall/rules/a-gate-step-that-cannot-run.sh"
 fires = 0
 at = 1787587413
+
+[[extracted]]
+id = "b2c5684"
+src = "CLAUDE.md"
+line_start = 31
+line_end = 32
+text = """
+- An `allow` must name what it exempts and why. An exemption is not a
+  suppression."""
+label = "M1"
+artifact = ".rekall/rules/an-allow-must-name-what-it.sh"
+fires = 0
+at = 1787590326

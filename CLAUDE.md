@@ -28,8 +28,7 @@ that stay are the ones that could not be made mechanical.
 - Never raise a threshold in `clippy.toml` to make a build pass. Those
   numbers are reviewed decisions and raising one is the reflex they exist
   to catch.
-- An `allow` must name what it exempts and why. An exemption is not a
-  suppression.
+<!-- rekall b2c5684 -->
 - Token counting belongs to `itok`. Do not write a second counter.
 - Do not add a dependency for something the standard library already does.
 
