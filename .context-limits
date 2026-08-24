@@ -94,6 +94,34 @@
 # pairs) or raises the number in a commit that argues why the count is
 # right. Absorbing it quietly is the one option this file exists to refuse.
 
-SPEC.md   11000
+# RE-MEASURED 2026-08-24, after V41 and T53:
+#   SPEC.md   11338
+#
+# THE CEILING RISES, 11000 -> 11900, and the last entry demanded an
+# argument about the COUNT rather than another compression pass. Here it
+# is. The file holds 41 invariants, 53 tasks, 15 research rows and 5 bug
+# rows. Every one of them is a decision that cost a session to make, and
+# V35 requires each to carry what it REJECTED and what would REVERSE it --
+# which is the half that costs tokens and the half that makes a wrong call
+# undoable. A spec that records only survivors is cheaper per row and
+# worthless on the day someone asks why.
+#
+# What was tried first, and what it bought: compression of the four
+# longest invariants, 72 tokens, one session ago. Dedup of section C
+# against sections R and V, 101 tokens, this session. Merging V5 with V6
+# was measured and REJECTED at ~20 net tokens, because V6 is one line and
+# five rows cite it -- deleting a cited id costs more than it saves.
+#
+# THE NEXT ANSWER IS NOT MORE OF THIS. FORMAT.md federates a spec at 500
+# lines; this file is at 180. When it reaches that rule, sections R and B
+# are the ones that leave, because they are EVIDENCE that a reader
+# consults rather than LAW they must hold. Until then the ceiling tracks
+# an honest count, and the review it forces is this comment.
+#
+# Slack is ~5%, tighter than the 12.5% of the early ceilings and looser
+# than the 0.2% the last raise decayed to. That is deliberate: one more
+# invariant fits, two do not.
+
+SPEC.md   11900
 README.md  1000
 CLAUDE.md   600
