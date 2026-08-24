@@ -1,0 +1,38 @@
+candidates = []
+
+[[extracted]]
+id = "8043abe"
+src = "CLAUDE.md"
+line_start = 27
+line_end = 28
+text = """
+- Rust source is ASCII only. `SPEC.md` symbols are FORMAT and do not apply
+  here."""
+label = "M1"
+artifact = ".rekall/rules/rust-source-is-ascii-only-specmd.sh"
+fires = 0
+at = 1787587413
+
+[[extracted]]
+id = "b83698e"
+src = "CLAUDE.md"
+line_start = 47
+line_end = 48
+text = """
+- The coverage floor only ever rises. If it falls, cover the gap rather
+  than lowering the number."""
+label = "M2"
+artifact = ".rekall/rules/the-coverage-floor-only-ever-rises.sh"
+fires = 0
+at = 1787587413
+
+[[extracted]]
+id = "80c695d"
+src = "CLAUDE.md"
+line_start = 49
+line_end = 49
+text = "- A gate step that cannot run is a failure, not a pass."
+label = "M2"
+artifact = ".rekall/rules/a-gate-step-that-cannot-run.sh"
+fires = 0
+at = 1787587413

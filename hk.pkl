@@ -55,13 +55,7 @@ local fast = new Mapping<String, Step> {
   /// and does not answer for whether `typos` is installed. Those skip and
   /// SAY SO, which is the other half of the same rule.
   ["runners"] {
-    check = """
-      missing=''
-      for tool in cargo mth itok rekall; do
-        command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
-      done
-      [ -z "$missing" ] || { echo "hk: MISSING owned runner(s):$missing -- a missing runner is NOT a pass (V26), so this gate is RED rather than quietly shorter. Enter the dev shell: 'direnv allow', or 'nix develop' from the repo root." >&2; exit 1; }
-      """
+    check = "sh .rekall/rules/a-gate-step-that-cannot-run.sh"
   }
 
   ["fmt"] {
@@ -99,10 +93,7 @@ local fast = new Mapping<String, Step> {
   /// never performed (V26).
   ["ascii"] {
     glob = List("**/*.rs")
-    check = """
-      hits=$(LC_ALL=C grep -rn '[^ -~]' src/ || true)
-      [ -z "$hits" ] || { echo 'hk: non-ASCII or control character in Rust source:' >&2; echo "$hits" >&2; echo 'SPEC.md symbols are FORMAT, not source -- spell it in ASCII here.' >&2; exit 1; }
-      """
+    check = "sh .rekall/rules/rust-source-is-ascii-only-specmd.sh"
   }
 
   /// MODULE SIZE, the limit clippy does not have.
@@ -330,15 +321,7 @@ local all = (fast) {
   ["coverage"] {
     glob = List("**/*.rs", ".coverage")
     depends = List("package")
-    check = """
-      out=$(cargo llvm-cov --summary-only 2>&1) || { echo "$out" >&2; exit 1; }
-      now=$(printf '%s' "$out" | awk '/^TOTAL/{gsub("%","",$10); print $10}')
-      was=$(awk '/^lines /{print $2}' .coverage)
-      [ -n "$now" ] || { echo 'hk: could not read a coverage total -- that is an ERROR, not a floor breach' >&2; exit 1; }
-      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 < w+0 - 0.3)}' && { echo "hk: coverage FELL, $was% -> $now% (margin 0.3). A line that stopped being covered is a test that stopped asserting. Cover it, or say why in .coverage with the drop." >&2; exit 1; }
-      awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 > w+0 + 0.5)}' && { echo "hk: coverage ROSE, $was% -> $now%, and the floor was not raised. An unrecorded rise is a floor that lies about what is protected -- it would let every one of those lines go uncovered again in silence. Run: hk fix --all" >&2; exit 1; }
-      echo "coverage $now% (floor $was%)"
-      """
+    check = "sh .rekall/rules/the-coverage-floor-only-ever-rises.sh"
     /// `fix` may only RAISE. A ratchet that writes down whatever it measures
     /// is not a ratchet -- it files down its own teeth on exactly the commit
     /// it existed to refuse (V27).
