@@ -172,7 +172,7 @@ T50|.|slug ⊥ truncates mid-phrase|§I
 
 T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
 T52|x|MOOD signals: imperative · absolute quantifier · `, not ` contrast, HALF a directive & SCOPED to list items|V40,V30,R15
-T53|.|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-from marker|V41,V19,V2
+T53|x|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-from marker|V41,V19,V2
 
 ## §B BUGS
 

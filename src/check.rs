@@ -407,6 +407,7 @@ mod tests {
             text: held.text.clone(),
             label: held.label.clone(),
             artifact: held.artifact.clone(),
+            runner: String::new(),
             wiring: String::new(),
             net: None,
         })

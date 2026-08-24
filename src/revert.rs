@@ -174,6 +174,7 @@ mod tests {
             text: "- never commit to `main`".to_string(),
             label: "M1".to_string(),
             artifact: ".rekall/rules/no-main.sh".to_string(),
+            runner: String::new(),
             wiring: "wire it".to_string(),
             net: None,
         }

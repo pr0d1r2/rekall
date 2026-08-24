@@ -2923,4 +2923,22 @@ mod tests {
         let mut input = std::io::BufReader::new(Broken);
         assert!(read_answer(&mut input).is_err());
     }
+    /// V41. A `runner` names a GATE STEP, and only an `M` rule has one.
+    /// Ignoring it would read, to whoever filled it in, exactly like
+    /// honouring it -- so the plan is refused and the message says which
+    /// field to clear.
+    #[test]
+    fn a_runner_on_a_skill_step_is_refused() {
+        let dir = plan_project("runner-on-skill");
+        let plan_path = dir.join("x.plan");
+        let _ = std::fs::write(
+            &plan_path,
+            "format = 1\nfingerprint = []\n\n[[steps]]\nid = \"abc1234\"\nsrc = \"CLAUDE.md\"\nline_start = 1\nline_end = 1\ntext = \"- when editing `.rs`, prefer modules\"\nlabel = \"S1\"\nartifact = \".claude/skills/x/SKILL.md\"\nrunner = \"ascii\"\nwiring = \"\"\n",
+        );
+        let result =
+            apply_in(&dir, &["--auto-approve", &plan_path.to_string_lossy()]);
+        let message = result.err().unwrap_or_default();
+        assert!(message.contains("runner"), "{message}");
+        assert!(message.contains("GATE STEP"), "{message}");
+    }
 }

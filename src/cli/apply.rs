@@ -150,10 +150,30 @@ fn resolve_plan(
     })
 }
 
+/// A `runner` names an existing GATE STEP, and only an `M` rule has one.
+///
+/// Refusing beats ignoring: a field silently dropped reads, to whoever
+/// filled it in, exactly like a field that was honoured (V41, V28).
+fn refuse_a_runner_on_a_skill(plan: &plan::Plan) -> Result<(), String> {
+    for step in &plan.steps {
+        if step.runner.is_empty() || step.label.starts_with('M') {
+            continue;
+        }
+        return Err(format!(
+            "step {} is {} and carries runner `{}`. A runner names a GATE STEP, which only an `M` rule has. Clear the field, or take the statement back through `rekall plan` if the class is wrong.",
+            step.id, step.label, step.runner
+        ));
+    }
+    Ok(())
+}
+
 fn from_file(path: &Path) -> Result<Requested, String> {
     let text =
         std::fs::read_to_string(path).map_err(|error| error.to_string())?;
-    let plan = toml::from_str(&text).map_err(|error| error.to_string())?;
+    let mut plan: plan::Plan =
+        toml::from_str(&text).map_err(|error| error.to_string())?;
+    plan::retire_stale_wiring(&mut plan);
+    refuse_a_runner_on_a_skill(&plan)?;
     Ok(Requested {
         plan,
         already: Vec::new(),

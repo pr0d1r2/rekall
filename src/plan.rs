@@ -45,9 +45,30 @@ pub struct Step {
     /// Staleness is already handled: V19 refuses a plan whose corpus moved.
     #[serde(default)]
     pub net: Option<i64>,
+    /// An EXISTING gate step this rule is already enforced by (V41).
+    ///
+    /// EMPTY is the default and means "write the inert stub". A NAME means
+    /// the gate already checks this rule, so the extraction MOVES the
+    /// check into the artifact and leaves the step as a caller -- one
+    /// definition, many callers (V23), instead of the same rule stated in
+    /// two runners.
+    ///
+    /// It is a field in the PLAN FILE and not a flag because only a human
+    /// knows which step enforces which rule, a per-id flag does not
+    /// survive past two ids, and the plan is already the artifact V19 has
+    /// someone review before a byte moves. Editing it is not tampering:
+    /// the fingerprint covers the CORPUS, not the plan's own fields.
+    #[serde(default)]
+    pub runner: String,
     /// What has to be wired for the artifact to do anything: a runner for
     /// `M` (V2), a trigger for `S` (V3). Named here so review can see the
     /// obligation before it exists rather than after.
+    ///
+    /// DERIVED from `runner`, and recomputed when a plan file is read
+    /// (`retire_stale_wiring`). A human edits `runner`; if the sentence
+    /// beside it kept whatever `plan` wrote first, the file would state
+    /// one obligation and `apply` would perform another.
+    #[serde(default)]
     pub wiring: String,
 }
 
@@ -124,19 +145,43 @@ fn clean_word(word: &str) -> String {
         .to_lowercase()
 }
 
-/// Where an artifact lands, and what has to be wired for it to matter.
-fn destination(label: &str, slug: &str) -> (String, String) {
+/// Where an artifact lands.
+fn destination(label: &str, slug: &str) -> String {
     if label.starts_with('M') {
-        return (
-            format!(".rekall/rules/{slug}.sh"),
-            "add the script to the gate so it EXITS NONZERO on a violation (V2, V22)".to_string(),
-        );
+        return format!(".rekall/rules/{slug}.sh");
     }
-    (
-        format!(".claude/skills/{slug}/SKILL.md"),
-        "give the skill a trigger AND an explicit do-not-fire clause (V3, V4)"
-            .to_string(),
+    format!(".claude/skills/{slug}/SKILL.md")
+}
+
+/// What has to be wired for the artifact to matter.
+///
+/// Three cases, and the third is V41: a rule the gate ALREADY enforces is
+/// not wired, it is MOVED. Writing a second runner beside the step that
+/// already checks it would leave one rule stated twice, which is the
+/// defect extraction exists to remove, one layer below the prose.
+#[must_use]
+pub fn wiring_for(label: &str, artifact: &str, runner: &str) -> String {
+    if !label.starts_with('M') {
+        return "give the skill a trigger AND an explicit do-not-fire clause (V3, V4)"
+            .to_string();
+    }
+    if runner.is_empty() {
+        return "add the script to the gate so it EXITS NONZERO on a violation (V2, V22)".to_string();
+    }
+    format!(
+        "MOVE the body of gate step `{runner}` into {artifact}, then leave that step calling `sh {artifact}` -- ONE definition, many callers (V41, V23)"
     )
+}
+
+/// Recompute every step's wiring from its runner.
+///
+/// Called after a plan file is READ. The human edits `runner`; the
+/// sentence beside it was written by `plan` before that edit, and a file
+/// whose two halves disagree is worse than one that carries neither.
+pub fn retire_stale_wiring(plan: &mut Plan) {
+    for step in &mut plan.steps {
+        step.wiring = wiring_for(&step.label, &step.artifact, &step.runner);
+    }
 }
 
 /// Turn one statement into a step.
@@ -157,8 +202,10 @@ fn step_for(
 }
 
 fn assemble(found: &statement::Statement, label: String) -> Step {
-    let (artifact, wiring) = destination(&label, &slug(&found.text));
+    let artifact = destination(&label, &slug(&found.text));
+    let wiring = wiring_for(&label, &artifact, "");
     Step {
+        runner: String::new(),
         id: found.id.clone(),
         src: found.path.clone(),
         line_start: found.line_start,
@@ -371,6 +418,10 @@ mod tests {
         assert!(step.wiring.contains("do-not-fire"), "{}", step.wiring);
     }
 
+    fn first_step(plan: &Plan) -> Step {
+        plan.steps.first().cloned().unwrap_or_else(empty_step)
+    }
+
     fn empty_step() -> Step {
         Step {
             id: String::new(),
@@ -380,6 +431,7 @@ mod tests {
             text: String::new(),
             label: String::new(),
             artifact: String::new(),
+            runner: String::new(),
             wiring: String::new(),
             net: None,
         }
@@ -617,5 +669,71 @@ mod tests {
         let step = empty_step();
         assert!(step.id.is_empty() && step.artifact.is_empty());
         assert_eq!(step.line_start, 0);
+    }
+    /// V41. A rule the gate already enforces is MOVED, not wired a second
+    /// time -- and the sentence says which step the body comes from.
+    #[test]
+    fn a_named_runner_turns_the_wiring_into_a_move() {
+        let wiring = wiring_for("M1", ".rekall/rules/ascii.sh", "ascii");
+        assert!(wiring.contains("MOVE"), "{wiring}");
+        assert!(wiring.contains("`ascii`"), "{wiring}");
+        assert!(wiring.contains("sh .rekall/rules/ascii.sh"), "{wiring}");
+    }
+
+    #[test]
+    fn an_empty_runner_still_asks_for_a_new_one() {
+        let wiring = wiring_for("M1", ".rekall/rules/ascii.sh", "");
+        assert!(wiring.contains("add the script to the gate"), "{wiring}");
+    }
+
+    /// A skill has no gate step to move, so its obligation is unchanged.
+    #[test]
+    fn a_skill_wiring_ignores_a_runner() {
+        let named = wiring_for("S1", ".claude/skills/x/SKILL.md", "ascii");
+        let bare = wiring_for("S1", ".claude/skills/x/SKILL.md", "");
+        assert_eq!(named, bare);
+    }
+
+    /// V41's staleness case: the sentence in the file was written BEFORE
+    /// the human named a runner, so reading it back has to recompute it.
+    /// A plan whose two halves disagree would state one obligation and
+    /// perform another.
+    #[test]
+    fn reading_a_plan_recomputes_the_wiring_from_the_runner() {
+        let mut plan = Plan {
+            format: FORMAT,
+            fingerprint: Vec::new(),
+            steps: vec![Step {
+                label: "M1".to_string(),
+                artifact: ".rekall/rules/ascii.sh".to_string(),
+                runner: "ascii".to_string(),
+                wiring: "add the script to the gate".to_string(),
+                ..empty_step()
+            }],
+        };
+        retire_stale_wiring(&mut plan);
+        let step = first_step(&plan);
+        assert!(step.wiring.contains("MOVE"), "{step:?}");
+    }
+
+    /// The field survives the file. A runner a human wrote and a parser
+    /// dropped is a decision silently discarded.
+    #[test]
+    fn a_runner_round_trips_through_the_plan_file() {
+        let plan = Plan {
+            format: FORMAT,
+            fingerprint: Vec::new(),
+            steps: vec![Step {
+                runner: "ascii".to_string(),
+                ..empty_step()
+            }],
+        };
+        let encoded = toml::to_string(&plan).unwrap_or_default();
+        let back: Plan = toml::from_str(&encoded).unwrap_or(Plan {
+            format: FORMAT,
+            fingerprint: Vec::new(),
+            steps: Vec::new(),
+        });
+        assert_eq!(first_step(&back).runner, "ascii");
     }
 }

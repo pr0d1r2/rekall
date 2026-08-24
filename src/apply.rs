@@ -129,11 +129,30 @@ fn skill_file(step: &plan::Step) -> String {
     fill(SKILL_TEMPLATE, step)
 }
 
+/// What a generated runner says when the gate ALREADY enforces the rule.
+///
+/// The script still arrives inert: naming where the check comes from is
+/// not the same as having moved it, and a runner that passed because a
+/// comment described one would gate nothing (V2, V22).
+fn runner_note(step: &plan::Step) -> String {
+    if step.runner.is_empty() {
+        return String::new();
+    }
+    let name = &step.runner;
+    let artifact = &step.artifact;
+    format!(
+        "# MOVE THE CHECK HERE. Gate step `{name}` already enforces this\n\
+         # rule. Move its body into this script and leave that step calling\n\
+         # `sh {artifact}` -- one definition, many callers (V41, V23).\n#\n"
+    )
+}
+
 /// Templates are CONSTS, not inline format walls. The generated artifact is
 /// the thing a human edits next, so its text should be readable and
 /// editable here rather than reassembled from fragments.
 fn fill(template: &str, step: &plan::Step) -> String {
     template
+        .replace("{RUNNER_NOTE}\n", &runner_note(step))
         .replace("{ID}", &step.id)
         .replace("{SRC}", &step.src)
         .replace("{START}", &step.line_start.to_string())
@@ -165,6 +184,7 @@ const RULE_TEMPLATE: &str = "\
 # THE RULE, verbatim:
 # {TEXT}
 #
+{RUNNER_NOTE}
 # Exits NONZERO until the check is written. A runner that passes without
 # testing anything gates nothing, and is worse than no runner (V2, V22).
 #
@@ -310,6 +330,7 @@ mod tests {
             text: "- never commit to `main`".to_string(),
             label: label.to_string(),
             artifact: ".rekall/rules/no-main.sh".to_string(),
+            runner: String::new(),
             wiring: "wire it".to_string(),
             net: None,
         }
@@ -586,5 +607,26 @@ mod tests {
         held.record(row_for(&step("aaa", 1, 1, "M1"), 0));
         let outcome = preview(&[step("aaa", 1, 1, "M1")], &held);
         assert!(outcome.writes.is_empty() && outcome.edits.is_empty());
+    }
+    /// V41. The generated script says WHERE the check comes from -- and
+    /// still exits nonzero, because naming a body is not moving one.
+    #[test]
+    fn a_named_runner_puts_the_move_in_the_script() {
+        let mut with = step("a", 1, 1, "M1");
+        with.runner = "ascii".to_string();
+        let text = artifact_text(&with);
+        assert!(text.contains("MOVE THE CHECK HERE"), "{text}");
+        assert!(text.contains("`ascii`"), "{text}");
+        assert!(text.contains(UNIMPLEMENTED), "{text}");
+        assert!(text.contains("exit 1"), "{text}");
+    }
+
+    /// The default script must not mention a move it is not making, and
+    /// must not leave the placeholder showing.
+    #[test]
+    fn an_empty_runner_leaves_no_note_and_no_placeholder() {
+        let text = artifact_text(&step("a", 1, 1, "M1"));
+        assert!(!text.contains("MOVE THE CHECK HERE"), "{text}");
+        assert!(!text.contains("RUNNER_NOTE"), "{text}");
     }
 }
