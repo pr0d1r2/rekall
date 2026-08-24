@@ -122,6 +122,20 @@
 # than the 0.2% the last raise decayed to. That is deliberate: one more
 # invariant fits, two do not.
 
+# RE-MEASURED 2026-08-24, after V42, T53-T55 and R4's re-measurement:
+#   SPEC.md   11897
+#
+# SLACK IS 3 TOKENS. The next edit of any size goes red, and both cheap
+# answers are now spent -- compression bought 72 tokens, dedup bought 101,
+# and R4 was rewritten in place rather than added to. What is left is the
+# COUNT: 42 invariants, 55 tasks, 15 research rows, 6 bug rows.
+#
+# R4 now measures this crate at 136,279 tokens of spec plus code against a
+# 131,072 window. The file this ceiling caps is 9% of that, and the tool
+# whose purpose is context economy no longer fits its own best-case
+# hardware -- which is an argument for extracting more of it, not for a
+# larger number.
+
 SPEC.md   11900
 README.md  1000
 CLAUDE.md   600

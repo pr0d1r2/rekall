@@ -55,7 +55,8 @@ id|topic|finding|src
 R1|name `tr`|TAKEN crates.io v0.1.11 (i18n) AND `tr` = POSIX coreutils ∴ bin would SHADOW it -- ⊥ regardless of registry|crates.io/api/v1/crates/tr
 R2|name `total-recall`|TAKEN crates.io v0.3.0, GUI to-do app ∴ crate name unavailable|crates.io/api/v1/crates/total-recall
 R3|name `rekall`|FREE on crates.io @ 2026-08-21 ∴ repo · crate · bin collapse to ONE word, no bend to document|crates.io/api/v1/crates/rekall
-R4|context ceiling|`itok` = 136,811 tok (spec+code) vs 102,529 WORKING @ 131,072 window ∴ a small disciplined tool ⊥ fit its own best-case hardware. BOX: M-series 24GB, ⊥ recorded further -- the defect V31 now forbids, left VISIBLE ⊥ back-filled with a guess. ⊥ either box in R14 ∴ RATIO stands, absolutes want re-measuring (T36)|MEASURED, internal
+R4|context ceiling|RE-MEASURED 2026-08-24 on Apple M4 10-core 16GB, `itok estimate --bpe` (o200k): `itok` @ `f6b6b72` = 163,256 tok spec+code, & THIS crate = 136,279 ∴ BOTH overflow a 131,072 window -- including the tool whose PURPOSE is context economy. The 2026-08-21 figures (136,811, & 102,529 WORKING) came from an UNNAMED M-series 24GB box ∴ SUPERSEDED ⊥ back-filled: a token count is box-INDEPENDENT, but the WORKING half was never re-derivable (V31). T19's first slice reclaimed NET 35 tok of a 469-tok corpus|MEASURED, internal
+
 R5|conditional load|~50% of a repo never loads for impl work; conditional slicing brings one node to ~6% of the whole ∴ trigger-gated load is MEASURED, ⊥ hoped|MEASURED, internal
 R6|config sprawl|`itok` main carries FOUR dotfiles LIVE -- `.context-limits` · `.context-models` · `.context-policy` · `.context-hosts` ∴ the sprawl is the SHIPPED state, ⊥ a near miss. A unification to `itok.toml` (project root wins, `~/.config` the fallback) exists on an UNLANDED branch ∴ EVIDENCE OF INTENT, ⊥ of outcome. Unify from commit one & pay ⊥ the migration|github.com/pr0d1r2/itok SPEC.md @ main
 R7|class taxonomy|`mth check` already ranks each direction `Mechanical` \| `Judgment` -- the SAME 2-class split this crate needs ∴ reuse the vocabulary, ⊥ invent a third word|github.com/pr0d1r2/microlith SPEC.md §I @ main
@@ -155,7 +156,7 @@ T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
 T33|x|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in `show`; sharpness stays a LADDER|§C,§I,V10,V22,V30
 T34|x|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
 T35|x|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
-T36|.|RECORD in §R: re-measure R4 & T19's reclaim, each NAMING its box. A /spec write, ⊥ /build|V31,R4,R14,T19
+T36|x|RECORD in §R: re-measure R4 & T19's reclaim, each NAMING its box. A /spec write, ⊥ /build|V31,R4,R14,T19
 T37|x|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; ADVISES ⊥ blocks, bounded time|V37,V38,V2,T13
