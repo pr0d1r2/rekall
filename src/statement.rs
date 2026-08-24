@@ -96,6 +96,17 @@ fn starts_statement(line: &str) -> bool {
     strip_marker(trimmed) != trimmed
 }
 
+/// A line that makes no claim of its own.
+///
+/// A HEADING names a section, and a POINTER is this tool's own mark: a
+/// statement it already extracted. Reading a pointer back as prose feeds
+/// the output in as input -- phantom `U` rows inflating the rate `init`
+/// diagnoses, and an id that MOVES when a neighbour is extracted, because
+/// two adjacent pointers merge into one block.
+fn is_structure(line: &str) -> bool {
+    is_heading(line) || crate::apply::is_pointer(line)
+}
+
 fn is_heading(line: &str) -> bool {
     line.trim_start().starts_with('#')
 }
@@ -199,7 +210,7 @@ fn step(
     out: &mut Vec<Block>,
     at: Line<'_>,
 ) -> Option<Block> {
-    if at.in_fence || at.line.trim().is_empty() || is_heading(at.line) {
+    if at.in_fence || at.line.trim().is_empty() || is_structure(at.line) {
         push(out, current);
         return None;
     }
@@ -452,5 +463,39 @@ mod tests {
         assert!(is_list_item(
             "- the coverage floor only ever rises\n  and never falls"
         ));
+    }
+    /// T55. A pointer is this tool's OWN mark, so reading it back as
+    /// prose feeds the output in as input.
+    #[test]
+    fn a_pointer_is_not_a_statement() {
+        let text = format!(
+            "# Rules\n\n{}\n\n- a real rule\n",
+            crate::apply::pointer_of("abc1234")
+        );
+        let found = split(&text, "CLAUDE.md");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found.first().is_some_and(|one| one.text.contains("real")));
+    }
+
+    /// TWO ADJACENT pointers, which is what CLAUDE.md actually looked like
+    /// after three extractions: they merged into ONE block, so the block's
+    /// id moved whenever a neighbour was extracted.
+    #[test]
+    fn adjacent_pointers_do_not_merge_into_a_statement() {
+        let text = format!(
+            "{}\n{}\n- a real rule\n",
+            crate::apply::pointer_of("abc1234"),
+            crate::apply::pointer_of("def5678")
+        );
+        let found = split(&text, "CLAUDE.md");
+        assert_eq!(found.len(), 1, "{found:?}");
+    }
+
+    /// An indented pointer is still a pointer. `revert` finds one without
+    /// regard to whitespace, and the two directions have to agree.
+    #[test]
+    fn an_indented_pointer_is_still_structure() {
+        let found = split("  <!-- rekall abc1234 -->\n", "CLAUDE.md");
+        assert!(found.is_empty(), "{found:?}");
     }
 }

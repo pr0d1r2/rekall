@@ -48,7 +48,25 @@ pub fn pointer(step: &plan::Step) -> String {
 /// pointer becomes two, and they drift apart under edits).
 #[must_use]
 pub fn pointer_of(id: &str) -> String {
-    format!("<!-- rekall {id} -->")
+    format!("{POINTER_OPEN}{id} -->")
+}
+
+/// The prefix every pointer starts with, named ONCE.
+///
+/// The splitter needs to recognize a pointer without knowing which id is
+/// in it (a pointer is structure, not a statement), and `revert` needs to
+/// build one for a known id. Two literals that must agree is the
+/// invisible divergence this file already warns about above.
+pub const POINTER_OPEN: &str = "<!-- rekall ";
+
+/// Is this line one of the marks `apply` leaves behind?
+///
+/// Whitespace-insensitive, like `revert`'s own lookup: re-indenting a
+/// pointer must not turn it back into corpus prose.
+#[must_use]
+pub fn is_pointer(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with(POINTER_OPEN) && trimmed.ends_with("-->")
 }
 
 /// Replace a statement's span with its pointer.
