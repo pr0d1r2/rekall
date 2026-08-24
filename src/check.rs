@@ -344,7 +344,7 @@ mod tests {
     fn extracted_source(held: &ledger::Extracted) -> String {
         format!(
             "# Rules\n\n{}\n\n- other prose\n",
-            apply::pointer_of(&held.id, &held.artifact)
+            apply::pointer_of(&held.id)
         )
     }
 
@@ -622,7 +622,7 @@ mod tests {
         let held = row("M1");
         let source = format!(
             "# Rules\n\n{}\n\n- never commit to `main`\n",
-            apply::pointer_of(&held.id, &held.artifact)
+            apply::pointer_of(&held.id)
         );
         let found = audit(&[with_runner(&held, &source)], &[]);
         assert_eq!(kinds(&found), vec![STATEMENT_RESTORED]);

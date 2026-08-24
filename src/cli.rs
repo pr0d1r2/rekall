@@ -2097,7 +2097,7 @@ mod tests {
         let dir = check_project("copy");
         let (id, before) = extracted(&dir);
         write_real_runner(&dir, &id);
-        let pointer = apply::pointer_of(&id, &artifact_of(&dir, &id));
+        let pointer = apply::pointer_of(&id);
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
             format!("{pointer}\n\n{before}"),

@@ -20,7 +20,7 @@ use crate::{ledger, plan};
 /// it (V1's founding defect, one level down).
 #[must_use]
 pub fn pointer(step: &plan::Step) -> String {
-    pointer_of(&step.id, &step.artifact)
+    pointer_of(&step.id)
 }
 
 /// The pointer's SHAPE, defined once.
@@ -30,9 +30,25 @@ pub fn pointer(step: &plan::Step) -> String {
 /// exactly. Two format strings that must match is two rule sets, and the
 /// invisible kind: each looks right alone, and the divergence only shows
 /// when a revert cannot find a pointer that is plainly there.
+///
+/// THE ID ALONE, because the pointer is a COST (V39). It stays in the
+/// corpus forever and is re-read every turn, so it is subtracted from
+/// whatever the extraction saved. MEASURED: naming the artifact too cost
+/// 28 tokens against an 18-token statement -- the extraction went
+/// BACKWARDS. This form is ~8.
+///
+/// The trade is real and is worth stating: a reader with no tooling now
+/// sees an opaque id where they used to see a path. `rekall log` and
+/// `rekall show <id>` both resolve it, and the ledger is tracked, so the
+/// answer is one command away rather than inline. Paying 20 tokens on
+/// every turn of every session to save that one command is the wrong side
+/// of the trade -- which is the whole argument of this crate, applied to
+/// its own output. REJECTED: the artifact's basename (still ~15, and a
+/// slug is not a location); a footnote index at the end of the file (one
+/// pointer becomes two, and they drift apart under edits).
 #[must_use]
-pub fn pointer_of(id: &str, artifact: &str) -> String {
-    format!("<!-- rekall {id}: extracted to {artifact} -->")
+pub fn pointer_of(id: &str) -> String {
+    format!("<!-- rekall {id} -->")
 }
 
 /// Replace a statement's span with its pointer.
@@ -274,9 +290,7 @@ mod tests {
         let text = "# H\n\n- never commit to `main`\n\n- another\n";
         let out =
             splice(text, &step("abc1234", 3, 3, "M1")).unwrap_or_default();
-        assert!(out.contains(
-            "<!-- rekall abc1234: extracted to .rekall/rules/no-main.sh -->"
-        ));
+        assert!(out.contains("<!-- rekall abc1234 -->"), "{out}");
         assert!(
             !out.contains("never commit"),
             "the source text survived: {out}"
@@ -290,12 +304,25 @@ mod tests {
     /// V1: extraction is a MOVE. A pointer, not a silent deletion -- prose
     /// that simply vanished reads as a mistake, and the next person
     /// restates the rule.
+    ///
+    /// V39 makes it the ID ALONE. The pointer is always-on cost, so it is
+    /// subtracted from whatever the extraction saved -- and naming the
+    /// artifact made that subtraction bigger than the payload.
     #[test]
-    fn the_pointer_names_the_artifact_and_the_id() {
-        let pointer = pointer(&step("abc1234", 1, 1, "M1"));
+    fn the_pointer_names_the_id_and_nothing_else() {
+        let held = pointer(&step("abc1234", 1, 1, "M1"));
+        assert_eq!(held, "<!-- rekall abc1234 -->");
+    }
+
+    /// THE POINT OF THE SHAPE, asserted as arithmetic rather than trusted.
+    /// A pointer costing more than the statement it replaces makes the
+    /// extraction go backwards, which is what V39 measured in the wild.
+    #[test]
+    fn the_pointer_is_smaller_than_a_short_statement() {
+        let held = pointer(&step("abc1234", 1, 1, "M1"));
         assert!(
-            pointer.contains("abc1234")
-                && pointer.contains(".rekall/rules/no-main.sh")
+            held.len() < "- **Never `--no-verify`.** The gate refusing is the system working.".len(),
+            "the pointer is no smaller than the prose it replaces: {held}"
         );
     }
 

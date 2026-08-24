@@ -77,7 +77,7 @@ pub fn locate(text: &str, row: &ledger::Extracted) -> Result<usize, Fault> {
 /// the statement unrecoverable -- the pointer is a marker, and whitespace
 /// around a marker carries no meaning worth refusing over.
 fn pointer_lines(text: &str, row: &ledger::Extracted) -> Vec<usize> {
-    let pointer = apply::pointer_of(&row.id, &row.artifact);
+    let pointer = apply::pointer_of(&row.id);
     text.lines()
         .enumerate()
         .filter(|(_, line)| line.trim() == pointer)
@@ -248,10 +248,7 @@ mod tests {
     #[test]
     fn a_pointer_with_surrounding_whitespace_is_still_found() {
         let held = row("abc1234", "- never commit to `main`");
-        let text = format!(
-            "# H\n\n  {}  \n",
-            apply::pointer_of(&held.id, &held.artifact)
-        );
+        let text = format!("# H\n\n  {}  \n", apply::pointer_of(&held.id));
         assert_eq!(locate(&text, &held), Ok(2));
     }
 
@@ -278,7 +275,7 @@ mod tests {
     #[test]
     fn a_duplicated_pointer_is_refused() {
         let held = row("abc1234", "- never commit to `main`");
-        let pointer = apply::pointer_of(&held.id, &held.artifact);
+        let pointer = apply::pointer_of(&held.id);
         let text = format!("{pointer}\n\n{pointer}\n");
         let fault = unsplice(&text, &held).err();
         assert_eq!(
