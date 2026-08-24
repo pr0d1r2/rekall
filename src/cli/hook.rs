@@ -57,7 +57,15 @@ fn said_by(
     at: &At<'_>,
 ) -> Option<String> {
     if !row.label.starts_with('M') {
-        return text.map(ToString::to_string);
+        // V43: the PAYLOAD, not the file. The scaffold beside it is for
+        // whoever maintains the trigger, and it is 8x the rule -- paid at
+        // the fire point, which is the one place this crate exists to
+        // keep cheap. An UNMARKED artifact still delivers its rule: that
+        // is the gate's finding to report, not the hook's to enforce by
+        // withholding a rule someone is about to need.
+        return text.map(|whole| {
+            crate::apply::payload_of(whole).unwrap_or_else(|| whole.to_string())
+        });
     }
     runner::run(&at.base.join(&row.artifact), at.limit).advice()
 }

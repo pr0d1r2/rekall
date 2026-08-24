@@ -2093,7 +2093,10 @@ mod tests {
     /// checks something -- the state V2 asks for.
     fn write_real_runner(dir: &Path, id: &str) {
         let path = dir.join(artifact_of(dir, id));
-        let _ = std::fs::write(&path, "#!/bin/sh\ngrep -q x f && exit 1\n");
+        let _ = std::fs::write(
+            &path,
+            "#!/bin/sh\n# rekall:payload\n# - never commit to `main`\n# rekall:/payload\ngrep -q x f && exit 1\n",
+        );
     }
 
     #[test]
@@ -2389,7 +2392,8 @@ mod tests {
 
     fn skill_with(fire: &str, refuse: &str) -> String {
         format!(
-            "# s\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
+            "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n\
+             <!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
             apply::FIRES,
             apply::NOT_FIRES
         )
@@ -2484,8 +2488,9 @@ mod tests {
         assert_eq!(decided, serde_json::json!({}), "{decided}");
     }
 
-    /// The skill's TEXT is what reaches the model. Injecting an id would
-    /// tell it a rule exists without saying what the rule is.
+    /// The skill's RULE is what reaches the model. An id would tell it a
+    /// rule exists without saying what the rule is; the whole file would
+    /// tell it how to maintain a trigger it will never edit (V43).
     #[test]
     fn the_skill_text_is_what_gets_injected() {
         let dir = recall_project("inject", "path = [\"**/*.rs\"]", "");
@@ -2494,7 +2499,7 @@ mod tests {
             .pointer("/hookSpecificOutput/additionalContext")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        assert!(context.contains("Fires when"), "{context}");
+        assert!(context.contains("never commit"), "{context}");
     }
 
     /// V34: the counter, and V11 finally has an author. A skill that
@@ -3004,5 +3009,20 @@ mod tests {
             hook_command(&command_payload(&dir, "cargo test --list"), &dir)
                 .unwrap_or_default();
         assert_eq!(decided, serde_json::json!({}), "{decided}");
+    }
+    /// V43, at the place it costs. What reaches the model is the RULE, not
+    /// the file that carries it -- MEASURED on this crate's own skill, 330
+    /// tokens of file to say 46, paid at the fire point on every match.
+    #[test]
+    fn the_hook_injects_the_payload_and_not_the_scaffold() {
+        let dir = recall_project("payload-only", "path = [\"**/*.rs\"]", "");
+        let context = hook_in(&dir, "a.rs")
+            .pointer("/hookSpecificOutput/additionalContext")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        assert!(context.contains("never commit"), "{context}");
+        assert!(!context.contains("Fires when"), "{context}");
+        assert!(!context.contains("rekall:payload"), "{context}");
     }
 }

@@ -32,6 +32,7 @@ pub const ORPHAN_ARTIFACT: &str = "orphan-artifact";
 pub const BAD_TRIGGER_BLOCK: &str = "bad-trigger-block";
 pub const LADDER: &str = "ladder";
 pub const LOOSE_QUOTE: &str = "loose-quote";
+pub const NO_PAYLOAD: &str = "no-payload";
 
 /// One thing wrong.
 ///
@@ -156,10 +157,59 @@ fn artifact_drift(seen: &Seen<'_>) -> Vec<Drift> {
             said_missing_artifact(row),
         )];
     };
+    let mut out = payload_drift(row, text);
+    out.extend(by_class(row, text));
+    out
+}
+
+fn by_class(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
     if row.label.starts_with('M') {
         return runner_drift(row, text);
     }
     skill_drift(row, text)
+}
+
+/// V43: an artifact with no PAYLOAD mark has nothing a reader can take but
+/// the whole file.
+///
+/// For an `S` that is measurable and was measured: 318 tokens delivered to
+/// say 36, at the fire point, which is the one cost this crate exists to
+/// remove. For an `M` the mark earns less today -- `hook` injects what the
+/// RUNNER said -- but the rule is one rule, and an artifact that carries
+/// its statement unmarked is one nobody can quote from later.
+fn payload_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
+    if apply::payload_of(text).is_some() {
+        return Vec::new();
+    }
+    vec![drift(
+        NO_PAYLOAD,
+        &row.id,
+        &row.artifact,
+        said_unmarked(row),
+    )]
+}
+
+fn said_unmarked(row: &ledger::Extracted) -> String {
+    let (open, close) = marks_for(&row.artifact);
+    format!(
+        "{} does not mark its PAYLOAD, so the only thing a reader can take is the whole \
+         file -- scaffold included, at the fire point (V43). Put `{open}` and `{close}` \
+         around the quoted statement, or regenerate it with `rekall revert {}` then \
+         `rekall apply {}`",
+        row.artifact, row.id, row.id
+    )
+}
+
+/// The mark spelled for the file it goes in: a shell comment in a runner,
+/// an HTML comment in a skill. Naming the wrong one in the advice sends
+/// someone to paste a line their file will execute.
+fn marks_for(artifact: &str) -> (&'static str, &'static str) {
+    let markdown = artifact.ends_with(".md");
+    let at = usize::from(markdown);
+    (
+        apply::PAYLOAD_OPEN.get(at).copied().unwrap_or_default(),
+        apply::PAYLOAD_CLOSE.get(at).copied().unwrap_or_default(),
+    )
 }
 
 fn said_missing_artifact(row: &ledger::Extracted) -> String {
@@ -381,18 +431,20 @@ mod tests {
         )
     }
 
-    const RUNNER: &str = "#!/bin/sh\ngrep -q main .git/HEAD && exit 1\n";
+    /// A runner that really checks something, with its payload MARKED as
+    /// the template writes it (V43).
+    const RUNNER: &str = "#!/bin/sh\n# rekall:payload\n# - never commit to `main`\n# rekall:/payload\ngrep -q main .git/HEAD && exit 1\n";
     /// A skill whose BLOCKS are filled -- the state V29 asks for. The
     /// prose is deliberately absent: it is never read, so a fixture that
     /// carried some would test nothing.
-    const SKILL: &str = "# s\n\n## Fires when\n\n```rekall\npath = [\"**/*.rs\"]\n```\n\n\
+    const SKILL: &str = "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n## Fires when\n\n```rekall\npath = [\"**/*.rs\"]\n```\n\n\
                          ## Does NOT fire when\n\n```rekall\npath = [\"**/tests/**\"]\n```\n";
 
     /// A skill in the shape the OLD template wrote: both headings, words
     /// under each, no block anywhere.
     fn prose_skill() -> String {
         format!(
-            "# s\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
+            "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
             apply::FIRES,
             apply::NOT_FIRES
         )
@@ -400,7 +452,7 @@ mod tests {
 
     fn blocks(fire: &str, refuse: &str) -> String {
         format!(
-            "# s\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
+            "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
             apply::FIRES,
             apply::NOT_FIRES
         )
@@ -456,6 +508,8 @@ mod tests {
             source: Some(&source),
             artifact: Some(&placeholder),
         }];
+        // The GENERATED artifact marks its payload (V43), so the only
+        // thing wrong with it is the check nobody has written yet.
         assert_eq!(kinds(&audit(&seen, &[])), vec![NO_RUNNER]);
     }
 
@@ -488,7 +542,8 @@ mod tests {
             source: Some(&source),
             artifact: Some("   \n"),
         }];
-        assert_eq!(kinds(&audit(&seen, &[])), vec![NO_RUNNER]);
+        // An empty file marks no payload either, and says both (V43).
+        assert_eq!(kinds(&audit(&seen, &[])), vec![NO_PAYLOAD, NO_RUNNER]);
     }
 
     /// V4 alone. A skill can name what fires it and still say nothing
@@ -718,7 +773,7 @@ mod tests {
             artifact: Some("# s\n"),
         }];
         let found = audit(&seen, &[stray()]);
-        assert_eq!(found.len(), 4, "{found:?}");
+        assert_eq!(found.len(), 5, "{found:?}");
         for one in &found {
             assert!(names_a_fix(&one.said), "no fix named: {}", one.said);
         }
@@ -736,6 +791,7 @@ mod tests {
             "Delete ",
             "Restore ",
             "Fill ",
+            "Put ",
             "reclassify",
         ]
         .iter()
@@ -810,7 +866,7 @@ mod tests {
             artifact: Some(loose),
         }];
         let found = audit(&seen, std::slice::from_ref(&held.artifact));
-        assert_eq!(kinds(&found), vec![LOOSE_QUOTE], "{found:?}");
+        assert!(kinds(&found).contains(&LOOSE_QUOTE), "{found:?}");
         assert!(found.iter().any(|one| one.said.contains("# ")), "{found:?}");
     }
 

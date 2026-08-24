@@ -2,8 +2,10 @@
 # Extracted by rekall from CLAUDE.md:47-48 (id b83698e).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - The coverage floor only ever rises. If it falls, cover the gap rather
 # than lowering the number.
+# rekall:/payload
 #
 # MOVE THE CHECK HERE. Gate step `coverage` already enforces this
 # rule. Move its body into this script and leave that step calling

@@ -2,8 +2,10 @@
 # Extracted by rekall from CLAUDE.md:27-28 (id 8043abe).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - Rust source is ASCII only. `SPEC.md` symbols are FORMAT and do not apply
 # here.
+# rekall:/payload
 #
 # MOVE THE CHECK HERE. Gate step `ascii` already enforces this
 # rule. Move its body into this script and leave that step calling

@@ -2,7 +2,9 @@
 # Extracted by rekall from CLAUDE.md:23-23 (id c75aeab).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - Run `hk check` before pushing.
+# rekall:/payload
 #
 # Exits NONZERO until the check is written. A runner that passes without
 # testing anything gates nothing, and is worse than no runner (V2, V22).

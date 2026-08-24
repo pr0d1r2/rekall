@@ -2,7 +2,9 @@
 # Extracted by rekall from CLAUDE.md:49-49 (id 80c695d).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - A gate step that cannot run is a failure, not a pass.
+# rekall:/payload
 #
 # MOVE THE CHECK HERE. Gate step `runners` already enforces this
 # rule. Move its body into this script and leave that step calling

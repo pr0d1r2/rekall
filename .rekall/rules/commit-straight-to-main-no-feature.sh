@@ -2,7 +2,9 @@
 # Extracted by rekall from CLAUDE.md:15-15 (id 551a009).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - Commit straight to `main`. No feature branches in this repo.
+# rekall:/payload
 #
 # Exits NONZERO until the check is written. A runner that passes without
 # testing anything gates nothing, and is worse than no runner (V2, V22).

@@ -2,9 +2,11 @@
 
 Extracted by rekall from CLAUDE.md:39-41.
 
+<!-- rekall:payload -->
 - When a test fails, decide first whether it is a code bug or a spec gap. A
   gap goes through `SPEC.md` before the fix, so the invariant that would
   have caught it exists first.
+<!-- rekall:/payload -->
 
 ## Fires when
 

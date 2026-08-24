@@ -2,8 +2,10 @@
 # Extracted by rekall from CLAUDE.md:31-32 (id b2c5684).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - An `allow` must name what it exempts and why. An exemption is not a
 # suppression.
+# rekall:/payload
 #
 # Exits NONZERO until the check is written. A runner that passes without
 # testing anything gates nothing, and is worse than no runner (V2, V22).

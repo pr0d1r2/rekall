@@ -2,7 +2,9 @@
 # Extracted by rekall from CLAUDE.md:47-47 (id 3edbbbe).
 #
 # THE RULE, verbatim:
+# rekall:payload
 # - Every failing step names the fix, not just the breach.
+# rekall:/payload
 #
 # Exits NONZERO until the check is written. A runner that passes without
 # testing anything gates nothing, and is worse than no runner (V2, V22).

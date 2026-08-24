@@ -206,6 +206,59 @@ fn fill(template: &str, step: &plan::Step) -> String {
 /// noticing the placeholder it was written to catch. The tests below pin
 /// each const to the template that carries it.
 pub const UNIMPLEMENTED: &str = "is not implemented yet";
+
+/// The PAYLOAD markers (V43), spelled for each file the templates write.
+///
+/// An artifact has three readers and they want different things: `hook`
+/// injects the payload, `check` reads the scaffold around it, the host
+/// indexes the head. Without a mark, the only thing a reader can take is
+/// the whole file -- MEASURED, 318 tokens delivered to say 36.
+///
+/// Comment syntax in both cases, so the mark is invisible to the reader
+/// the file is FOR: a shell script ignores a `#` line, and markdown does
+/// not render an HTML comment.
+pub const PAYLOAD_OPEN: [&str; 2] =
+    ["# rekall:payload", "<!-- rekall:payload -->"];
+pub const PAYLOAD_CLOSE: [&str; 2] =
+    ["# rekall:/payload", "<!-- rekall:/payload -->"];
+
+/// The rule an artifact carries, without the scaffold around it (V43).
+///
+/// `None` when the artifact is unmarked, which is a GATE finding rather
+/// than something to paper over here: `hook` still has a rule to deliver,
+/// and withholding it in the request path would turn a reporting problem
+/// into a missing rule at the moment it mattered.
+#[must_use]
+pub fn payload_of(text: &str) -> Option<String> {
+    let open = line_at(text, &PAYLOAD_OPEN)?;
+    let close = line_at(text, &PAYLOAD_CLOSE)?;
+    if close <= open {
+        return None;
+    }
+    let inner: Vec<String> = text
+        .lines()
+        .skip(open.saturating_add(1))
+        .take(close.saturating_sub(open).saturating_sub(1))
+        .map(uncomment)
+        .collect();
+    Some(inner.join("\n").trim().to_string())
+}
+
+/// The payload of a SHELL artifact is commented (V42), so the marks come
+/// off with it. A markdown payload has no prefix and is left alone.
+fn uncomment(line: &str) -> String {
+    let trimmed = line.trim_start();
+    trimmed
+        .strip_prefix("# ")
+        .or_else(|| trimmed.strip_prefix('#'))
+        .unwrap_or(line)
+        .to_string()
+}
+
+fn line_at(text: &str, marks: &[&str]) -> Option<usize> {
+    text.lines()
+        .position(|line| marks.iter().any(|mark| line.trim() == *mark))
+}
 pub const FIRES: &str = "## Fires when";
 pub const NOT_FIRES: &str = "## Does NOT fire when";
 
@@ -217,7 +270,9 @@ const RULE_TEMPLATE: &str = "\
 # Extracted by rekall from {SRC}:{START}-{END} (id {ID}).
 #
 # THE RULE, verbatim:
+# rekall:payload
 {TEXT_SH}
+# rekall:/payload
 #
 {RUNNER_NOTE}
 # Exits NONZERO until the check is written. A runner that passes without
@@ -262,7 +317,9 @@ const SKILL_TEMPLATE: &str = "\
 
 Extracted by rekall from {SRC}:{START}-{END}.
 
+<!-- rekall:payload -->
 {TEXT}
+<!-- rekall:/payload -->
 
 ## Fires when
 
@@ -686,5 +743,33 @@ mod tests {
         for line in out.lines() {
             assert!(line.starts_with("# "), "{out}");
         }
+    }
+    /// V43. The payload comes out WITHOUT the scaffold around it, and a
+    /// shell payload loses the comment marks V42 put on every line.
+    #[test]
+    fn the_payload_comes_out_without_its_scaffold() {
+        let script = artifact_text(&step("a", 1, 1, "M1"));
+        let inner = payload_of(&script).unwrap_or_default();
+        assert_eq!(inner, "- never commit to `main`", "{script}");
+        let skill = artifact_text(&step("a", 1, 1, "S1"));
+        let inner = payload_of(&skill).unwrap_or_default();
+        assert_eq!(inner, "- never commit to `main`", "{skill}");
+    }
+
+    /// An artifact with no marks yields NOTHING rather than a guess. The
+    /// gate reports that (V43); guessing where a rule ends would put the
+    /// scaffold back in by another route.
+    #[test]
+    fn an_unmarked_artifact_has_no_payload() {
+        assert_eq!(payload_of("#!/bin/sh\nexit 0\n"), None);
+        assert_eq!(payload_of(""), None);
+    }
+
+    /// Marks in the wrong ORDER are not a payload either.
+    #[test]
+    fn a_closing_mark_before_the_opening_one_is_not_a_payload() {
+        let upside_down =
+            "<!-- rekall:/payload -->\nx\n<!-- rekall:payload -->\n";
+        assert_eq!(payload_of(upside_down), None);
     }
 }
