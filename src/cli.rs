@@ -61,6 +61,42 @@ pub enum Format {
 }
 
 /// A flag that takes a value, and says so when it did not get one.
+/// NET tokens an extraction reclaims: the statement, LESS the pointer that
+/// replaces it (V39).
+///
+/// Statements and pointers are counted in ONE `itok` call, not two. The
+/// sibling pays a tokenizer-table load per process, so a second call would
+/// double the entire cost of the measurement.
+///
+/// A `None` anywhere -- absent sibling, unreadable line -- yields `None`
+/// for that row rather than a half-computed number. An arithmetic result
+/// missing one of its terms is worse than no result.
+pub(super) fn net_reclaim(
+    ids: &[String],
+    texts: &[String],
+) -> Vec<Option<i64>> {
+    let mut all: Vec<String> = texts.to_vec();
+    all.extend(ids.iter().map(|id| crate::apply::pointer_of(id)));
+    let Ok(counted) = tokens::count_all(&all) else {
+        return vec![None; texts.len()];
+    };
+    (0..texts.len())
+        .map(|at| one_net(&counted, at, texts.len()))
+        .collect()
+}
+
+/// One row's arithmetic. The pointer for row `at` sits `len` places later
+/// in the same batch, because both were counted in a single call.
+fn one_net(counted: &[Option<u32>], at: usize, len: usize) -> Option<i64> {
+    let text = counted.get(at).copied().flatten()?;
+    let pointer = at
+        .checked_add(len)
+        .and_then(|n| counted.get(n))
+        .copied()
+        .flatten()?;
+    i64::from(text).checked_sub(i64::from(pointer))
+}
+
 pub(super) fn need<'a>(
     flag: &str,
     rest: &mut impl Iterator<Item = &'a String>,

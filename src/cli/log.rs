@@ -1,6 +1,6 @@
 use super::apply::now;
-use super::{Env, Format, Output, need, parse_format, spread};
-use crate::{ledger, log, tokens};
+use super::{Env, Format, Output, need, net_reclaim, parse_format};
+use crate::{ledger, log};
 use std::path::PathBuf;
 /// `log` reads the ledger. Report-only, and the one verb whose whole job
 /// is to make a rule's uselessness measurable rather than suspected.
@@ -54,17 +54,21 @@ pub fn log_command(flags: &[String], env: &Env) -> Result<Output, String> {
 /// The tokens RECLAIMED by each extraction, from the verbatim text the
 /// ledger kept (V9). One call for the whole log, same as `scan`.
 fn fill_log_tokens(report: &mut log::Report) -> Vec<String> {
+    let ids: Vec<String> = report
+        .entries
+        .iter()
+        .map(|entry| entry.id.clone())
+        .collect();
     let texts: Vec<String> = report
         .entries
         .iter()
         .map(|entry| entry.text.clone())
         .collect();
-    let counted = tokens::count_all(&texts);
-    spread(&mut report.entries, counted, set_entry_tokens)
-}
-
-fn set_entry_tokens(entry: &mut log::Entry, count: Option<u32>) {
-    entry.tokens = count;
+    for (entry, net) in report.entries.iter_mut().zip(net_reclaim(&ids, &texts))
+    {
+        entry.reclaimed = net;
+    }
+    Vec::new()
 }
 
 /// The duration is resolved against the clock HERE, at the edge, so

@@ -408,6 +408,7 @@ mod tests {
             label: held.label.clone(),
             artifact: held.artifact.clone(),
             wiring: String::new(),
+            net: None,
         })
     }
 

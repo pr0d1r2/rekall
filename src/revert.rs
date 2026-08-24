@@ -175,6 +175,7 @@ mod tests {
             label: "M1".to_string(),
             artifact: ".rekall/rules/no-main.sh".to_string(),
             wiring: "wire it".to_string(),
+            net: None,
         }
     }
 

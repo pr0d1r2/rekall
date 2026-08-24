@@ -28,14 +28,17 @@ pub struct Entry {
     pub label: String,
     pub artifact: String,
     pub fires: u64,
-    /// Tokens RECLAIMED -- what this statement cost the window before it
-    /// was moved out. Delegated to `itok` (V8) and filled by the caller,
-    /// so this module stays a pure function of the ledger.
+    /// Tokens RECLAIMED, NET of the pointer left behind (V39).
     ///
-    /// NULL rather than a guess when the sibling is absent (V26). A
-    /// char/4 stand-in printed in the column a tokenizer fills is a
-    /// number that looks measured and is not.
-    pub tokens: Option<u32>,
+    /// SIGNED, because it can be negative: an extraction leaves a pointer
+    /// that is itself always-on, so the saving is (statement - pointer).
+    /// This column reported GROSS until B3 -- two real extractions each
+    /// made the corpus BIGGER while it claimed they had shrunk it.
+    ///
+    /// NULL rather than a guess when `itok` is absent (V26). A char/4
+    /// stand-in printed in the column a tokenizer fills is a number that
+    /// looks measured and is not.
+    pub reclaimed: Option<i64>,
     /// Unix seconds, as recorded.
     pub at: u64,
 }
@@ -88,7 +91,7 @@ fn entry(row: &ledger::Extracted) -> Entry {
         label: row.label.clone(),
         artifact: row.artifact.clone(),
         fires: row.fires,
-        tokens: None,
+        reclaimed: None,
         at: row.at,
     }
 }
@@ -149,12 +152,12 @@ pub fn render_human(report: &Report) -> String {
 }
 
 fn render_row(entry: &Entry) -> String {
-    let tokens = entry
-        .tokens
-        .map_or_else(|| "-".to_string(), |count| count.to_string());
+    let net = entry
+        .reclaimed
+        .map_or_else(|| "-".to_string(), |count| format!("{count:+}"));
     format!(
-        "{}  {}  {}  fires={}  {}  {}",
-        entry.id, entry.src, entry.label, entry.fires, tokens, entry.artifact
+        "{}  {}  {}  fires={}  net={}  {}",
+        entry.id, entry.src, entry.label, entry.fires, net, entry.artifact
     )
 }
 
@@ -314,10 +317,22 @@ mod tests {
     /// V8: this crate does not own token accounting, so the column is
     /// NULL rather than a char/4 stand-in that looks measured.
     #[test]
-    fn tokens_are_absent_rather_than_estimated() {
+    fn reclaim_is_absent_rather_than_estimated() {
         let out = report(&held(vec![row("aaa", 0, 0)]), Filter::default());
-        assert_eq!(out.entries.first().and_then(|e| e.tokens), None);
-        assert!(render_human(&out).contains(" -  "), "{out:?}");
+        assert_eq!(out.entries.first().and_then(|e| e.reclaimed), None);
+        assert!(render_human(&out).contains("net=-"), "{out:?}");
+    }
+
+    /// V39: the column is SIGNED, and a negative is the interesting case.
+    /// B3 was this number reported gross, so a corpus that grew read as a
+    /// corpus that shrank.
+    #[test]
+    fn a_losing_extraction_reports_a_negative_net() {
+        let mut out = report(&held(vec![row("aaa", 0, 0)]), Filter::default());
+        if let Some(entry) = out.entries.first_mut() {
+            entry.reclaimed = Some(-10);
+        }
+        assert!(render_human(&out).contains("net=-10"), "{out:?}");
     }
 
     #[test]

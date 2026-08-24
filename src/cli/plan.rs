@@ -1,4 +1,6 @@
-use super::{Env, Format, Output, choose, load_corpus, need, parse_format};
+use super::{
+    Env, Format, Output, choose, load_corpus, need, net_reclaim, parse_format,
+};
 use crate::plan;
 use std::path::{Path, PathBuf};
 /// `plan` takes one or more ids plus `--out` and the usual flags.
@@ -47,9 +49,22 @@ pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let loaded = load_corpus(&base, env)?;
     let chosen = choose(&loaded.statements, &args.ids)?;
-    let built = plan::build(&chosen, &loaded.sources, &loaded.weights)
+    let mut built = plan::build(&chosen, &loaded.sources, &loaded.weights)
         .map_err(|error| error.to_string())?;
+    fill_net(&mut built);
     emit_plan(&built, &args, &base)
+}
+
+/// V39: name the net BEFORE the move, so a losing extraction is visible
+/// while it is still hypothetical.
+fn fill_net(built: &mut plan::Plan) {
+    let ids: Vec<String> =
+        built.steps.iter().map(|step| step.id.clone()).collect();
+    let texts: Vec<String> =
+        built.steps.iter().map(|step| step.text.clone()).collect();
+    for (step, net) in built.steps.iter_mut().zip(net_reclaim(&ids, &texts)) {
+        step.net = net;
+    }
 }
 
 pub const NO_PLAN_IDS: &str =

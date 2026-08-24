@@ -157,7 +157,7 @@ T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; 
 T40|x|split `cli.rs` per VERB; MODULE-SIZE limit + its RUNNER, one commit|V22,V23,§C
 T41|.|move each verb's TESTS to its cli module|T40
 
-T42|.|`log` reports NET reclaim; `plan` NAMES it before the move|V39,B3
+T42|x|`log` reports NET reclaim; `plan` NAMES it before the move|V39,B3
 T43|x|SHRINK the pointer to `<!-- rekall <id> -->`; `revert` locates by ID, ⊥ by artifact path|V39,V9
 T44|.|`recall`/`hook`: a MISSING `M` block is GATE-ONLY, ⊥ unreadable|V37,B4
 T45|.|`apply`'s `M` template EMITS the empty commented block, as `S` does ∴ V37 is discoverable|V37,T39

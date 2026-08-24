@@ -36,6 +36,15 @@ pub struct Step {
     pub label: String,
     /// What would be written.
     pub artifact: String,
+    /// NET tokens this extraction would reclaim: the statement, less the
+    /// pointer left in its place (V39). Filled by the caller, which owns
+    /// the `itok` delegation; `None` when the sibling is absent.
+    ///
+    /// In the plan FILE on purpose. A plan is a reviewable artifact, and
+    /// "this move costs more than it saves" is exactly what review is for.
+    /// Staleness is already handled: V19 refuses a plan whose corpus moved.
+    #[serde(default)]
+    pub net: Option<i64>,
     /// What has to be wired for the artifact to do anything: a runner for
     /// `M` (V2), a trigger for `S` (V3). Named here so review can see the
     /// obligation before it exists rather than after.
@@ -155,6 +164,8 @@ fn assemble(found: &statement::Statement, label: String) -> Step {
         label,
         artifact,
         wiring,
+        // Filled by the caller, which owns the `itok` delegation (V8).
+        net: None,
     }
 }
 
@@ -279,15 +290,32 @@ pub fn render_human(plan: &Plan) -> String {
 
 fn render_step(step: &Step) -> String {
     format!(
-        "{}  {}\n  delete  {}:{}-{}\n  write   {}\n  wire    {}\n",
+        "{}  {}\n  delete  {}:{}-{}\n  write   {}\n  wire    {}\n  net     {}\n",
         step.id,
         step.label,
         step.src,
         step.line_start,
         step.line_end,
         step.artifact,
-        step.wiring
+        step.wiring,
+        net_line(step)
     )
+}
+
+/// The NET line, and it is a WARNING when the number is not positive.
+///
+/// V39: the pointer is always-on, so an extraction can cost more than it
+/// saves -- and the statements most likely to lose are the sharpest, which
+/// are one-liners. Saying so BEFORE the move is the whole point; `apply`
+/// is the wrong place to learn it.
+fn net_line(step: &Step) -> String {
+    match step.net {
+        None => "- (itok absent)".to_string(),
+        Some(net) if net > 0 => format!("{net:+} tokens"),
+        Some(net) => format!(
+            "{net:+} tokens -- this extraction COSTS more than it saves (V39)"
+        ),
+    }
 }
 
 #[cfg(test)]
@@ -350,6 +378,7 @@ mod tests {
             label: String::new(),
             artifact: String::new(),
             wiring: String::new(),
+            net: None,
         }
     }
 
