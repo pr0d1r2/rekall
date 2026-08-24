@@ -111,6 +111,13 @@ local fast = new Mapping<String, Step> {
     check = "sh .rekall/rules/every-failing-step-names-the-fix.sh"
   }
 
+  /// EXTRACTED from CLAUDE.md by rekall (id c75aeab). It carries no glob,
+  /// so it runs every time: a hook that stopped being installed is a
+  /// condition no file change announces.
+  ["pre-push-installed"] {
+    check = "sh .rekall/rules/run-hk-check-before-pushing.sh"
+  }
+
   /// MODULE SIZE, the limit clippy does not have.
   ///
   /// It caps methods, parameters, nesting and complexity -- and nothing

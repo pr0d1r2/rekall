@@ -60,3 +60,14 @@ label = "M2"
 artifact = ".rekall/rules/every-failing-step-names-the-fix.sh"
 fires = 0
 at = 1787590845
+
+[[extracted]]
+id = "c75aeab"
+src = "CLAUDE.md"
+line_start = 23
+line_end = 23
+text = "- Run `hk check` before pushing."
+label = "M1"
+artifact = ".rekall/rules/run-hk-check-before-pushing.sh"
+fires = 0
+at = 1787590925

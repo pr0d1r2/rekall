@@ -20,7 +20,7 @@ that stay are the ones that could not be made mechanical.
   rather than archaeologically. `SPEC.md` V35 is the rule; this line only
   points at it, because two copies of one rule is the defect this whole
   tool exists to remove.
-- Run `hk check` before pushing.
+<!-- rekall c75aeab -->
 
 ## Code
 

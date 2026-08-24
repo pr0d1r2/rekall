@@ -39,13 +39,28 @@
 # runner cannot make -- "coverage fell, cover it" and "coverage fell" differ
 # by meaning, not by shape. What a runner CAN see is SILENCE: a branch that
 # exits nonzero having printed nothing at all, which is the failure mode
-# with no defence at review time because there is nothing in the diff to
+# with no defence at review time, because there is nothing in the diff to
 # read.
 #
-# So this catches the floor of the rule, and the rest stays with the person
-# writing the message. That is an honest M3: it detects, it does not
-# resolve.
-silent=$(grep -nE '(^|[;&|{[:space:]])exit 1' hk.pkl .rekall/rules/*.sh 2>/dev/null \
-  | grep -v 'echo' \
-  | grep -vE '^[^:]*:[0-9]+:[[:space:]]*#' || true)
+# So this catches the floor of the rule and leaves the rest with whoever
+# writes the message. An honest M3: it detects, it does not resolve.
+#
+# A failure block may span LINES. The one-liner form used through hk.pkl
+# puts the echo and the exit together, but a multi-line block puts the echo
+# above -- so a window of the preceding lines counts as the same branch, and
+# a BLANK LINE ends it. Without that reset an unrelated echo six lines up
+# vouches for a branch it has nothing to do with: MEASURED, a silent `if`
+# block appended to another runner passed.
+# Judged per line, this rule's OWN first runner called three such blocks
+# silent, which is how the window got here.
+silent=$(awk '
+  /^[[:space:]]*$/ { for (i = 1; i <= WINDOW; i++) { back[i] = "" } }
+  { for (i = WINDOW; i > 1; i--) { back[i] = back[i-1] } back[1] = $0 }
+  /(^|[;&|[:space:]{])exit 1/ {
+    if ($0 ~ /^[[:space:]]*#/) { next }
+    said = 0
+    for (i = 1; i <= WINDOW; i++) { if (back[i] ~ /echo/) { said = 1 } }
+    if (!said) { printf "  %s:%d  %s\n", FILENAME, FNR, $0 }
+  }
+' WINDOW=6 hk.pkl .rekall/rules/*.sh)
 [ -z "$silent" ] || { echo 'rekall: a gate branch exits nonzero and says NOTHING:' >&2; echo "$silent" >&2; echo 'Give it an echo to stderr naming what broke AND where to go next. A silent failure is a breach nobody can act on.' >&2; exit 1; }
