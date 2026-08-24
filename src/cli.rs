@@ -2961,4 +2961,48 @@ mod tests {
         let said = failed.err().unwrap_or_default();
         assert!(said.contains("rekall init"), "{said}");
     }
+    /// A Bash payload, whose text lives in the COMMAND rather than in a
+    /// prompt. This is the shape B7 was invisible in.
+    fn command_payload(dir: &Path, command: &str) -> String {
+        format!(
+            "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\
+             \"tool_input\":{{\"command\":\"{command}\"}},\"cwd\":\"{}\"}}",
+            dir.to_string_lossy()
+        )
+    }
+
+    /// B7, and V18 where it actually broke. A `word` trigger is tested
+    /// against the situation TEXT, and a tool call carries no prompt -- so
+    /// reading `prompt` alone made every `word` trigger dead on the one
+    /// event `hook` runs on, while `recall`, which takes the situation as
+    /// an argument, said `load` for the same skill.
+    ///
+    /// ONE payload drives BOTH verbs here. Two tests that each build their
+    /// own input is how the two paths drifted while both looked right.
+    #[test]
+    fn a_word_trigger_fires_on_what_the_tool_was_asked_to_run() {
+        let dir = recall_project("word-command", "word = [\"cargo test\"]", "");
+        let printed = recall_in(&dir, &["--tool", "Bash", "cargo test"]);
+        let decided = hook_command(&command_payload(&dir, "cargo test"), &dir)
+            .unwrap_or_default();
+        assert!(printed.starts_with("load"), "{printed}");
+        assert!(
+            decided.get("hookSpecificOutput").is_some(),
+            "recall said load and hook said nothing: {decided}"
+        );
+    }
+
+    /// And the do-not-fire clause still wins over the command text.
+    #[test]
+    fn a_refusal_clause_wins_over_the_command_text() {
+        let dir = recall_project(
+            "word-refused",
+            "word = [\"cargo test\"]",
+            "word = [\"--list\"]",
+        );
+        let decided =
+            hook_command(&command_payload(&dir, "cargo test --list"), &dir)
+                .unwrap_or_default();
+        assert_eq!(decided, serde_json::json!({}), "{decided}");
+    }
 }

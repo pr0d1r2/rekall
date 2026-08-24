@@ -82,3 +82,17 @@ label = "M1"
 artifact = ".rekall/rules/commit-straight-to-main-no-feature.sh"
 fires = 0
 at = 1787591127
+
+[[extracted]]
+id = "8fe6c04"
+src = "CLAUDE.md"
+line_start = 39
+line_end = 41
+text = """
+- When a test fails, decide first whether it is a code bug or a spec gap. A
+  gap goes through `SPEC.md` before the fix, so the invariant that would
+  have caught it exists first."""
+label = "S1"
+artifact = ".claude/skills/when-a-test-fails-decide-first/SKILL.md"
+fires = 0
+at = 1787591180

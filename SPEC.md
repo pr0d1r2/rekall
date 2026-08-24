@@ -178,7 +178,7 @@ T52|x|MOOD signals: imperative · absolute quantifier · `, not ` contrast, HALF
 T53|x|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-from marker|V41,V19,V2
 T54|x|`apply` COMMENTS every line of a quoted statement; `check` VERIFIES it; a WRAPPED statement is the fixture|V42,B6
 T55|x|splitter SKIPS a rekall POINTER; fixture = TWO adjacent pointers|§I,V13
-T57|.|`hook`'s situation TEXT carries the TOOL INPUT, ⊥ `prompt` alone; `recall` & `hook` agree on ONE payload in a test|V18,B7
+T57|x|`hook`'s situation TEXT carries the TOOL INPUT, ⊥ `prompt` alone; `recall` & `hook` agree on ONE payload in a test|V18,B7
 
 ## §B BUGS
 

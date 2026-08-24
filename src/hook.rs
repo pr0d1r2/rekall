@@ -44,6 +44,13 @@ pub struct ToolInput {
     /// letting one tool's spelling silently match nothing.
     #[serde(default)]
     pub notebook_path: Option<String>,
+    /// What a shell tool was asked to RUN.
+    ///
+    /// The situation text a `word` trigger is tested against (B7). A tool
+    /// call carries no prompt, so reading only `prompt` left every `word`
+    /// trigger matching nothing on the one event `hook` runs on.
+    #[serde(default)]
+    pub command: Option<String>,
 }
 
 /// Turn a payload into the situation the matcher understands.
@@ -53,8 +60,30 @@ pub fn situation(payload: &Payload) -> trigger::Situation {
         tool: payload.tool_name.clone(),
         path: payload.tool_input.as_ref().and_then(path_of),
         cwd: payload.cwd.clone(),
-        text: payload.prompt.clone().unwrap_or_default(),
+        text: text_of(payload),
     }
+}
+
+/// What a `word` trigger is tested against.
+///
+/// BOTH halves, joined: what the user typed on the events that carry it,
+/// and what the tool was asked to do on the events that carry that. A tool
+/// call has no prompt, so reading `prompt` alone made every `word` trigger
+/// dead on the only event `hook` runs on -- and `recall`, which takes the
+/// situation as an argument, said the opposite (B7, V18).
+fn text_of(payload: &Payload) -> String {
+    let typed = payload.prompt.clone().unwrap_or_default();
+    let asked = payload
+        .tool_input
+        .as_ref()
+        .and_then(|input| input.command.clone())
+        .unwrap_or_default();
+    [typed, asked]
+        .iter()
+        .filter(|part| !part.is_empty())
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn path_of(input: &ToolInput) -> Option<String> {

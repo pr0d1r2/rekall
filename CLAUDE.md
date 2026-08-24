@@ -36,9 +36,7 @@ that stay are the ones that could not be made mechanical.
 
 - `SPEC.md` is edited through `/spec`, never by hand.
 - `/build` flips a `§T` status cell and touches nothing else in the spec.
-- When a test fails, decide first whether it is a code bug or a spec gap. A
-  gap goes through `SPEC.md` before the fix, so the invariant that would
-  have caught it exists first.
+<!-- rekall 8fe6c04 -->
 
 ## The gate
 
