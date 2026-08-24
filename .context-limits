@@ -76,6 +76,24 @@
 # nothing reports them (V22). The runner landed with the number, in one
 # commit, which is what V22 actually asks for.
 
+# RE-MEASURED 2026-08-24, after V40, R15 and T52:
+#   SPEC.md   10982
+#
+# THE NUMBER DID NOT MOVE, and that is the point of this entry. The last
+# raise recorded a debt: the next addition should force merging overlapping
+# statements rather than being absorbed. It did. Section C had stated one
+# CPU-only/no-network/no-egress constraint as three bullets and re-argued
+# R1, R2 and R10 beside the rows that measured them; merging those freed
+# 101 tokens, which is 16 more than V40 needed.
+#
+# SLACK IS NOW 18 TOKENS. The next addition of any size goes red, and that
+# is a HARDER stop than the last one -- the compression argument is spent
+# and the dedup argument is now spent too. What remains is the count: 40
+# invariants, 52 tasks, 15 research rows. The next session either MERGES
+# invariants that overlap in substance (V5/V6 and V21/V31 are the closest
+# pairs) or raises the number in a commit that argues why the count is
+# right. Absorbing it quietly is the one option this file exists to refuse.
+
 SPEC.md   11000
 README.md  1000
 CLAUDE.md   600

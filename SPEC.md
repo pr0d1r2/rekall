@@ -65,6 +65,7 @@ R10|name `outception`|FREE, but Inception's OWN word for the inverse of inceptio
 R12|platforms|`nixpkgs-lock` -- the fleet PIN repo, ∴ the authority -- declares `supportedSystems` = `aarch64-darwin` · `x86_64-darwin` · `x86_64-linux` · `aarch64-linux`. Consumers `itok` & `microlith` each declare that list MINUS `x86_64-darwin` ∴ the 4 are SUPPORT & the 3 are what GitHub CI can BUILD, ⊥ two disagreeing support claims. Read a consumer as authority & you conclude Intel-mac is unsupported -- it is UNBUILT|github.com/pr0d1r2/nixpkgs-lock flake.nix @ main
 R13|instruction growth|MEASURED over 247,694 instruction lifetimes in 1,867 repos: agent instruction files grow +226% across their life at +4.9 net instructions/commit, & the deletion hazard FALLS with age (-0.032/commit) ∴ an old rule is never removed. A wholesale rewrite dropping ~40% is followed by FASTER regrowth (+4.9%/commit vs +4.1%) ∴ manual pruning is ⊥ a fix. "Catastrophic remembering" = the RATIONALE is lost ∴ deletion is UNSAFE, ⊥ merely unpleasant|alphaxiv.org/abs/2608.11095
 R14|dev boxes|TWO boxes, ~5x apart: timings @ 2026-08-22 ran on Apple M4 10-core 16GB; the BUILD box is M1 Pro 8-core 32GB. CONSEQUENCE: one `itok` spawn per statement = 57ms fast ∴ 11s / 200 statements, but ~57s slow -- past §C's bypass threshold -- while ONE batched call = 74ms. The RATIO decides, ⊥ either absolute ∴ ∀ timing ! name its box (V31)|MEASURED, internal
+R15|classifier mood gap|MEASURED on consumer #0 (`CLAUDE.md` @ `867a0c4`, Apple M4 10-core 16GB, 2026-08-24): `scan` = 17 statements, 9 `U` (53%), incl. the 3 gate bullets whose runners are ALREADY in `hk.pkl` (V26·V27·V28) ∴ a modal-only DIRECTIVE vocabulary reads ⊥ a bare imperative & ⊥ a declarative absolute. MOOD signals SCOPED to list items take `U` 9 -> 2, & the 2 left are the 2 prose PARAGRAPHS ∴ correctly `U`; UNSCOPED, one of those paragraphs classes `M`. A deterministic COUNT ∴ the box is named for V31, ⊥ ∵ it moves the figure|MEASURED, internal
 
 ## §V INVARIANTS
 
@@ -111,6 +112,8 @@ V36: a TRACKED config names only what the REPO owns. A USER-scope root in `./rek
 
 V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself always-on ∴ the saving is (statement − pointer) & can be NEGATIVE. MEASURED 2026-08-24 on a foreign corpus: an 18-token statement left a 28-token pointer (NET −10); a 22-token one left 29 (NET −7). `log` called both RECLAIMED. §G's claim is ⊥ automatic ∴ `log` reports NET, & `plan` NAMES it before the move. ANTI-CORRELATED with sharpness: an `M1` is a one-liner, exactly where a fat pointer swamps the payload. The SAME arithmetic governs FEDERATION -- `§N`+`§F` are the always-on residue of a conditional load -- & is unmeasured there too. rekall's OWN spec ⊥ federates: 162 lines is under FORMAT's one-file rule ∴ the DIAGNOSIS is for corpora that need it (T46), ⊥ for this one.
 
+V40: MOOD is a SIGNAL, & it counts ONLY inside a LIST ITEM. Modal vocabulary ALONE left 53% `U` on this crate's OWN corpus, & 3 of those rows are gate rules whose runners ALREADY exist (R15) ∴ the classifier answered "I do ⊥ know" exactly where the gate ENFORCES -- a VOCABULARY gap wearing V10's humility, & it BLOCKS T19. THREE families, each worth HALF a directive (as a CONDITIONAL is half a hedge) ∴ ONE hedge still BEATS a bare imperative: IMPERATIVE opener · ABSOLUTE quantifier (`every`·`all`·`only`·`no`·`none`·`nothing`·`any`) · a `, not ` CONTRAST, ∵ a statement naming its own NEGATIVE case is STATING a rule -- V4's logic one level out. The SCOPE is the load-bearing half: a corpus states its RULES as bullets & its CONTEXT as paragraphs, & UNSCOPED these families read the PARAGRAPH "Read that as a warning ..., ⊥ a claim ..." as an `M` rule (R15) ∴ prose becomes law inside the dir V16 makes near-sacred. REJECTED: a POS tagger or a model (V5) · UNSCOPED mood (that false positive) · a WIDER deadband to force corroboration ("when editing `.rs`, never unwrap" sums to +1 & ! stay `M` ∴ the deadband is tuned for HEDGES, ⊥ for moods) · leaving it `U` for a human to override (there is ⊥ a class override on `plan`/`apply`). REVERSES on a corpus that states its rules in PARAGRAPHS; `[signals]` tunes every weight & `0` switches one OFF.
+
 ## §T TASKS
 
 id|status|task|cites
@@ -131,7 +134,7 @@ T14|x|`rekall log` + `--dead`|V11
 T15|x|`rekall revert`|V9
 T16|x|`itok` delegation for token columns|V8
 T18|.|`rekall catch` transcript intake|I.catch,V10
-T19|.|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T35
+T19|.|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T35,T52
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
 T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
@@ -166,6 +169,7 @@ T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap 
 T50|.|slug ⊥ truncates mid-phrase|§I
 
 T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
+T52|.|MOOD signals: imperative · absolute quantifier · `, not ` contrast, HALF a directive & SCOPED to list items|V40,V30,R15
 
 ## §B BUGS
 
