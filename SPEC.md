@@ -116,6 +116,8 @@ V40: MOOD is a SIGNAL, & it counts ONLY inside a LIST ITEM. Modal vocabulary ALO
 
 V41: an extraction MOVES the RUNNER too. V1 one level in: where the gate ALREADY enforces the rule, the artifact takes the CHECK ITSELF & the gate step becomes a CALLER (`sh .rekall/rules/<slug>.sh`) ∴ ONE definition & many callers (V23), & the rule sits WITH the runner that proves it. A script that RESTATES the step's command is the COPY V1 forbids, one layer down. This crate ⊥ own the host's gate file ∴ it NAMES the move & ⊥ performs it (T48). WHICH step is a human's answer, given in the PLAN: a `runner` field per step, EMPTY = write the inert stub, a NAME = the wiring line becomes the MOVE. ⊥ a flag -- a per-id flag ⊥ scale past two ids, & the plan is ALREADY the reviewed artifact (V19). Editing that field is ⊥ tampering: the FINGERPRINT covers the CORPUS, ⊥ the plan's own fields. REJECTED: a ledger field naming a gate step with ⊥ an artifact (`hook` then ⊥ fire it (V37), & `check` ⊥ verify a step inside a format this crate ⊥ parse); `apply` EDITING `hk.pkl` (same format, & V7 makes it name every file it touches).
 
+V42: corpus text QUOTED in a generated artifact is INERT on EVERY line, ⊥ only the first. `apply` writes an `M` runner ∴ a wrapped statement's continuation lines land in a SHELL SCRIPT, & unprefixed they are COMMANDS (B6). The corpus is private PROSE a human wrote for a reader (V15, V16) ∴ it is INPUT & the one place this crate quotes it ! quote it -- V33's shape (a gate MESSAGE is DATA, ⊥ CODE) one file over. TEETH, ⊥ a careful template: `check` VERIFIES the quoted block, ∵ a template is edited by the same hand that will forget (V22). SEVERITY is ⊥ cosmetic: `hook` runs these per TOOL CALL (V38), the text is the user's own memory, & TODAY it hides behind the stub's `exit 1`, surfacing only once someone writes the check.
+
 ## §T TASKS
 
 id|status|task|cites
@@ -173,6 +175,7 @@ T50|.|slug ⊥ truncates mid-phrase|§I
 T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
 T52|x|MOOD signals: imperative · absolute quantifier · `, not ` contrast, HALF a directive & SCOPED to list items|V40,V30,R15
 T53|x|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-from marker|V41,V19,V2
+T54|.|`apply` COMMENTS every line of a quoted statement; `check` VERIFIES it; a WRAPPED statement is the fixture|V42,B6
 
 ## §B BUGS
 
@@ -182,3 +185,4 @@ B2|2026-08-22|gate message wrote its fix in backticks inside a double-quoted she
 B3|2026-08-24|`log` reported GROSS statement tokens as reclaimed while `apply` wrote a POINTER back 8 lines away in the same module ∴ TWO real extractions each made the corpus BIGGER & the column said smaller|V39
 B4|2026-08-24|`recall`/`hook` call a generated `M` artifact "trigger could not be read": a MISSING block is a parse failure reached BEFORE V37's gate-only branch ∴ a legal state reads as a defect, & `check` disagrees with `recall` about one file|V37,T44
 B5|2026-08-24|`runner::LIMIT` bounds a rule by WALL-CLOCK ∴ under contention a rule costing MILLISECONDS of CPU exceeds it & is KILLED. MEASURED: 2 of 3 full test runs failed, the same tests passing ALONE in 1-2s. `hook` runs per tool call ∴ a busy box injects a timeout that never happened -- & every gate-green since T39 rested on a suite failing 2 runs in 3|V38,T51
+B6|2026-08-24|`apply` prefixed only the FIRST line of a quoted statement ∴ every WRAPPED bullet put prose into a shell script as CODE. MEASURED at this crate's first real extraction (consumer #0, Apple M4 10-core 16GB): the generated ASCII-rule runner printed `line 6: here.: command not found` -- `here.` being the second line of a 2-line bullet. Every test used a ONE-LINE fixture ∴ 509 green tests, & the defect appeared on the first statement a human actually wrote|V42
