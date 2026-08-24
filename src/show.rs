@@ -73,8 +73,11 @@ fn resolve(mut hits: Vec<Found>) -> Lookup {
 }
 
 fn detail(found: &statement::Statement, weights: &classify::Weights) -> Found {
-    let verdict =
-        classify::classify(&statement::normalize(&found.text), weights);
+    let verdict = classify::classify(
+        &statement::normalize(&found.text),
+        classify::Form::from_list_item(statement::is_list_item(&found.text)),
+        weights,
+    );
     Found {
         id: found.id.clone(),
         src: format!("{}:{}-{}", found.path, found.line_start, found.line_end),

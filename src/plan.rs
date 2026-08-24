@@ -144,8 +144,11 @@ fn step_for(
     found: &statement::Statement,
     weights: &classify::Weights,
 ) -> Result<Step, Error> {
-    let verdict =
-        classify::classify(&statement::normalize(&found.text), weights);
+    let verdict = classify::classify(
+        &statement::normalize(&found.text),
+        classify::Form::from_list_item(statement::is_list_item(&found.text)),
+        weights,
+    );
     let label = verdict.label();
     if label == "U" {
         return Err(Error::Unclassified(found.id.clone()));

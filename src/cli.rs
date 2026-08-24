@@ -2406,7 +2406,7 @@ mod tests {
         let dir = check_project("weights");
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
-            "# Rules\n\n- commit straight to `main`\n",
+            "# Rules\n\n- release notes ship beside the tag\n",
         );
         assert!(
             scan_row(&dir).contains("  U  "),
@@ -2415,7 +2415,7 @@ mod tests {
         );
         let _ = std::fs::write(
             dir.join("rekall.toml"),
-            "[sources]\nroots = [\".\"]\n\n[signals.weight]\n\"commit straight to\" = 2\n",
+            "[sources]\nroots = [\".\"]\n\n[signals.weight]\n\"ship beside\" = 2\n",
         );
         assert!(scan_row(&dir).contains("  M"), "{}", scan_row(&dir));
     }

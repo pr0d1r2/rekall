@@ -67,8 +67,11 @@ fn to_row(found: &statement::Statement, weights: &classify::Weights) -> Row {
     // "- when editing ..." does not start with "when" and every conditional
     // signal was being missed -- silently, because the statement still got
     // a plausible class from its other words.
-    let verdict =
-        classify::classify(&statement::normalize(&found.text), weights);
+    let verdict = classify::classify(
+        &statement::normalize(&found.text),
+        classify::Form::from_list_item(statement::is_list_item(&found.text)),
+        weights,
+    );
     Row {
         id: found.id.clone(),
         src: format!("{}:{}-{}", found.path, found.line_start, found.line_end),

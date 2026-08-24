@@ -78,6 +78,18 @@ fn strip_ordered_marker(line: &str) -> Option<&str> {
     rest.strip_prefix(". ")
 }
 
+/// True when a statement was written as a LIST ITEM.
+///
+/// The FORM is evidence about the statement (V40): a corpus states its
+/// rules as bullets and its context as paragraphs. It has to be read from
+/// the RAW text and carried to the classifier, because `normalize` drops
+/// the marker -- an id must survive a reflow -- and the fact is gone by
+/// the time the classifier sees the words.
+#[must_use]
+pub fn is_list_item(text: &str) -> bool {
+    text.lines().next().is_some_and(starts_statement)
+}
+
 /// True when a line opens a new statement rather than continuing one.
 fn starts_statement(line: &str) -> bool {
     let trimmed = line.trim_start();
@@ -413,5 +425,32 @@ mod tests {
     #[test]
     fn a_numeric_prefix_without_a_space_is_not_a_marker() {
         assert_eq!(normalize("3.5 releases"), "3.5 releases");
+    }
+
+    /// V40 reads the FORM off the raw text, so every marker `normalize`
+    /// strips has to be one `is_list_item` recognizes -- otherwise a rule
+    /// written with a `*` is classified as prose and one written with a
+    /// `-` is not, for no reason a reader could find.
+    #[test]
+    fn every_marker_normalize_strips_is_a_list_item() {
+        for text in ["- a rule", "* a rule", "+ a rule", "1. a rule"] {
+            assert!(is_list_item(text), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_paragraph_is_not_a_list_item() {
+        assert!(!is_list_item("Read that as a warning, not a claim."));
+        assert!(!is_list_item("e.g. never commit"));
+    }
+
+    /// The form belongs to the statement, and a statement is its FIRST
+    /// line plus what continues it. Reading any other line would call a
+    /// wrapped bullet prose.
+    #[test]
+    fn a_wrapped_bullet_is_still_a_list_item() {
+        assert!(is_list_item(
+            "- the coverage floor only ever rises\n  and never falls"
+        ));
     }
 }

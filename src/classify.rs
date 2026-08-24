@@ -10,6 +10,10 @@
 
 use std::fmt;
 
+mod signals;
+
+pub use signals::{Form, Weights};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Class {
     /// Mechanical: becomes a rule with a runner.
@@ -81,143 +85,6 @@ impl Verdict {
         self.signals.iter().map(|s| s.name.clone()).collect()
     }
 }
-
-/// What each signal is worth, and how close to a tie counts as "I do not
-/// know".
-///
-/// A TABLE rather than a branch, because V30 makes class a BALANCE. The
-/// point of the table is not to change verdicts on arrival -- it is to let
-/// a corpus TUNE them without a code change. A weight that shipped with
-/// new behaviour baked in would be two changes wearing one commit.
-///
-/// The defaults reproduce every verdict the decision tree gave that a test
-/// covered, and ONE it did not: a hedged CONDITIONAL rule was `U` under
-/// the tree, because a conflict won outright, and is `S` under the sum.
-/// That case is pinned by a test of its own rather than left to be found
-/// later -- "exactly" would have been the easier claim and the false one.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Weights {
-    pub deadband: i32,
-    pub weight: std::collections::BTreeMap<String, i32>,
-}
-
-/// Positive pulls MECHANICAL, negative pulls SITUATIONAL.
-///
-/// The magnitudes are the whole model, so they are stated rather than
-/// tuned: a DIRECTIVE and a HEDGE are equal and opposite, which is what
-/// makes "always prefer X" sum to zero and land on `U` -- V10's "I do not
-/// know" falling out of the arithmetic instead of being a special case. A
-/// CONDITIONAL is HALF a hedge: it leans situational on its own, and loses
-/// to a directive, because "when editing `.rs`, never unwrap" is a lint.
-const DIRECTIVE_WEIGHT: i32 = 2;
-const SOFT_WEIGHT: i32 = -2;
-const CONDITIONAL_WEIGHT: i32 = -1;
-
-impl Default for Weights {
-    fn default() -> Self {
-        let mut weight = std::collections::BTreeMap::new();
-        for word in DIRECTIVE {
-            weight.insert(word.to_string(), DIRECTIVE_WEIGHT);
-        }
-        for word in SOFT {
-            weight.insert(word.to_string(), SOFT_WEIGHT);
-        }
-        for word in CONDITIONAL {
-            weight.insert(word.trim_end().to_string(), CONDITIONAL_WEIGHT);
-        }
-        Self {
-            deadband: 0,
-            weight,
-        }
-    }
-}
-
-impl Weights {
-    /// The shipped defaults, with a config table laid OVER them per word.
-    ///
-    /// Over, not instead of: a config naming one word should tune that
-    /// word, not silently discard the vocabulary the crate ships with.
-    /// Setting a weight to 0 is how a word is switched OFF, which is a
-    /// statement someone can read in their own config.
-    #[must_use]
-    pub fn from_config(
-        deadband: Option<i32>,
-        weight: &std::collections::BTreeMap<String, i32>,
-    ) -> Self {
-        let mut out = Self::default();
-        out.deadband = deadband.unwrap_or(out.deadband);
-        for (name, value) in weight {
-            out.weight.insert(name.clone(), *value);
-        }
-        out
-    }
-
-    /// Every configured word this text contains, with what it is worth.
-    ///
-    /// CONDITIONALS are matched at the START only, the rest anywhere --
-    /// "if" inside a sentence is not an opener, and treating it as one
-    /// made half the corpus situational when the tree was first written.
-    fn fired(&self, lower: &str) -> Vec<Signal> {
-        let mut out: Vec<Signal> = Vec::new();
-        for (name, weight) in &self.weight {
-            if !hits(lower, name) {
-                continue;
-            }
-            out.push(Signal {
-                name: name.clone(),
-                weight: *weight,
-            });
-        }
-        out
-    }
-}
-
-fn hits(lower: &str, name: &str) -> bool {
-    if CONDITIONAL.iter().any(|word| word.trim_end() == name) {
-        return starts_with_word(lower.trim_start(), name);
-    }
-    lower.contains(name)
-}
-
-/// A conditional opener is a WORD at the start, not a prefix. Without the
-/// boundary, "iff" and "durability" would open a condition.
-fn starts_with_word(lower: &str, name: &str) -> bool {
-    lower
-        .strip_prefix(name)
-        .is_some_and(|rest| rest.starts_with(|c: char| !c.is_alphanumeric()))
-}
-
-/// An absolute directive: the action is stated as a rule rather than a
-/// preference.
-const DIRECTIVE: [&str; 8] = [
-    "never", "always", "must not", "must", "do not", "don't", "ensure",
-    "require",
-];
-
-/// A conditional opener. Marks a statement as having a TRIGGER, which is
-/// what a skill needs and what decides sharpness rather than class.
-const CONDITIONAL: [&str; 7] = [
-    "when ",
-    "whenever ",
-    "if ",
-    "before ",
-    "after ",
-    "while ",
-    "during ",
-];
-
-/// Softeners. A statement hedged this way is not a rule a runner can
-/// enforce, whatever else it contains.
-const SOFT: [&str; 8] = [
-    "prefer",
-    "consider",
-    "try to",
-    "generally",
-    "usually",
-    "tends to",
-    "where possible",
-    "as needed",
-];
 
 /// Judgment adjectives: mechanically DETECTABLE at best, never resolvable.
 /// These are what separate M3 from M1.
@@ -332,9 +199,9 @@ fn situational_sharpness(
 /// balance of evidence, while which KIND of runner a statement admits does
 /// not -- a total cannot say "needs one human-set parameter".
 #[must_use]
-pub fn classify(text: &str, weights: &Weights) -> Verdict {
+pub fn classify(text: &str, form: Form, weights: &Weights) -> Verdict {
     let lower = text.to_lowercase();
-    let signals = weights.fired(&lower);
+    let signals = weights.fired(&lower, form);
     let score: i32 = signals.iter().map(|s| s.weight).sum();
     decide(
         text,
@@ -347,11 +214,16 @@ pub fn classify(text: &str, weights: &Weights) -> Verdict {
     )
 }
 
-/// Classify with the shipped defaults. The convenience the tests and every
-/// caller without a config file use.
+/// Classify with the shipped defaults, as a LIST ITEM.
+///
+/// The convenience the tests and every caller without a config file use.
+/// It picks the form a rule is normally written in (V40), so the default
+/// path exercises the whole vocabulary; a paragraph is classified by
+/// naming `Form::Paragraph` at the call, which is the case worth being
+/// explicit about.
 #[must_use]
 pub fn classify_default(text: &str) -> Verdict {
-    classify(text, &Weights::default())
+    classify(text, Form::ListItem, &Weights::default())
 }
 
 /// Positive is MECHANICAL, negative is SITUATIONAL, and the DEADBAND in
@@ -526,16 +398,16 @@ mod tests {
     }
 
     /// The TABLE is the point: a corpus tunes its own vocabulary without a
-    /// code change. Here a word the shipped defaults never heard of turns
-    /// a `U` into an `M` -- which is the answer to the nine unclassified
-    /// statements this repo's own CLAUDE.md produced.
+    /// code change. Here a house word the shipped defaults never heard of
+    /// turns a `U` into an `M`, which is how a corpus that states its
+    /// rules in its own dialect gets classified at all.
     #[test]
     fn a_configured_word_classifies_what_the_defaults_could_not() {
-        let text = "commit straight to `main`";
+        let text = "release notes ship beside the tag";
         assert_eq!(classify_default(text).class, Class::U);
         let mut tuned = Weights::default();
-        tuned.weight.insert("commit straight to".to_string(), 2);
-        assert_eq!(classify(text, &tuned).class, Class::M);
+        tuned.weight.insert("ship beside".to_string(), 2);
+        assert_eq!(classify(text, Form::ListItem, &tuned).class, Class::M);
     }
 
     /// The DEADBAND widens what counts as "I do not know". A corpus full
@@ -549,7 +421,7 @@ mod tests {
             deadband: 1,
             ..Weights::default()
         };
-        assert_eq!(classify(text, &cautious).class, Class::U);
+        assert_eq!(classify(text, Form::ListItem, &cautious).class, Class::U);
     }
 
     /// A conditional opener is a WORD, not a prefix. Without the boundary
@@ -618,6 +490,81 @@ mod tests {
 
     #[test]
     fn a_bare_conditional_naming_a_domain_is_s2() {
-        assert_eq!(label("before every commit here"), "S2");
+        assert_eq!(label("before each commit here"), "S2");
+    }
+
+    /// V40. The FORM is what the caller reads off the raw text, and
+    /// `Paragraph` is the half that suppresses a signal -- so it is the
+    /// half worth pinning.
+    #[test]
+    fn the_form_follows_the_marker() {
+        assert_eq!(Form::from_list_item(true), Form::ListItem);
+        assert_eq!(Form::from_list_item(false), Form::Paragraph);
+    }
+
+    /// V40. A bare imperative carries no modal, and the corpus this crate
+    /// points at itself states most of its rules that way.
+    #[test]
+    fn an_imperative_opener_is_mechanical() {
+        assert_eq!(label("run `hk check` before pushing"), "M1");
+    }
+
+    /// V40. An absolute quantifier states a law without a modal.
+    #[test]
+    fn an_absolute_quantifier_is_mechanical() {
+        assert_eq!(label("the coverage floor only ever rises"), "M2");
+    }
+
+    /// V40. A statement naming its own negative case is stating a rule --
+    /// V4's logic, applied to the corpus rather than to a trigger.
+    #[test]
+    fn a_contrast_is_mechanical() {
+        let verdict = classify_default(
+            "a gate step that cannot run is a failure, not a pass",
+        );
+        assert_eq!(verdict.class, Class::M);
+        assert!(verdict.names().iter().any(|name| name == "contrast"));
+    }
+
+    /// V40's load-bearing half, and the case that was MEASURED before the
+    /// invariant was written: this exact paragraph opens with a verb and
+    /// names its own negative case, and it is PROSE. Unscoped, the mood
+    /// signals turn it into a rule; scoped to list items, it stays `U`.
+    #[test]
+    fn the_same_mood_in_a_paragraph_is_unknown() {
+        let text = "read that as a warning about the file's future, not a claim about its present";
+        assert_eq!(classify_default(text).class, Class::M);
+        let verdict = classify(text, Form::Paragraph, &Weights::default());
+        assert_eq!(verdict.class, Class::U);
+        assert!(verdict.signals.is_empty(), "{:?}", verdict.signals);
+    }
+
+    /// Mood is HALF a directive, so one hedge outweighs it. A bare
+    /// imperative is a rule because of where it sits; a hedged one says
+    /// out loud that it is not.
+    #[test]
+    fn a_hedge_beats_a_bare_imperative() {
+        let verdict = classify_default("run the slow suite where possible");
+        assert_eq!(verdict.class, Class::S);
+    }
+
+    /// A quantifier is a WORD. "no" inside "nobody" is not a claim about
+    /// exceptions, and a substring match would fire on most English.
+    #[test]
+    fn a_quantifier_is_matched_as_a_whole_word() {
+        let verdict = classify_default("nobody reads a small changelog anyway");
+        assert_eq!(verdict.class, Class::U);
+        assert!(verdict.signals.is_empty(), "{:?}", verdict.signals);
+    }
+
+    /// V40's REVERSAL, executable: a corpus that disagrees with a mood
+    /// signal switches it off by weight, without a code change.
+    #[test]
+    fn a_mood_word_switched_off_returns_the_verdict_to_unknown() {
+        let text = "the coverage floor only ever rises";
+        assert_eq!(classify_default(text).class, Class::M);
+        let mut tuned = Weights::default();
+        tuned.weight.insert("only".to_string(), 0);
+        assert_eq!(classify(text, Form::ListItem, &tuned).class, Class::U);
     }
 }
