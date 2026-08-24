@@ -293,7 +293,7 @@ local all = (fast) {
     glob = List("**/*.rs", "Cargo.toml")
     depends = List("no-default-features")
     check = """
-      cargo package --quiet --allow-dirty || { echo 'hk: cargo package failed. It ships a DERIVED file set -- git-tracked minus exclude -- so this is usually a path the tarball needs and does not have, or an exclude in Cargo.toml that took too much.' >&2; exit 1; }
+      cargo package --quiet --allow-dirty --target-dir target/package-verify || { echo 'hk: cargo package failed. It ships a DERIVED file set -- git-tracked minus exclude -- so this is usually a path the tarball needs and does not have, or an exclude in Cargo.toml that took too much.' >&2; exit 1; }
       """
   }
 
