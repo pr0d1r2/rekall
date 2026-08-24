@@ -1,6 +1,9 @@
-# 8fe6c04
+---
+name: when-a-test-fails-decide-first
+description: "When a test fails, decide first whether it is a code bug or a spec gap. A gap goes through `SPEC.md` before the fix, so the invariant that would have caught"
+---
 
-Extracted by rekall from CLAUDE.md:39-41.
+Extracted by rekall from CLAUDE.md:39-41 (id 8fe6c04).
 
 <!-- rekall:payload -->
 - When a test fails, decide first whether it is a code bug or a spec gap. A

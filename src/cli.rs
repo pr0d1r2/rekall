@@ -2392,7 +2392,7 @@ mod tests {
 
     fn skill_with(fire: &str, refuse: &str) -> String {
         format!(
-            "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n\
+            "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n\
              <!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
             apply::FIRES,
             apply::NOT_FIRES

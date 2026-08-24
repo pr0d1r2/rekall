@@ -184,7 +184,7 @@ T54|x|`apply` COMMENTS every line of a quoted statement; `check` VERIFIES it; a 
 T55|x|splitter SKIPS a rekall POINTER; fixture = TWO adjacent pointers|§I,V13
 T57|x|`hook`'s situation TEXT carries the TOOL INPUT, ⊥ `prompt` alone; `recall` & `hook` agree on ONE payload in a test|V18,B7
 T58|x|`apply` MARKS the payload; `hook` injects it ALONE; `check` refuses one unmarked|V43,V39
-T59|.|artifact HEAD = frontmatter: `name` + `description` from the STATEMENT, ⊥ the id|V43,§I
+T59|x|artifact HEAD = frontmatter: `name` + `description` from the STATEMENT, ⊥ the id|V43,§I
 
 ## §B BUGS
 

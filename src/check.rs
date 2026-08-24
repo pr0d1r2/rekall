@@ -33,6 +33,7 @@ pub const BAD_TRIGGER_BLOCK: &str = "bad-trigger-block";
 pub const LADDER: &str = "ladder";
 pub const LOOSE_QUOTE: &str = "loose-quote";
 pub const NO_PAYLOAD: &str = "no-payload";
+pub const NO_HEAD: &str = "no-head";
 
 /// One thing wrong.
 ///
@@ -166,7 +167,48 @@ fn by_class(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
     if row.label.starts_with('M') {
         return runner_drift(row, text);
     }
-    skill_drift(row, text)
+    let mut out = head_drift(row, text);
+    out.extend(skill_drift(row, text));
+    out
+}
+
+/// V43: the HEAD is what the HOST indexes.
+///
+/// A skill lands in the host's own directory, so the host reads it and
+/// decides by its frontmatter. MEASURED before this existed: the first
+/// extraction listed under its ID, because the template wrote `# <hash>`
+/// as a heading and no frontmatter at all -- so the host's own trigger,
+/// the description it loads by, was seven hex characters.
+///
+/// `M` artifacts are exempt: nothing indexes `.rekall/rules`, and inventing
+/// a head for a shell script would be scaffold with no reader.
+fn head_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
+    if has_head(text) {
+        return Vec::new();
+    }
+    vec![drift(
+        NO_HEAD,
+        &row.id,
+        &row.artifact,
+        format!(
+            "{} has no frontmatter, so the host that indexes this directory has nothing to \
+             name or describe it by (V43). Give it a `---` block with `name` and \
+             `description`, or regenerate it with `rekall revert {}` then `rekall apply {}`",
+            row.artifact, row.id, row.id
+        ),
+    )]
+}
+
+fn has_head(text: &str) -> bool {
+    let mut lines = text.lines();
+    if lines.next().map(str::trim) != Some("---") {
+        return false;
+    }
+    let head: Vec<&str> =
+        lines.take_while(|line| line.trim() != "---").collect();
+    let names =
+        |key: &str| head.iter().any(|line| line.trim_start().starts_with(key));
+    names("name:") && names("description:")
 }
 
 /// V43: an artifact with no PAYLOAD mark has nothing a reader can take but
@@ -437,14 +479,14 @@ mod tests {
     /// A skill whose BLOCKS are filled -- the state V29 asks for. The
     /// prose is deliberately absent: it is never read, so a fixture that
     /// carried some would test nothing.
-    const SKILL: &str = "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n## Fires when\n\n```rekall\npath = [\"**/*.rs\"]\n```\n\n\
+    const SKILL: &str = "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n## Fires when\n\n```rekall\npath = [\"**/*.rs\"]\n```\n\n\
                          ## Does NOT fire when\n\n```rekall\npath = [\"**/tests/**\"]\n```\n";
 
     /// A skill in the shape the OLD template wrote: both headings, words
     /// under each, no block anywhere.
     fn prose_skill() -> String {
         format!(
-            "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
+            "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
             apply::FIRES,
             apply::NOT_FIRES
         )
@@ -452,7 +494,7 @@ mod tests {
 
     fn blocks(fire: &str, refuse: &str) -> String {
         format!(
-            "# s\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
+            "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
             apply::FIRES,
             apply::NOT_FIRES
         )
@@ -773,7 +815,7 @@ mod tests {
             artifact: Some("# s\n"),
         }];
         let found = audit(&seen, &[stray()]);
-        assert_eq!(found.len(), 5, "{found:?}");
+        assert_eq!(found.len(), 6, "{found:?}");
         for one in &found {
             assert!(names_a_fix(&one.said), "no fix named: {}", one.said);
         }
@@ -792,6 +834,7 @@ mod tests {
             "Restore ",
             "Fill ",
             "Put ",
+            "Give ",
             "reclassify",
         ]
         .iter()

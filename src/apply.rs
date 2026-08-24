@@ -181,12 +181,46 @@ pub fn commented(text: &str) -> String {
         .join("\n")
 }
 
+/// The artifact's own name, taken from the directory it lands in.
+///
+/// The HOST indexes a skill by its folder, so the frontmatter name and the
+/// path have to agree or the same skill answers to two names.
+fn slug_of(artifact: &str) -> String {
+    std::path::Path::new(artifact)
+        .parent()
+        .and_then(std::path::Path::file_name)
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "rekall-skill".to_string())
+}
+
+/// The one line the HOST decides by (V43).
+///
+/// The statement itself, flattened and quoted. It is not a summary -- this
+/// crate has no model and will not write one (V5) -- and the rule read as
+/// prose is a better description than anything mechanical would invent.
+///
+/// DOUBLE-QUOTED because a rule says things like "Commit straight to
+/// `main`. No feature branches": a colon followed by a space ends a plain
+/// YAML scalar, and the host would read a truncated description or fail to
+/// parse the file it was supposed to index.
+fn summary_of(text: &str) -> String {
+    let flat = crate::statement::normalize(text);
+    let capped: String = flat.chars().take(SUMMARY_LEN).collect();
+    let escaped = capped.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
+/// Long enough for a rule, short enough for a listing.
+const SUMMARY_LEN: usize = 160;
+
 /// Templates are CONSTS, not inline format walls. The generated artifact is
 /// the thing a human edits next, so its text should be readable and
 /// editable here rather than reassembled from fragments.
 fn fill(template: &str, step: &plan::Step) -> String {
     template
         .replace("{RUNNER_NOTE}\n", &runner_note(step))
+        .replace("{SLUG}", &slug_of(&step.artifact))
+        .replace("{SUMMARY}", &summary_of(&step.text))
         .replace("{TEXT_SH}", &commented(&step.text))
         .replace("{ID}", &step.id)
         .replace("{SRC}", &step.src)
@@ -313,9 +347,12 @@ exit 1
 /// Carries BOTH headings. V4 wants absence stated rather than inferred, so
 /// a template that omits the do-not-fire section teaches the omission.
 const SKILL_TEMPLATE: &str = "\
-# {ID}
+---
+name: {SLUG}
+description: {SUMMARY}
+---
 
-Extracted by rekall from {SRC}:{START}-{END}.
+Extracted by rekall from {SRC}:{START}-{END} (id {ID}).
 
 <!-- rekall:payload -->
 {TEXT}
@@ -771,5 +808,47 @@ mod tests {
         let upside_down =
             "<!-- rekall:/payload -->\nx\n<!-- rekall:payload -->\n";
         assert_eq!(payload_of(upside_down), None);
+    }
+    /// V43. The HEAD is what the host indexes, so a generated skill
+    /// arrives with a name matching its folder and a description that is
+    /// the rule itself. Before this, the first extraction listed under its
+    /// hash.
+    #[test]
+    fn a_generated_skill_carries_a_head_the_host_can_index() {
+        let mut skill = step("a", 1, 1, "S1");
+        skill.artifact =
+            ".claude/skills/never-commit-to-main/SKILL.md".to_string();
+        let text = artifact_text(&skill);
+        assert!(text.starts_with("---\n"), "{text}");
+        assert!(text.contains("name: never-commit-to-main"), "{text}");
+        assert!(text.contains("description: \"never commit"), "{text}");
+        assert!(
+            !text.contains("# a\n"),
+            "the id is no longer the title: {text}"
+        );
+    }
+
+    /// A rule says things like "Commit straight to `main`. No feature
+    /// branches" -- a colon and a space would end a plain YAML scalar, so
+    /// the description is quoted and its own quotes are escaped. A host
+    /// that cannot parse the head cannot index the skill.
+    #[test]
+    fn a_description_survives_the_punctuation_a_rule_contains() {
+        let mut skill = step("a", 1, 1, "S1");
+        skill.artifact = ".claude/skills/x/SKILL.md".to_string();
+        skill.text = "- Say \"no\": a rule with quotes: and colons".to_string();
+        let text = artifact_text(&skill);
+        assert!(
+            text.contains("description: \"Say \\\"no\\\": a rule"),
+            "{text}"
+        );
+    }
+
+    /// A shell runner has no head. Nothing indexes `.rekall/rules`, and a
+    /// frontmatter block there is scaffold with no reader.
+    #[test]
+    fn a_generated_runner_has_no_head() {
+        let text = artifact_text(&step("a", 1, 1, "M1"));
+        assert!(text.starts_with("#!/bin/sh"), "{text}");
     }
 }
