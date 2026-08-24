@@ -167,6 +167,35 @@ const RULE_TEMPLATE: &str = "\
 #
 # Exits NONZERO until the check is written. A runner that passes without
 # testing anything gates nothing, and is worse than no runner (V2, V22).
+#
+# ## Fires when
+#
+# This rule already gates at COMMIT -- that is what the wiring line in
+# `rekall plan` asks you to do. The block below is different: it makes the
+# rule arrive at a TOOL CALL too, before the mistake instead of after
+# (V37).
+#
+# It arrives EMPTY, which means GATE-ONLY: nothing fires it early until
+# you say when. Keys are `tool` (exact names), `path` (globs) and `word`
+# (literals tested against the situation text). Within a key ANY value
+# matches; across keys ALL present keys must match.
+#
+# ```rekall
+# tool = []
+# path = []
+# word = []
+# ```
+#
+# ## Does NOT fire when
+#
+# A match here refuses the load even when the block above matched. State
+# the absence rather than leaving it inferred (V4).
+#
+# ```rekall
+# tool = []
+# path = []
+# word = []
+# ```
 echo 'rekall: {ARTIFACT} is not implemented yet' >&2
 exit 1
 ";
@@ -420,6 +449,50 @@ mod tests {
             text.contains("- never commit to `main`"),
             "the rule is missing: {text}"
         );
+    }
+
+    /// V37, DISCOVERABLE. T39 shipped `M`-rule firing and the generated
+    /// artifact said nothing about it, so the feature could only be found
+    /// by reading the spec. Both blocks are now emitted, EMPTY -- which is
+    /// gate-only, so behaviour is unchanged until someone fills one in.
+    ///
+    /// Commented, because this artifact is a SCRIPT: uncommented text
+    /// would be executed. V29's block, in a file that runs.
+    #[test]
+    fn the_generated_runner_carries_two_parsable_empty_blocks() {
+        let script = artifact_text(&step("abc1234", 1, 1, "M1"));
+        for heading in [FIRES, NOT_FIRES] {
+            let held = crate::trigger::parse_block(&script, heading);
+            assert_eq!(
+                held.as_ref().map(crate::trigger::Trigger::is_empty),
+                Ok(true),
+                "{heading} did not parse to an empty block: {held:?}"
+            );
+        }
+    }
+
+    /// The blocks are COMMENTED, or the shell would try to run them. A
+    /// runner that fails on its own trigger block is worse than one with
+    /// no block at all.
+    #[test]
+    fn the_generated_runner_keeps_its_blocks_commented() {
+        let script = artifact_text(&step("abc1234", 1, 1, "M2"));
+        for line in script.lines() {
+            let held = line.trim();
+            assert!(
+                !held.starts_with("```") && !held.starts_with("## "),
+                "an uncommented block line would execute: {held}"
+            );
+        }
+    }
+
+    /// V39: this costs NO window. The artifact is never always-on -- only
+    /// the pointer is -- so the explanation is free where a longer pointer
+    /// would not have been.
+    #[test]
+    fn the_runner_is_bigger_than_the_pointer_and_that_is_fine() {
+        let script = artifact_text(&step("abc1234", 1, 1, "M1"));
+        assert!(script.len() > pointer_of("abc1234").len() * 10);
     }
 
     /// V3 and V4: a trigger AND an explicit do-not-fire clause. A template

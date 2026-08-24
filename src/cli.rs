@@ -2684,6 +2684,69 @@ mod tests {
         assert!(!said.contains("could not be read"), "{said}");
     }
 
+    /// THE PAYOFF of T45. The generated artifact now TELLS you the block
+    /// exists, so filling it in is a local edit rather than a spec read.
+    /// This walks that path: take the emitted block, put a real trigger in
+    /// it, and the rule arrives at the tool call.
+    #[test]
+    fn filling_the_emitted_block_makes_the_rule_fire() {
+        let dir = one_extracted_rule("emitted-block");
+        assert_eq!(hook_in(&dir, "a.rs"), serde_json::json!({}));
+        write_a_real_rule(&dir);
+        let out = hook_in(&dir, "a.rs");
+        assert_eq!(
+            out.pointer("/hookSpecificOutput/additionalContext")
+                .and_then(serde_json::Value::as_str),
+            Some("main is protected"),
+            "{out}"
+        );
+    }
+
+    /// What a user actually does once the artifact tells them the block is
+    /// there: name the trigger, and REPLACE the placeholder echo with a
+    /// real check rather than adding alongside it.
+    fn write_a_real_rule(dir: &Path) {
+        let path = dir.join(artifact_of(dir, &extracted_id(dir)));
+        let held = std::fs::read_to_string(&path).unwrap_or_default();
+        let _ = std::fs::write(&path, real_rule(&held));
+    }
+
+    fn extracted_id(dir: &Path) -> String {
+        ledger::load(&ledger::path_in(dir))
+            .unwrap_or_default()
+            .extracted
+            .first()
+            .map(|row| row.id.clone())
+            .unwrap_or_default()
+    }
+
+    fn real_rule(held: &str) -> String {
+        held.replacen("# tool = []", "# tool = [\"Edit\"]", 1)
+            .lines()
+            .map(|line| {
+                if line.contains(apply::UNIMPLEMENTED) {
+                    "echo 'main is protected' >&2"
+                } else {
+                    line
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// `check` says NOTHING about an `M`s triggers, before or after the
+    /// blocks are emitted. It wants the runner (V2) and nothing else.
+    #[test]
+    fn emitting_the_blocks_adds_no_drift() {
+        let dir = one_extracted_rule("no-new-drift");
+        let text = check_in(&dir, &[])
+            .map(|c| c.output.text)
+            .unwrap_or_default();
+        assert!(text.contains(check::NO_RUNNER), "{text}");
+        assert!(!text.contains(check::BAD_TRIGGER_BLOCK), "{text}");
+        assert!(!text.contains(check::NO_REFUSAL_CLAUSE), "{text}");
+    }
+
     /// A project with one extracted `M` rule, left exactly as `apply`
     /// wrote it -- no trigger block, which is the state B4 misread.
     fn one_extracted_rule(name: &str) -> PathBuf {
