@@ -119,6 +119,10 @@ V41: an extraction MOVES the RUNNER too. V1 one level in: where the gate ALREADY
 
 V42: corpus text QUOTED in a generated artifact is INERT on EVERY line, ⊥ only the first. `apply` writes an `M` runner ∴ a wrapped statement's continuation lines land in a SHELL SCRIPT, & unprefixed they are COMMANDS (B6). The corpus is private PROSE a human wrote for a reader (V15, V16) ∴ it is INPUT & the one place this crate quotes it ! quote it -- V33's shape (a gate MESSAGE is DATA, ⊥ CODE) one file over. TEETH, ⊥ a careful template: `check` VERIFIES the quoted block, ∵ a template is edited by the same hand that will forget (V22). SEVERITY is ⊥ cosmetic: `hook` runs these per TOOL CALL (V38), the text is the user's own memory, & TODAY it hides behind the stub's `exit 1`, surfacing only once someone writes the check.
 
+V43: a generated artifact has THREE readers, each reading a DIFFERENT part: PAYLOAD = the rule VERBATIM · SCAFFOLD = the trigger blocks & the notes explaining them · HEAD = what the HOST indexes. `hook` injects the PAYLOAD ALONE. MEASURED 2026-08-24 (Apple M4 10-core 16GB): a 36-tok rule arrived as 318 tok of FILE, 8.8x, & §G says a triggered rule costs NOTHING until it fires ∴ 282 tok of MAINTENANCE NOTES at the fire point INVERTS that -- V39's arithmetic, one file over. The HEAD is FRONTMATTER ∵ `apply` writes into the HOST's OWN dir & a file there is INDEXED: MEASURED, the first `S` lists under its HASH. `check` VERIFIES both (V22). REJECTED: injecting the FILE & trusting the model to skip the scaffold (SPENT by then); a SECOND file for the payload (two files, one rule -- V1)
+
+
+
 ## §T TASKS
 
 id|status|task|cites
@@ -179,6 +183,8 @@ T53|x|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-f
 T54|x|`apply` COMMENTS every line of a quoted statement; `check` VERIFIES it; a WRAPPED statement is the fixture|V42,B6
 T55|x|splitter SKIPS a rekall POINTER; fixture = TWO adjacent pointers|§I,V13
 T57|x|`hook`'s situation TEXT carries the TOOL INPUT, ⊥ `prompt` alone; `recall` & `hook` agree on ONE payload in a test|V18,B7
+T58|.|`apply` MARKS the payload; `hook` injects it ALONE; `check` refuses one unmarked|V43,V39
+T59|.|artifact HEAD = frontmatter: `name` + `description` from the STATEMENT, ⊥ the id|V43,§I
 
 ## §B BUGS
 
