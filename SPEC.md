@@ -178,6 +178,7 @@ T52|x|MOOD signals: imperative · absolute quantifier · `, not ` contrast, HALF
 T53|x|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-from marker|V41,V19,V2
 T54|x|`apply` COMMENTS every line of a quoted statement; `check` VERIFIES it; a WRAPPED statement is the fixture|V42,B6
 T55|x|splitter SKIPS a rekall POINTER; fixture = TWO adjacent pointers|§I,V13
+T57|.|`hook`'s situation TEXT carries the TOOL INPUT, ⊥ `prompt` alone; `recall` & `hook` agree on ONE payload in a test|V18,B7
 
 ## §B BUGS
 
@@ -188,3 +189,4 @@ B3|2026-08-24|`log` reported GROSS statement tokens as reclaimed while `apply` w
 B4|2026-08-24|`recall`/`hook` call a generated `M` artifact "trigger could not be read": a MISSING block is a parse failure reached BEFORE V37's gate-only branch ∴ a legal state reads as a defect, & `check` disagrees with `recall` about one file|V37,T44
 B5|2026-08-24|`runner::LIMIT` bounds a rule by WALL-CLOCK ∴ under contention a rule costing MILLISECONDS of CPU exceeds it & is KILLED. MEASURED: 2 of 3 full test runs failed, the same tests passing ALONE in 1-2s. `hook` runs per tool call ∴ a busy box injects a timeout that never happened -- & every gate-green since T39 rested on a suite failing 2 runs in 3|V38,T51
 B6|2026-08-24|`apply` prefixed only the FIRST line of a quoted statement ∴ every WRAPPED bullet put prose into a shell script as CODE. MEASURED at this crate's first real extraction (consumer #0, Apple M4 10-core 16GB): the generated ASCII-rule runner printed `line 6: here.: command not found` -- `here.` being the second line of a 2-line bullet. Every test used a ONE-LINE fixture ∴ 509 green tests, & the defect appeared on the first statement a human actually wrote|V42
+B7|2026-08-24|`hook` built the situation TEXT from `prompt` ALONE ∴ a `word` trigger could ⊥ EVER match a TOOL CALL -- the only event it runs on. MEASURED on this crate's FIRST `S` extraction: `recall "cargo test" --tool Bash` said `load`, the same payload through `hook` said `{}`. V18's named failure, VERBATIM: "each looks correct alone, & the divergence only shows where a skill fails to load in production but `recall` swears it would". ⊥ two matchers -- ONE matcher fed two different SITUATIONS, which V18 ⊥ say out loud|V18,T57
