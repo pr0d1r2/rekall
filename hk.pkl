@@ -103,6 +103,14 @@ local fast = new Mapping<String, Step> {
     check = "sh .rekall/rules/an-allow-must-name-what-it.sh"
   }
 
+  /// EXTRACTED from CLAUDE.md by rekall (id 3edbbbe). It reads THIS file
+  /// and every extracted runner beside it, so the gate is judged by the
+  /// rule it carries rather than by anyone remembering it.
+  ["failure-says-something"] {
+    glob = List("hk.pkl", ".rekall/rules/**")
+    check = "sh .rekall/rules/every-failing-step-names-the-fix.sh"
+  }
+
   /// MODULE SIZE, the limit clippy does not have.
   ///
   /// It caps methods, parameters, nesting and complexity -- and nothing
@@ -336,7 +344,7 @@ local all = (fast) {
       out=$(cargo llvm-cov --summary-only 2>&1) || { echo "$out" >&2; exit 1; }
       now=$(printf '%s' "$out" | awk '/^TOTAL/{gsub("%","",$10); print $10}')
       was=$(awk '/^lines /{print $2}' .coverage)
-      [ -n "$now" ] || exit 1
+      [ -n "$now" ] || { echo 'hk: could not read a coverage total, so there is nothing to record. Run `cargo llvm-cov --summary-only` and see what it says before retrying.' >&2; exit 1; }
       awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 < w+0)}' && { echo "hk: refusing to RECORD a drop, $was% -> $now%. Cover the gap, or edit .coverage by hand with the reason." >&2; exit 1; }
       awk -v n="$now" '/^lines /{print "lines " n; next} {print}' .coverage > .coverage.new
       mv .coverage.new .coverage

@@ -49,3 +49,14 @@ label = "M1"
 artifact = ".rekall/rules/an-allow-must-name-what-it.sh"
 fires = 0
 at = 1787590326
+
+[[extracted]]
+id = "3edbbbe"
+src = "CLAUDE.md"
+line_start = 47
+line_end = 47
+text = "- Every failing step names the fix, not just the breach."
+label = "M2"
+artifact = ".rekall/rules/every-failing-step-names-the-fix.sh"
+fires = 0
+at = 1787590845
