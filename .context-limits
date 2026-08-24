@@ -112,11 +112,17 @@
 # was measured and REJECTED at ~20 net tokens, because V6 is one line and
 # five rows cite it -- deleting a cited id costs more than it saves.
 #
-# THE NEXT ANSWER IS NOT MORE OF THIS. FORMAT.md federates a spec at 500
-# lines; this file is at 180. When it reaches that rule, sections R and B
-# are the ones that leave, because they are EVIDENCE that a reader
-# consults rather than LAW they must hold. Until then the ceiling tracks
-# an honest count, and the review it forces is this comment.
+# THE NEXT ANSWER IS NOT MORE OF THIS. FORMAT.md's ONE FILE RULE says a
+# big project gets more SECTIONS, not more files, and names ONE sanctioned
+# move past 500 lines: compact SB, oldest rows first. This file is at 180.
+# Until then the ceiling tracks an honest count, and the review it forces
+# is this comment.
+#
+# CORRECTED 2026-08-24: an earlier draft of this paragraph said FORMAT.md
+# federates a spec at 500 lines. It does not. FORMAT.md has no federation
+# rule at all -- SN and SF rows are blackbox's mechanism, and V39 already
+# says this spec does not use them. The 500-line line is a COMPACTION
+# trigger, and splitting is what the rule exists to discourage.
 #
 # Slack is ~5%, tighter than the 12.5% of the early ceilings and looser
 # than the 0.2% the last raise decayed to. That is deliberate: one more
@@ -152,11 +158,17 @@
 # deleting reasoning rather than compressing it.
 #
 # THE STANDING ANSWER IS NO LONGER A RAISE. R4 measures this crate at
-# 136,279 tokens of spec plus code against a 131,072 window. FORMAT.md
-# federates a spec at 500 lines and this file is at 185, so the next honest
-# move is one of: federate early and say why, or extract this file the way
-# CLAUDE.md is being extracted. A third raise without one of those is the
-# reflex, not the review.
+# 136,279 tokens of spec plus code against a 131,072 window. The next
+# honest move is to compact SB oldest-first, which is FORMAT.md's one
+# sanctioned rewrite, or to extract this file the way CLAUDE.md is being
+# extracted. A third raise without one of those is the reflex, not the
+# review.
+#
+# CORRECTED 2026-08-24: this paragraph said "federate early and say why".
+# FORMAT.md has no federation rule -- its ONE FILE RULE says the opposite,
+# that a big project gets more sections and not more files. Federation is
+# blackbox's SN/SF mechanism, and V39 already records that this spec does
+# not use it.
 
 SPEC.md   12400
 README.md  1000
