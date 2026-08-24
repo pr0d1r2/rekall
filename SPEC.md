@@ -47,7 +47,7 @@ CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WIN
 - `rekall log` -- `--format human|json` · `--dead` · `--since D`. READS the ledger. Per artifact: source span · original text · artifact path · FIRE count · tokens reclaimed. `--dead` = never fired (V11). VERB is `log`, STORE is the ledger -- the store is a ledger & is called one everywhere it is described.
 - `rekall catch [<session>]` -- `--format human|json`. Second intake: a VIOLATION in a transcript -> candidate statement, classed like any other. Report-only FOR THE CORPUS: it writes CANDIDATE rows to the ledger (V7) & touches ⊥ a source file, ⊥ an artifact. Promotion goes through `plan` then `apply`. A transcript is EPHEMERAL ∴ a violation seen at turn 200 is gone tomorrow unless the candidate outlives the session that produced it -- which is the whole reason this verb exists.
 - `rekall revert <id>` -- `--format human|json` · `--auto-approve`. Reverse one extraction from the ledger, verbatim (V9). MUTATES ∴ confirms like `apply` (V20).
-- Config: `rekall.toml` -- `[sources]` corpus roots & globs · `[signals]` classifier weights · `[triggers]` matcher defaults · `[budget]` ceilings.
+- Config: `rekall.toml` -- `[sources]` corpus roots & globs · `[signals]` classifier weights · `[triggers]` matcher defaults & the runner TIMEOUT (B5) · `[budget]` ceilings.
 - CONFIG SCOPE: TWO files, ONE format, ONE parser ∴ ⊥ the sprawl R6 records (that was four files & four grammars). PROJECT `./rekall.toml`, found by walking UP from cwd to the repo root; USER `~/.config/rekall/rekall.toml`. Merge is PER KEY & project WINS -- except `[sources]` roots, which UNION. That exception is the whole reason two scopes exist: the corpus SPANS them (per-user memory dir & `~/.claude/CLAUDE.md`; per-project `./CLAUDE.md` & `./AGENTS.md`) ∴ letting a project file REPLACE the roots would silently stop scanning the user's memory -- the largest half of the corpus, gone with no error. `init` writes the PROJECT file & names which scope each root came from.
 - Exit: 0 ok · 1 drift/violation · 2 usage. ⊥ a network code ∵ ⊥ a network path.
 
@@ -105,7 +105,7 @@ V31: a MEASURED figure carries its BOX & DATE, or it is ⊥ EVIDENCE. V21 one le
 V32: a SCRATCH path is unique PER CALL, ⊥ per process. A pid-named dir is shared by every thread in that process ∴ concurrent runs delete each other's files, & the symptom shows ONLY under load -- the kind that passes review & every hand-run.
 V33: a gate MESSAGE is DATA, ⊥ CODE. ⊥ backticks & ⊥ `$(...)` in a shell-quoted advisory: the shell EXECUTES them & the advice is REPLACED by what it ran.
 
-V38: a fired `M` rule ADVISES, ⊥ BLOCKS, & a runner that ⊥ finish in BOUNDED time ⊥ fired. TWO reasons, each sufficient: it runs in the TOOL-CALL path ∴ a hung runner stalls the harness · a WRONG rule that blocks costs the user their WORK, one that advises costs a LINE. Nothing is lost -- the runner still GATES at commit (V2) ∴ hook = EARLY word, gate = LAST. REJECTED: `permissionDecision: deny` (one buggy rule wedges every tool call, & unwedging means editing the corpus mid-task).
+V38: a fired `M` rule ADVISES, ⊥ BLOCKS, & a runner that ⊥ finish in BOUNDED time ⊥ fired. TWO reasons, each sufficient: it runs in the TOOL-CALL path ∴ a hung runner stalls the harness · a WRONG rule that blocks costs the user their WORK, one that advises costs a LINE. Nothing is lost -- the runner still GATES at commit (V2) ∴ hook = EARLY word, gate = LAST. REJECTED: `permissionDecision: deny` (one buggy rule wedges every tool call, & unwedging means editing the corpus mid-task). The bound is CONFIGURED, ⊥ a constant: WALL-CLOCK under contention kills a rule that cost MILLISECONDS (B5), & a limit nobody can raise is one that lies about what happened.
 V37: `hook` fires an `M` rule ONLY where it carries a TRIGGER, & runs ONLY what the LEDGER names. An EMPTY `M` block = GATE-ONLY, ⊥ broken & ⊥ nagged at: the runner lives in the gate (V2), a trigger is how it ADDITIONALLY arrives uninvited (§G) ∴ both hold. LEDGER-named is the teeth: a script DROPPED into `.rekall/rules/` is an ORPHAN, ⊥ something a tool call runs. Trust is a git hook's -- user-authored, user's repo -- ∴ the surface is SELECTION, ⊥ execution. REJECTED: firing ∀ `M` on ∀ call (a spawn per rule per call; V11 would count invocations); `hook` never firing `M` (⊥ §I).
 V34: `hook` writes the FIRE COUNTER & NOTHING ELSE -- â¥ a span, â¥ an artifact, â¥ a row's content. V7 named three writers & left V11's counter with NO author â´ `--dead` reports everything dead forever & R13's argument collapses. V20 â¥ applies: it guards the DESTRUCTIVE path, a counter deletes nothing, & `hook` is unattended â´ a prompt hangs the harness V20 protects. `recall` counts NOTHING: the number ! mean LOADED. It ! survive CONCURRENT hooks -- one per tool call â´ read-modify-write RACES. REJECTED: a second store (â¥ V11; two disagree -- V8); `hook` report-only (nothing counts).
 V35: a JUDGMENT records what it REJECTED & what would REVERSE it. Alternatives unrecorded cannot be UNDONE knowingly -- the next reader sees only the survivor & re-derives or repeats. ONE decision per COMMIT ∴ `git revert <sha>` undoes exactly one, & spec-then-build reverts SEPARATELY, in that order. ⊥ ceremony: §C's three rejected NAMES (R1, R2, R10) are the load-bearing half of that bullet, & `mth check --records` enforces the shape (T38).
@@ -151,7 +151,7 @@ T33|x|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in 
 T34|x|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
 T35|x|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
 T36|.|RECORD in §R: re-measure R4 & T19's reclaim, each NAMING its box. A /spec write, ⊥ /build|V31,R4,R14,T19
-T37|.|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
+T37|~|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; ADVISES ⊥ blocks, bounded time|V37,V38,V2,T13
 T40|x|split `cli.rs` per VERB; MODULE-SIZE limit + its RUNNER, one commit|V22,V23,§C
@@ -167,6 +167,8 @@ T48|.|`plan` NAMES the host's own format gates before rewriting a file this crat
 T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,V13
 T50|.|slug ⊥ truncates mid-phrase|§I
 
+T51|.|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
+
 ## §B BUGS
 
 id|date|cause|fix
@@ -174,3 +176,4 @@ B1|2026-08-22|`tokens` scratch dir named by PID alone ∴ concurrent counts in O
 B2|2026-08-22|gate message wrote its fix in backticks inside a double-quoted shell string ∴ the shell EXECUTED `direnv` & printed `command not found` WHERE THE ADVICE SHOULD HAVE BEEN|V33
 B3|2026-08-24|`log` reported GROSS statement tokens as reclaimed while `apply` wrote a POINTER back 8 lines away in the same module ∴ TWO real extractions each made the corpus BIGGER & the column said smaller|V39
 B4|2026-08-24|`recall`/`hook` call a generated `M` artifact "trigger could not be read": a MISSING block is a parse failure reached BEFORE V37's gate-only branch ∴ a legal state reads as a defect, & `check` disagrees with `recall` about one file|V37,T44
+B5|2026-08-24|`runner::LIMIT` bounds a rule by WALL-CLOCK ∴ under contention a rule costing MILLISECONDS of CPU exceeds it & is KILLED. MEASURED: 2 of 3 full test runs failed, the same tests passing ALONE in 1-2s. `hook` runs per tool call ∴ a busy box injects a timeout that never happened -- & every gate-green since T39 rested on a suite failing 2 runs in 3|V38,T51
