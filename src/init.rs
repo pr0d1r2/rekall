@@ -73,7 +73,7 @@ fn project_candidate(base: &Path, suffix: &str) -> Candidate {
 pub fn render(found: &[Candidate]) -> String {
     let mut out = String::from(HEADER);
     out.push_str("[sources]\nroots = [\n");
-    for candidate in found.iter().filter(|c| c.found) {
+    for candidate in found.iter().filter(|c| c.found && c.scope.is_project()) {
         out.push_str(&format!("  \"{}\",\n", candidate.root));
     }
     out.push_str("]\n");
@@ -97,9 +97,14 @@ fn misses(found: &[Candidate]) -> String {
 const HEADER: &str = "\
 # Written by `rekall init`. Roots are what existed when it ran.
 #
-# `[sources].roots` UNION across scopes: a project file adds to the user's
-# roots rather than replacing them, so dropping this file into a repo can
-# never silently stop scanning your memory.
+# PROJECT roots only. A USER root -- your memory dir, your `~/.claude` --
+# is deliberately absent even when `init` found one: this file is TRACKED,
+# and a home path here would follow the repo into every checkout & drag
+# private memory into anyone else`s scan (V36).
+#
+# Nothing is lost. `[sources].roots` UNION across scopes, so your own
+# `~/.config/rekall/rekall.toml` still contributes its roots -- which is
+# the entire reason two scopes exist.
 
 ";
 
@@ -109,7 +114,15 @@ pub struct Report {
     /// The file that was written, NAMED before the write happens.
     pub path: String,
     pub wrote: bool,
+    /// PROJECT-scope roots. These, and only these, are WRITTEN (V36).
     pub roots: Vec<String>,
+    /// USER-scope roots that exist and were deliberately NOT written.
+    ///
+    /// Named in the output because they were found and the reader should
+    /// know -- but kept OUT of the tracked file, which would otherwise
+    /// hard-code one developer's home into every checkout and drag private
+    /// memory into anyone's scan.
+    pub user: Vec<String>,
     /// Places looked at that held nothing.
     pub absent: Vec<String>,
 }
@@ -176,18 +189,32 @@ fn report(found: &[Candidate], path: &str) -> Report {
     Report {
         path: path.to_string(),
         wrote: true,
-        roots: pick(found, true),
-        absent: pick(found, false),
+        roots: named(found, |c| c.found && c.scope.is_project()),
+        user: named(found, |c| c.found && !c.scope.is_project()),
+        absent: named(found, |c| !c.found),
     }
 }
 
-fn pick(found: &[Candidate], wanted: bool) -> Vec<String> {
+fn named(
+    found: &[Candidate],
+    keep: impl Fn(&Candidate) -> bool,
+) -> Vec<String> {
     found
         .iter()
-        .filter(|c| c.found == wanted)
+        .filter(|c| keep(c))
         .map(|c| c.root.clone())
         .collect()
 }
+
+/// Where a USER root actually belongs, printed only when one was found.
+///
+/// Naming the file is the difference between a refusal and a handoff: the
+/// root is real and worth scanning, it simply does not belong in a file
+/// every clone of this repo will read.
+const USER_HINT: &str = "\nThose are USER roots. They are NOT written here -- this file is tracked, \
+and a home path in it\nwould follow the repo to every checkout. Put them in \
+`~/.config/rekall/rekall.toml`;\nroots UNION across scopes, so both get \
+scanned.\n";
 
 /// Human rendering. The JSON carries the SAME anatomy (V17).
 #[must_use]
@@ -196,8 +223,14 @@ pub fn render_human(report: &Report) -> String {
     for root in &report.roots {
         out.push_str(&format!("root   {root}\n"));
     }
+    for root in &report.user {
+        out.push_str(&format!("user   {root}  (yours, not written here)\n"));
+    }
     for root in &report.absent {
         out.push_str(&format!("absent {root}\n"));
+    }
+    if !report.user.is_empty() {
+        out.push_str(USER_HINT);
     }
     out
 }
@@ -214,7 +247,7 @@ mod tests {
     }
 
     fn roots_of(found: &[Candidate]) -> Vec<String> {
-        pick(found, true)
+        named(found, |c| c.found)
     }
 
     #[test]
@@ -239,6 +272,61 @@ mod tests {
         let _ = std::fs::write(home.join(".claude").join("CLAUDE.md"), "- x\n");
         let found = candidates(Some(&home.to_string_lossy()), &dir("proj"));
         assert_eq!(roots_of(&found), vec!["~/.claude/CLAUDE.md"]);
+    }
+
+    /// V36, THE POINT OF T37. A user root is DETECTED and deliberately
+    /// left OUT of the written file. Before this, `init` wrote one
+    /// developer's `~/.claude/projects` into a tracked config -- which
+    /// follows the repo into every checkout and drags private memory into
+    /// anyone else's scan.
+    #[test]
+    fn a_user_root_is_detected_but_never_written() {
+        let found = with_user_root("detect-not-write");
+        let written = render(&found);
+        assert!(
+            !written.contains("~/.claude/CLAUDE.md"),
+            "a home path reached the tracked file:\n{written}"
+        );
+        assert!(written.contains("roots = ["), "{written}");
+    }
+
+    /// NAMED, though. V36 leaves it out of the file, not out of the
+    /// conversation -- the root is real and worth scanning, it simply does
+    /// not belong in a file every clone reads.
+    #[test]
+    fn a_user_root_is_still_reported_and_says_where_it_goes() {
+        let found = with_user_root("detect-report");
+        let said = render_human(&report(&found, "rekall.toml"));
+        assert!(said.contains("user   ~/.claude/CLAUDE.md"), "{said}");
+        assert!(said.contains("~/.config/rekall/rekall.toml"), "{said}");
+        assert!(said.contains("UNION"), "{said}");
+    }
+
+    /// A PROJECT root still gets written. The narrowing is about scope,
+    /// not about writing less.
+    #[test]
+    fn a_project_root_is_still_written() {
+        let base = dir("proj-written");
+        let _ = std::fs::write(base.join("CLAUDE.md"), "- x\n");
+        let found = candidates(None, &base);
+        assert!(render(&found).contains("\"CLAUDE.md\""), "{found:?}");
+    }
+
+    /// The written file EXPLAINS the absence, so the next reader does not
+    /// think detection failed.
+    #[test]
+    fn the_written_file_says_why_a_user_root_is_missing() {
+        let written = render(&with_user_root("explains"));
+        assert!(written.contains("PROJECT roots only"), "{written}");
+        assert!(written.contains("UNION"), "{written}");
+    }
+
+    /// A home holding a corpus, and a project holding none.
+    fn with_user_root(name: &str) -> Vec<Candidate> {
+        let home = dir(name);
+        let _ = std::fs::create_dir_all(home.join(".claude"));
+        let _ = std::fs::write(home.join(".claude").join("CLAUDE.md"), "- x\n");
+        candidates(Some(&home.to_string_lossy()), &dir(&format!("{name}-p")))
     }
 
     /// Absolute paths would make the file unportable and unreadable in a
@@ -354,6 +442,7 @@ mod tests {
             path: "rekall.toml".to_string(),
             wrote: true,
             roots: vec!["CLAUDE.md".to_string()],
+            user: Vec::new(),
             absent: vec!["AGENTS.md".to_string()],
         };
         let text = render_human(&report);

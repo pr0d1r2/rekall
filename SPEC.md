@@ -151,7 +151,7 @@ T33|x|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in 
 T34|x|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
 T35|x|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
 T36|.|RECORD in §R: re-measure R4 & T19's reclaim, each NAMING its box. A /spec write, ⊥ /build|V31,R4,R14,T19
-T37|~|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
+T37|x|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; ADVISES ⊥ blocks, bounded time|V37,V38,V2,T13
 T40|x|split `cli.rs` per VERB; MODULE-SIZE limit + its RUNNER, one commit|V22,V23,§C

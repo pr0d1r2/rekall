@@ -68,6 +68,15 @@ pub enum Scope {
     Project,
 }
 
+impl Scope {
+    /// Whether a root belongs to the TRACKED file. V36: a project config
+    /// names only what the repo owns.
+    #[must_use]
+    pub fn is_project(self) -> bool {
+        matches!(self, Self::Project)
+    }
+}
+
 #[derive(Debug)]
 pub enum Error {
     Read {
