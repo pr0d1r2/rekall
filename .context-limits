@@ -22,6 +22,25 @@
 #   SPEC.md    6773
 #   README.md   842
 #
+# RE-MEASURED 2026-08-24, after specifying nine tasks, two bugs and V39:
+#   SPEC.md   10272
+#
+# THE CEILING ROSE AGAIN, 9700 -> 11000, and I argued against exactly this
+# one session ago. What changed is that I tried the alternative and
+# MEASURED it: compressing the four longest invariants -- V29, V34, V37 and
+# V38, all written in the same recent house style -- bought 72 tokens.
+# Compression is spent. The driver is the COUNT (39 invariants, 50 tasks),
+# not the length of any one of them.
+#
+# Federating section R was considered and REJECTED. At 162 lines this file
+# is far under FORMAT.md's 500-line threshold, and splitting it would be
+# the "grep ceremony" that rule exists to prevent -- solving verbosity with
+# structure, which is the wrong tool applied loudly.
+#
+# Slack is ~7%, deliberately tighter than the ~12.5% used before. The next
+# addition should NOT be absorbed: it should force merging overlapping
+# invariants, which is the debt this number now tracks.
+#
 # RE-MEASURED 2026-08-22, after the amendment that unblocked T12/T13/T26,
 # T19 and T33:
 #   SPEC.md    8619
@@ -57,6 +76,6 @@
 # nothing reports them (V22). The runner landed with the number, in one
 # commit, which is what V22 actually asks for.
 
-SPEC.md    9700
+SPEC.md   11000
 README.md  1000
 CLAUDE.md   600
