@@ -5,11 +5,12 @@
 //! hands them in, then turns a `u8` into an `ExitCode`.
 //!
 //! Everything that decides anything lives in `rekall::cli`, where a test can
-//! assert on values. This file is excluded from coverage by
-//! `.config/nextest`-style configuration in `hk.pkl`, and the exclusion is
-//! only honest because there is nothing here to test: a binary's `fn main`
-//! cannot be called by a unit test, so code kept here would be permanently
-//! unverifiable rather than merely unverified.
+//! assert on values. These lines are NOT excluded from coverage, and
+//! `.coverage` says why: an exclusion would remove the only pressure keeping
+//! this file thin, which is what let it reach 37 lines once. A binary's
+//! `fn main` cannot be called by a unit test, so every line kept here is
+//! permanently unverifiable -- and the gap staying visible in the number is
+//! the cost of putting anything else here.
 
 use rekall::cli;
 use std::process::ExitCode;

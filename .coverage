@@ -51,4 +51,28 @@
 # and the floor sits fractionally above measured coverage rather than being
 # hand-lowered to match. The 0.3 fall margin absorbs that.
 
+# RE-MEASURED 2026-08-24, after the mood signals, the runner move and the
+# first three extractions: 99.21, against this floor of 99.26.
+#
+# The paragraph above is now STALE in its accounting and is kept because
+# the argument still holds. It said three uncovered lines, all in ledger.rs
+# around `Encode`. Those are now COVERED: `toml::to_string_pretty` is
+# fallible after all -- it refuses a bare `f64::NAN` -- so the arm and its
+# Display are reachable from a test, and `record_fire` against a directory
+# reaches the open-error arm the same way.
+#
+# WHAT IS UNCOVERED NOW, all of it unreachable rather than untested:
+#   * src/main.rs, 11 lines -- the binary entry, per the argument above
+#   * src/cli/apply.rs, 6 -- the tty prompt (V20); there is no tty in a test
+#   * src/ledger.rs, 4 -- `write_all` failing on a handle that OPENED, which
+#     needs a full filesystem, and one brace
+#   * src/runner.rs, 3 -- `try_wait` and `wait_with_output` returning an OS
+#     error, plus a line in an assertion message
+#   * src/cli.rs, 3 -- `itok` absent from PATH, and the no-roots return that
+#     an earlier resolve error reaches first
+#
+# The floor STAYS at 99.26. It may only rise (V27), and lowering it to match
+# a measurement is the ratchet filing its own teeth. The 0.3 fall margin was
+# put here for exactly this residue.
+
 lines 99.26

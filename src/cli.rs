@@ -2566,8 +2566,20 @@ mod tests {
 
     /// A project with one extracted `M` rule whose runner is real and
     /// whose trigger fires on `*.rs`.
+    ///
+    /// It RAISES `runner_timeout_ms` far above the default. These tests
+    /// assert what a rule SAID, and the bound is wall-clock (B5, V38): a
+    /// loaded box turns a millisecond rule into a timeout, and the suite
+    /// then reports a failure that never happened. MEASURED again today --
+    /// two of these tests failed while a clippy run shared the machine,
+    /// and passed alone seconds later. That the bound WORKS is tested
+    /// where it belongs, by a rule that really does hang.
     fn rule_project(name: &str, body: &str) -> PathBuf {
         let dir = check_project(name);
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = [\".\"]\n\n[triggers]\nrunner_timeout_ms = 60000\n",
+        );
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
             "# Rules\n\n- never commit to `main`\n",
@@ -2576,8 +2588,6 @@ mod tests {
         let path = dir.join(artifact_of(&dir, &id));
         let _ = std::fs::write(&path, body);
         let _ = apply_cli::make_runnable(&path);
-        let skill = dir.join(artifact_of(&dir, &id));
-        let _ = skill;
         write_trigger(&dir, &id, "path = [\"**/*.rs\"]");
         dir
     }
@@ -2940,5 +2950,20 @@ mod tests {
         let message = result.err().unwrap_or_default();
         assert!(message.contains("runner"), "{message}");
         assert!(message.contains("GATE STEP"), "{message}");
+    }
+    /// V28: a config with no roots is a SETUP problem, and the message
+    /// names the command that fixes it rather than reporting an empty
+    /// corpus as if that were a normal answer.
+    #[test]
+    fn a_config_with_no_roots_names_the_command_that_fixes_it() {
+        let dir = PathBuf::from("target").join("cli-check").join("no-roots");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("rekall.toml"), "[sources]\nroots = []\n");
+        let failed =
+            scan_command(&args(&["-C", &dir.to_string_lossy()]), &env());
+        let said = failed.err().unwrap_or_default();
+        assert!(said.contains("rekall init"), "{said}");
     }
 }

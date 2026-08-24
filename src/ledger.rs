@@ -623,4 +623,42 @@ mod tests {
         assert!(message.contains("cannot write"), "message was {message}");
         assert!(message.contains("ledger.toml"), "message was {message}");
     }
+    /// V28, on the ledger's own errors: each one NAMES the file it could
+    /// not touch. A message that says only "write failed" sends someone
+    /// looking through four paths for the one that was denied.
+    #[test]
+    fn every_ledger_error_names_what_it_could_not_do() {
+        let read = Error::Read {
+            path: PathBuf::from(".rekall/ledger.toml"),
+            cause: std::io::Error::other("denied"),
+        };
+        assert!(read.to_string().contains(".rekall/ledger.toml"), "{read}");
+        let encode = toml::to_string_pretty(&f64::NAN)
+            .err()
+            .map(Error::Encode)
+            .map(|one| one.to_string())
+            .unwrap_or_default();
+        assert!(encode.contains("cannot encode the ledger"), "{encode}");
+    }
+
+    /// The fire counter writes to a path the caller chose, and a path that
+    /// cannot be opened is a REPORTED failure rather than a lost count --
+    /// V11 needs the number, so silence here is the bug that hides itself.
+    #[test]
+    fn a_fire_counter_that_cannot_be_opened_says_which_path() {
+        let at = dir("fire-unwritable");
+        let blocked = at.join("ledger.fires");
+        let _ = std::fs::create_dir_all(&blocked);
+        let failed = record_fire(&blocked, "abc1234");
+        assert!(failed.is_err(), "a directory is not an appendable file");
+        let said = failed.err().map(|one| one.to_string()).unwrap_or_default();
+        assert!(said.contains("ledger.fires"), "{said}");
+    }
+
+    /// A path with no parent needs no directory made for it. The root is
+    /// the case that has none, and it must not be an error.
+    #[test]
+    fn a_path_with_no_parent_needs_no_directory() {
+        assert!(ensure_dir(Path::new("/")).is_ok());
+    }
 }
