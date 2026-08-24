@@ -2062,13 +2062,19 @@ mod tests {
         (id, before)
     }
 
+    /// It RAISES `runner_timeout_ms` far above the default. Tests built on
+    /// this fixture assert what a rule SAID, and the bound is wall-clock
+    /// (B5, V38): a loaded box turns a millisecond rule into a killed one,
+    /// and the suite then reports a failure that never happened. MEASURED
+    /// twice today, under a concurrent clippy run. That the bound WORKS is
+    /// tested where it belongs, by a rule that really does hang.
     fn check_project(name: &str) -> PathBuf {
         let dir = PathBuf::from("target").join("cli-check").join(name);
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(
             dir.join("rekall.toml"),
-            "[sources]\nroots = [\".\"]\n",
+            "[sources]\nroots = [\".\"]\n\n[triggers]\nrunner_timeout_ms = 60000\n",
         );
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
@@ -2567,19 +2573,8 @@ mod tests {
     /// A project with one extracted `M` rule whose runner is real and
     /// whose trigger fires on `*.rs`.
     ///
-    /// It RAISES `runner_timeout_ms` far above the default. These tests
-    /// assert what a rule SAID, and the bound is wall-clock (B5, V38): a
-    /// loaded box turns a millisecond rule into a timeout, and the suite
-    /// then reports a failure that never happened. MEASURED again today --
-    /// two of these tests failed while a clippy run shared the machine,
-    /// and passed alone seconds later. That the bound WORKS is tested
-    /// where it belongs, by a rule that really does hang.
     fn rule_project(name: &str, body: &str) -> PathBuf {
         let dir = check_project(name);
-        let _ = std::fs::write(
-            dir.join("rekall.toml"),
-            "[sources]\nroots = [\".\"]\n\n[triggers]\nrunner_timeout_ms = 60000\n",
-        );
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
             "# Rules\n\n- never commit to `main`\n",
