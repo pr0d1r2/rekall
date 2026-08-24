@@ -3,3 +3,4 @@
 # `nix build` drops this symlink into the store. Untracked by nature: it
 # names a path that exists on one machine.
 /result
+/.rekall/fires
