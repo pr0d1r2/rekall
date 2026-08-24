@@ -2664,6 +2664,46 @@ mod tests {
         assert_eq!(mode.ok(), Some(0o111), "the runner is not executable");
     }
 
+    /// B4, at the level it was found: `check` and `recall` must agree
+    /// about the same artifact. A generated `M` rule has no trigger block,
+    /// `check` is silent about that (V37 makes it gate-only), and `recall`
+    /// used to call it broken.
+    #[test]
+    fn check_and_recall_agree_about_a_generated_rule() {
+        let dir = one_extracted_rule("agree-m");
+        let drift = check_in(&dir, &[])
+            .map(|c| c.output.text)
+            .unwrap_or_default();
+        assert!(
+            !drift.contains(check::BAD_TRIGGER_BLOCK)
+                && !drift.contains(check::NO_TRIGGER),
+            "check called the trigger broken: {drift}"
+        );
+        let said = recall_in(&dir, &["--tool", "Edit", "--path", "a.rs"]);
+        assert!(said.contains("gates at commit only"), "{said}");
+        assert!(!said.contains("could not be read"), "{said}");
+    }
+
+    /// A project with one extracted `M` rule, left exactly as `apply`
+    /// wrote it -- no trigger block, which is the state B4 misread.
+    fn one_extracted_rule(name: &str) -> PathBuf {
+        let dir = check_project(name);
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n",
+        );
+        let _ = extracted(&dir);
+        dir
+    }
+
+    /// And a GATE-ONLY rule must not start firing as a side effect of
+    /// being called legal. `loads` stays false, so the hook says nothing.
+    #[test]
+    fn a_gate_only_rule_still_does_not_fire() {
+        let dir = one_extracted_rule("gate-only-quiet");
+        assert_eq!(hook_in(&dir, "a.rs"), serde_json::json!({}));
+    }
+
     #[test]
     fn recall_is_dispatched() {
         assert_eq!(

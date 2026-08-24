@@ -92,13 +92,36 @@ fn verdict(
     let Some(text) = one.artifact else {
         return (false, GONE);
     };
-    let (Ok(fire), Ok(refuse)) = (
-        trigger::parse_block(text, crate::apply::FIRES),
-        trigger::parse_block(text, crate::apply::NOT_FIRES),
+    let (Some(fire), Some(refuse)) = (
+        block(text, crate::apply::FIRES),
+        block(text, crate::apply::NOT_FIRES),
     ) else {
         return (false, UNREADABLE);
     };
     weigh(&fire, &refuse, at, &one.row.label)
+}
+
+/// A block, where ABSENT is not the same as MALFORMED.
+///
+/// V29 says `check` refuses a block that does not PARSE. An absent one is
+/// a different fact: V37 makes an empty `M` block GATE-ONLY -- the runner
+/// lives in the gate and a trigger is how it additionally arrives
+/// uninvited -- so a generated `M` artifact, which carries no block at
+/// all, is in a legal state.
+///
+/// It read as `UNREADABLE` before this (B4), which made `recall` report a
+/// defect on a file `check` was silently happy with. Two verbs
+/// contradicting each other about the same bytes is the failure V18 exists
+/// to prevent, arriving through the error type rather than through a
+/// second matcher.
+///
+/// `None` is reserved for a block that IS there and cannot be read.
+fn block(text: &str, heading: &str) -> Option<trigger::Trigger> {
+    match trigger::parse_block(text, heading) {
+        Ok(held) => Some(held),
+        Err(trigger::Fault::Missing) => Some(trigger::Trigger::default()),
+        Err(_) => None,
+    }
 }
 
 /// The SAME emptiness means different things by class (V37): for an `S`
@@ -233,6 +256,48 @@ mod tests {
         let held = row("aaa", "S3");
         let text = skill("", "");
         assert_eq!(first(&one(&held, &text)), (false, EMPTY.to_string()));
+    }
+
+    /// B4. A generated `M` artifact carries NO block -- it is a shell
+    /// script with the rule in comments -- and that is GATE-ONLY, not
+    /// broken. It read as "trigger could not be read" before, which
+    /// reported a defect on a file `check` was happy with.
+    #[test]
+    fn a_generated_rule_with_no_block_is_gate_only() {
+        let held = row("aaa", "M1");
+        let script = "#!/bin/sh\n# THE RULE:\n# - never commit\nexit 1\n";
+        assert_eq!(first(&one(&held, script)), (false, GATE_ONLY.to_string()));
+    }
+
+    /// The same absence on an `S` is WORK NOT DONE, not gate-only. One
+    /// fact, two meanings, decided by the class (V37).
+    #[test]
+    fn a_skill_with_no_block_is_empty_not_gate_only() {
+        let held = row("bbb", "S2");
+        let prose = "# s\n\n## Fires when\n\nEditing Rust files.\n";
+        assert_eq!(first(&one(&held, prose)), (false, EMPTY.to_string()));
+    }
+
+    /// ABSENT is benign; MALFORMED is not. A block that is THERE and will
+    /// not parse still refuses, because a trigger half-understood loads a
+    /// skill in cases nobody chose (V29).
+    #[test]
+    fn a_present_but_broken_block_is_still_unreadable() {
+        let held = row("aaa", "M1");
+        let text = skill("tolo = [\"Edit\"]", "");
+        assert_eq!(first(&one(&held, &text)), (false, UNREADABLE.to_string()));
+    }
+
+    /// One block present, the other absent: the present one still governs
+    /// rather than the absence poisoning the pair.
+    #[test]
+    fn a_missing_exclusion_does_not_stop_a_fire_block_matching() {
+        let held = row("aaa", "S1");
+        let text = format!(
+            "# s\n\n{}\n\n```rekall\npath = [\"**/*.rs\"]\n```\n",
+            crate::apply::FIRES
+        );
+        assert_eq!(first(&one(&held, &text)), (true, LOADS.to_string()));
     }
 
     #[test]

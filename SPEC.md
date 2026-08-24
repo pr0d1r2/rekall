@@ -159,7 +159,7 @@ T41|.|move each verb's TESTS to its cli module|T40
 
 T42|x|`log` reports NET reclaim; `plan` NAMES it before the move|V39,B3
 T43|x|SHRINK the pointer to `<!-- rekall <id> -->`; `revert` locates by ID, ⊥ by artifact path|V39,V9
-T44|.|`recall`/`hook`: a MISSING `M` block is GATE-ONLY, ⊥ unreadable|V37,B4
+T44|x|`recall`/`hook`: a MISSING `M` block is GATE-ONLY, ⊥ unreadable|V37,B4
 T45|.|`apply`'s `M` template EMITS the empty commented block, as `S` does ∴ V37 is discoverable|V37,T39
 T46|.|`init` DIAGNOSES: corpus cost vs ceiling, `U` rate, monolithic spec ∴ names the first cut|§I,V39
 T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|V2
