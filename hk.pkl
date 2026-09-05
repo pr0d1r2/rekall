@@ -317,11 +317,31 @@ local all = (fast) {
   /// Publishing does not ship the REPO, it ships a tarball whose file set is
   /// DERIVED -- git-tracked, minus `exclude`. That is a second file set
   /// nothing else in this repo examines.
+  /// The tarball BUILDING is not the same question as the tarball holding
+  /// the right files, and only the first was ever asked here. `.crate-files`
+  /// records the second answer so a change to it lands in a DIFF a reviewer
+  /// reads, rather than being discovered by a consumer at publish time.
+  ///
+  /// MEASURED, which is why this step exists: the crate shipped a generated
+  /// skill from `.claude/skills/` while excluding the `.rekall/` ledger that
+  /// records it -- an orphan artifact, the state `check` exits 1 on, inside
+  /// the tarball of the tool that refuses it. `cargo package` was green
+  /// throughout, because a tarball with a wrong file set still builds.
   ["package"] {
-    glob = List("**/*.rs", "Cargo.toml")
+    glob = List("**/*.rs", "Cargo.toml", ".crate-files")
     depends = List("no-default-features")
     check = """
       cargo package --quiet --allow-dirty --target-dir target/package-verify || { echo 'hk: cargo package failed. It ships a DERIVED file set -- git-tracked minus exclude -- so this is usually a path the tarball needs and does not have, or an exclude in Cargo.toml that took too much.' >&2; exit 1; }
+      mkdir -p target
+      cargo package --list --allow-dirty 2>/dev/null | sort > target/crate-files.txt || { echo 'hk: `cargo package --list` failed, so what the tarball would ship could not be read at all.' >&2; exit 1; }
+      diff -q .crate-files target/crate-files.txt >/dev/null || { echo 'hk: what the .crate SHIPS changed. The lines below are the difference between the recorded file set and the one this tree would publish. If it is intended, run `hk fix -S package` to record it. If it is not, something was added, deleted or excluded by accident.' >&2; diff .crate-files target/crate-files.txt >&2; exit 1; }
+      """
+    /// Records rather than judges. The point is never that a change is
+    /// wrong -- it is that a change is SEEN, in a diff, by whoever is about
+    /// to publish.
+    fix = """
+      mkdir -p target
+      cargo package --list --allow-dirty 2>/dev/null | sort > .crate-files || { echo 'hk: `cargo package --list` failed, so there is nothing to record.' >&2; exit 1; }
       """
   }
 

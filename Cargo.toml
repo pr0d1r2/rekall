@@ -65,6 +65,9 @@ exclude = [
   # `init` exists to write them a correct one. A wrong config that looks
   # authoritative is worse than an absent one the cold start fills in.
   "rekall.toml",
+  # The RECORD of what ships. It is about the release rather than part of it,
+  # and excluding it means the list never has to contain its own name.
+  ".crate-files",
 ]
 
 # lib + bin. The library is the contract a consumer and a test both use;
