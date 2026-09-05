@@ -160,15 +160,26 @@ fn destination(label: &str, slug: &str) -> String {
 
 /// What has to be wired for the artifact to matter.
 ///
-/// Three cases, and the third is V41: a rule the gate ALREADY enforces is
-/// not wired, it is MOVED. Writing a second runner beside the step that
+/// Four cases now, and the third is V41: a rule the gate ALREADY enforces
+/// is not wired, it is MOVED. Writing a second runner beside the step that
 /// already checks it would leave one rule stated twice, which is the
 /// defect extraction exists to remove, one layer below the prose.
+///
+/// The fourth is V57. A skill's trigger is not the only thing standing
+/// between it and doing something: `src/apply:V52` turns the host's own
+/// loading OFF, so with no `rekall hook` wired the artifact reaches no
+/// reader at all. B13 is what that costs when it goes unsaid -- `apply`
+/// wrote a guarded skill and `check` refused the same tree seconds later,
+/// and the user met the disagreement as a red gate on their first run.
 #[must_use]
-pub fn wiring_for(label: &str, artifact: &str, runner: &str) -> String {
+pub fn wiring_for(
+    label: &str,
+    artifact: &str,
+    runner: &str,
+    delivered: bool,
+) -> String {
     if !label.starts_with('M') {
-        return "give the skill a trigger AND an explicit do-not-fire clause (V3, V4)"
-            .to_string();
+        return skill_wiring(delivered);
     }
     if runner.is_empty() {
         return "add the script to the gate so it EXITS NONZERO on a violation (V2, V22)".to_string();
@@ -178,14 +189,35 @@ pub fn wiring_for(label: &str, artifact: &str, runner: &str) -> String {
     )
 }
 
+/// A skill's obligations, which are two where nothing delivers it.
+///
+/// Silent about the hook where one IS wired. A sentence telling someone to
+/// do what they have already done is the noise people learn to read past,
+/// and then read past on the line that mattered.
+fn skill_wiring(delivered: bool) -> String {
+    let trigger =
+        "give the skill a trigger AND an explicit do-not-fire clause (V3, V4)";
+    if delivered {
+        return trigger.to_string();
+    }
+    format!(
+        "{trigger}, AND wire `rekall hook` -- the head disables the host's own \
+         loading, so nothing loads this skill until something delivers it (V57)"
+    )
+}
+
 /// Recompute every step's wiring from its runner.
 ///
 /// Called after a plan file is READ. The human edits `runner`; the
 /// sentence beside it was written by `plan` before that edit, and a file
 /// whose two halves disagree is worse than one that carries neither.
-pub fn retire_stale_wiring(plan: &mut Plan) {
+///
+/// `delivered` is re-read too: a plan written before the hook was wired
+/// should not still be telling you to wire it.
+pub fn retire_stale_wiring(plan: &mut Plan, delivered: bool) {
     for step in &mut plan.steps {
-        step.wiring = wiring_for(&step.label, &step.artifact, &step.runner);
+        step.wiring =
+            wiring_for(&step.label, &step.artifact, &step.runner, delivered);
     }
 }
 
@@ -193,6 +225,7 @@ pub fn retire_stale_wiring(plan: &mut Plan) {
 fn step_for(
     found: &statement::Statement,
     weights: &classify::Weights,
+    delivered: bool,
 ) -> Result<Step, Error> {
     let verdict = classify::classify(
         &statement::normalize(&found.text),
@@ -203,12 +236,16 @@ fn step_for(
     if label == "U" {
         return Err(Error::Unclassified(found.id.clone()));
     }
-    Ok(assemble(found, label))
+    Ok(assemble(found, label, delivered))
 }
 
-fn assemble(found: &statement::Statement, label: String) -> Step {
+fn assemble(
+    found: &statement::Statement,
+    label: String,
+    delivered: bool,
+) -> Step {
     let artifact = destination(&label, &slug(&found.text));
-    let wiring = wiring_for(&label, &artifact, "");
+    let wiring = wiring_for(&label, &artifact, "", delivered);
     Step {
         runner: String::new(),
         id: found.id.clone(),
@@ -233,10 +270,11 @@ pub fn build(
     chosen: &[statement::Statement],
     sources: &[(String, String)],
     weights: &classify::Weights,
+    delivered: bool,
 ) -> Result<Plan, Error> {
     let mut steps = Vec::new();
     for found in chosen {
-        steps.push(step_for(found, weights)?);
+        steps.push(step_for(found, weights, delivered)?);
     }
     Ok(Plan {
         format: FORMAT,
@@ -390,11 +428,54 @@ mod tests {
             &statements(text),
             &sources(text),
             &classify::Weights::default(),
+            true,
         )
     }
 
     fn steps_of(text: &str) -> Vec<Step> {
         plan_of(text).map(|plan| plan.steps).unwrap_or_default()
+    }
+
+    /// V57: a skill's trigger is not the only thing between it and doing
+    /// something. B13 -- `apply` wrote a guarded skill and `check` refused
+    /// the same tree seconds later, and nothing said so at plan time.
+    #[test]
+    fn an_undelivered_skill_is_told_to_wire_the_hook() {
+        let said = wiring_for("S2", ".rekall/skills/x/SKILL.md", "", false);
+        assert!(said.contains("do-not-fire clause"), "{said}");
+        assert!(said.contains("rekall hook"), "{said}");
+    }
+
+    /// And silent about it where one IS wired. A sentence telling someone
+    /// to do what they have done is the noise people read past.
+    #[test]
+    fn a_delivered_skill_hears_only_about_its_trigger() {
+        let said = wiring_for("S2", ".rekall/skills/x/SKILL.md", "", true);
+        assert!(said.contains("do-not-fire clause"), "{said}");
+        assert!(!said.contains("rekall hook"), "{said}");
+    }
+
+    /// An `M` rule is delivered by the GATE, by path, so the hook has
+    /// nothing to do with it either way.
+    #[test]
+    fn a_rule_is_never_told_about_the_hook() {
+        let said = wiring_for("M1", ".rekall/rules/x.sh", "", false);
+        assert!(said.contains("add the script to the gate"), "{said}");
+        assert!(!said.contains("rekall hook"), "{said}");
+    }
+
+    /// A plan file written before the hook was wired should not still be
+    /// telling you to wire it -- the sentence is DERIVED, and reading the
+    /// file recomputes it.
+    #[test]
+    fn reading_a_plan_recomputes_the_delivery_sentence() {
+        let mut plan = plan_of("- when editing Rust, run clippy\n")
+            .unwrap_or_else(|_| empty_plan());
+        retire_stale_wiring(&mut plan, false);
+        let before = plan.steps.first().map(|s| s.wiring.clone());
+        retire_stale_wiring(&mut plan, true);
+        let after = plan.steps.first().map(|s| s.wiring.clone());
+        assert_ne!(before, after, "the sentence follows the wiring");
     }
 
     #[test]
@@ -504,18 +585,19 @@ mod tests {
         let text = "- never commit to `main`\n";
         let mut with_extra = sources(text);
         with_extra.push(("NOTES.md".to_string(), "unrelated".to_string()));
-        let plan = build(
-            &statements(text),
-            &with_extra,
-            &classify::Weights::default(),
-        )
-        .ok();
-        let names: Vec<String> = plan
+        let names = fingerprinted(&statements(text), &with_extra);
+        assert_eq!(names, vec!["CLAUDE.md".to_string()]);
+    }
+
+    fn fingerprinted(
+        found: &[statement::Statement],
+        sources: &[(String, String)],
+    ) -> Vec<String> {
+        build(found, sources, &classify::Weights::default(), true)
             .map(|plan| {
                 plan.fingerprint.iter().map(|f| f.src.clone()).collect()
             })
-            .unwrap_or_default();
-        assert_eq!(names, vec!["CLAUDE.md".to_string()]);
+            .unwrap_or_default()
     }
 
     #[test]
@@ -660,10 +742,14 @@ mod tests {
         let text = "- never commit to `main`\n";
         let mut doubled = sources(text);
         doubled.push(("CLAUDE.md".to_string(), text.to_string()));
-        let count =
-            build(&statements(text), &doubled, &classify::Weights::default())
-                .map(|plan| plan.fingerprint.len())
-                .unwrap_or_default();
+        let count = build(
+            &statements(text),
+            &doubled,
+            &classify::Weights::default(),
+            true,
+        )
+        .map(|plan| plan.fingerprint.len())
+        .unwrap_or_default();
         assert_eq!(count, 1);
     }
     /// The fallback every test above relies on: a plan that failed to build
@@ -679,7 +765,7 @@ mod tests {
     /// time -- and the sentence says which step the body comes from.
     #[test]
     fn a_named_runner_turns_the_wiring_into_a_move() {
-        let wiring = wiring_for("M1", ".rekall/rules/ascii.sh", "ascii");
+        let wiring = wiring_for("M1", ".rekall/rules/ascii.sh", "ascii", true);
         assert!(wiring.contains("MOVE"), "{wiring}");
         assert!(wiring.contains("`ascii`"), "{wiring}");
         assert!(wiring.contains("sh .rekall/rules/ascii.sh"), "{wiring}");
@@ -687,15 +773,16 @@ mod tests {
 
     #[test]
     fn an_empty_runner_still_asks_for_a_new_one() {
-        let wiring = wiring_for("M1", ".rekall/rules/ascii.sh", "");
+        let wiring = wiring_for("M1", ".rekall/rules/ascii.sh", "", true);
         assert!(wiring.contains("add the script to the gate"), "{wiring}");
     }
 
     /// A skill has no gate step to move, so its obligation is unchanged.
     #[test]
     fn a_skill_wiring_ignores_a_runner() {
-        let named = wiring_for("S1", ".rekall/skills/x/SKILL.md", "ascii");
-        let bare = wiring_for("S1", ".rekall/skills/x/SKILL.md", "");
+        let named =
+            wiring_for("S1", ".rekall/skills/x/SKILL.md", "ascii", true);
+        let bare = wiring_for("S1", ".rekall/skills/x/SKILL.md", "", true);
         assert_eq!(named, bare);
     }
 
@@ -716,7 +803,7 @@ mod tests {
                 ..empty_step()
             }],
         };
-        retire_stale_wiring(&mut plan);
+        retire_stale_wiring(&mut plan, true);
         let step = first_step(&plan);
         assert!(step.wiring.contains("MOVE"), "{step:?}");
     }

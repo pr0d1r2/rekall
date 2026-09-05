@@ -85,7 +85,7 @@ pub struct Seen<'a> {
 mod delivery;
 mod head;
 mod notes;
-pub use delivery::{undelivered, wired};
+pub use delivery::undelivered;
 pub use notes::{Note, notes, render_notes};
 
 /// Every way the corpus has drifted from what the ledger claims.

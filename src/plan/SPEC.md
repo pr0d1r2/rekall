@@ -35,8 +35,15 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V19: a PLAN carries a corpus FINGERPRINT: a content hash per source file it touches. `apply <PLAN>` REHASHES & REFUSES on mismatch, exit 1, ⊥ an override flag. Spans are addressed `file:line-line` & the corpus is LIVE prose a human edits between the two commands ∴ a stale plan deletes the WRONG lines from the user's private memory. `revert` restores the BYTES but ⊥ the trust: the artifact was materialized from text that was never the rule, & the ledger records the mistake as if it were intended. `apply:V16` makes memory dirs near-sacred; a plan is the only place the promise can be CHECKED.
+V57: `plan` NAMES the DELIVERY wiring, ⊥ only the artifact's own. An `M` row already says "add the script to the gate" ∵ writing the artifact ⊥ enforces it; an `S` row ! say the SAME about `rekall hook`, ∵ `src/apply:V52` turns the host's own loading OFF & the skill then reaches ⊥ ONE READER until a hook is wired. SAID AT PLAN TIME, before a byte moves (`.:V7`, `.:V19`), ∴ `src/check:V56`'s refusal is a PROMISE KEPT & ⊥ a surprise at the gate. ONLY where a hook is ⊥ already wired: a sentence telling you to do what you have done is the noise people learn to read past. MEASURED 2026-09-05: `apply` in a fresh project wrote a guarded skill & `check` refused the SAME tree seconds later, with ⊥ a word about it at plan time -- the two verbs disagreed & the user met the disagreement as a red gate on their first run.
 
 ## §T TASKS
 
 id|status|task|cites
 T48|.|`plan` NAMES the host's own format gates before rewriting a file this crate ⊥ owns|`apply:V16`
+T73|x|`wiring_for` takes DELIVERED: an `S` row in a project with ⊥ hook names wiring `rekall hook` beside its trigger obligation|V57,`src/check:V56`
+
+## §B BUGS
+
+id|date|cause|fix
+B13|2026-09-05|`apply` wrote the `src/apply:V52` guard UNCONDITIONALLY & `src/check:V56` called the result drift ∴ the crate shipped a default its OWN gate refuses: fresh project, one `S` extraction, `apply` exit 0 & `check` exit 1 seconds later. Two verbs decided hours apart, & ⊥ verb told the user at the point the decision was theirs|V57

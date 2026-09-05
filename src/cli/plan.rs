@@ -1,7 +1,7 @@
 use super::{
     Env, Format, Output, choose, load_corpus, need, net_reclaim, parse_format,
 };
-use crate::plan;
+use crate::{hook, plan, scan};
 use std::path::{Path, PathBuf};
 /// `plan` takes one or more ids plus `--out` and the usual flags.
 #[derive(Debug, Default)]
@@ -48,11 +48,19 @@ pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     }
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let loaded = load_corpus(&base, env)?;
-    let chosen = choose(&loaded.statements, &args.ids)?;
-    let mut built = plan::build(&chosen, &loaded.sources, &loaded.weights)
-        .map_err(|error| error.to_string())?;
+    let mut built = built_from(&args, &loaded, &base)?;
     fill_net(&mut built);
     emit_plan(&built, &args, &base)
+}
+
+fn built_from(
+    args: &PlanArgs,
+    loaded: &scan::Loaded,
+    base: &Path,
+) -> Result<plan::Plan, String> {
+    let chosen = choose(&loaded.statements, &args.ids)?;
+    plan::build(&chosen, &loaded.sources, &loaded.weights, hook::wired(base))
+        .map_err(|error| error.to_string())
 }
 
 /// V39: name the net BEFORE the move, so a losing extraction is visible

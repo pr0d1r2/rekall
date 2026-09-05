@@ -42,6 +42,7 @@ V56: a GUARDED `S` artifact with ⊥ DELIVERER is DRIFT. `src/apply:V52` switche
 id|status|task|cites
 T71|x|`check` reports `undelivered`: a guarded `S` row whose project harness config wires ⊥ `rekall hook`|V56,`src/apply:V52`
 T72|x|WIRE `rekall hook` in this repo & gate it: consumer #0 ! run the delivery path it ships, ∵ the guard's premise was ASSUMED here & measured false|V56
+T74|.|VERIFY the published link: a `.claude/skills/<slug>` symlink that resolves to nothing is an ORPHAN the gate refuses, which `src/apply:V48` has claimed since T62 landed|`src/apply:V48`,`.:V22`
 
 ## §B BUGS
 

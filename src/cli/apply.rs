@@ -1,7 +1,7 @@
 use super::{
     Env, Format, Output, load_corpus, need, one, parse_format, report,
 };
-use crate::{apply, ledger, plan, scan, statement};
+use crate::{apply, hook, ledger, plan, scan, statement};
 use std::path::{Path, PathBuf};
 /// `apply` takes ids OR a plan file, plus `--auto-approve`.
 #[derive(Debug, Default)]
@@ -92,7 +92,7 @@ pub fn apply_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let loaded = load_corpus(&base, env)?;
     let path = ledger::path_in(&base);
     let held = ledger::load(&path).map_err(|error| error.to_string())?;
-    let requested = resolve_plan(&args, &loaded, &held)?;
+    let requested = resolve_plan(&args, &loaded, &held, hook::wired(&base))?;
     refuse_if_stale(&requested.plan, &loaded)?;
     let outcome = staged_outcome(&requested, &held);
     let staged = Staged {
@@ -134,16 +134,18 @@ fn resolve_plan(
     args: &ApplyArgs,
     loaded: &scan::Loaded,
     held: &ledger::Ledger,
+    delivered: bool,
 ) -> Result<Requested, String> {
     if let Some(path) = args.plan_file.as_deref() {
-        return from_file(path);
+        return from_file(path, delivered);
     }
     if args.ids.is_empty() {
         return Err(NO_APPLY_INPUT.to_string());
     }
     let split = split_requested(&args.ids, loaded, held)?;
-    let plan = plan::build(&split.chosen, &loaded.sources, &loaded.weights)
-        .map_err(|error| error.to_string())?;
+    let plan =
+        plan::build(&split.chosen, &loaded.sources, &loaded.weights, delivered)
+            .map_err(|error| error.to_string())?;
     Ok(Requested {
         plan,
         already: split.already,
@@ -167,12 +169,12 @@ fn refuse_a_runner_on_a_skill(plan: &plan::Plan) -> Result<(), String> {
     Ok(())
 }
 
-fn from_file(path: &Path) -> Result<Requested, String> {
+fn from_file(path: &Path, delivered: bool) -> Result<Requested, String> {
     let text =
         std::fs::read_to_string(path).map_err(|error| error.to_string())?;
     let mut plan: plan::Plan =
         toml::from_str(&text).map_err(|error| error.to_string())?;
-    plan::retire_stale_wiring(&mut plan);
+    plan::retire_stale_wiring(&mut plan, delivered);
     refuse_a_runner_on_a_skill(&plan)?;
     Ok(Requested {
         plan,

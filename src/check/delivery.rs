@@ -11,31 +11,6 @@
 
 use super::{Drift, Seen, UNDELIVERED, drift};
 use crate::{issue, ledger};
-use std::path::Path;
-
-/// The project settings files `docs/INTEGRATION.md` names.
-///
-/// PROJECT scope only. A home path is not this crate's to read -- `check`
-/// reads the ledger and the files the ledger names -- so a user-level
-/// wiring is invisible here, and the finding SAYS that rather than
-/// asserting there is none.
-const SETTINGS: [&str; 2] = ["settings.json", "settings.local.json"];
-
-/// Does anything in this project wire `rekall hook`?
-///
-/// Matched as TEXT, not by parsing the hook schema. The schema is the
-/// harness's and it changes on their release cadence, so a parser here
-/// would answer "not wired" the day they nest the key one level deeper --
-/// reporting a fault that is really a version skew. The literal
-/// `rekall hook` in a settings file means one thing, and JSON has no
-/// comments to hide it in.
-#[must_use]
-pub fn wired(base: &Path) -> bool {
-    SETTINGS.iter().any(|name| {
-        std::fs::read_to_string(base.join(".claude").join(name))
-            .is_ok_and(|text| text.contains("rekall hook"))
-    })
-}
 
 /// Every guarded `S` artifact that nothing can deliver.
 ///
@@ -144,37 +119,5 @@ mod tests {
             artifact: Some(&bare),
         }];
         assert!(undelivered(&seen, false).is_empty());
-    }
-
-    /// The wiring is read as TEXT from the files `INTEGRATION.md` names,
-    /// and `settings.local.json` counts -- it is where a person wiring
-    /// this for themselves would put it.
-    #[test]
-    fn wiring_is_found_in_either_settings_file() {
-        let dir = std::path::PathBuf::from("target").join("check-wired");
-        let claude = dir.join(".claude");
-        let _ = std::fs::remove_dir_all(&dir);
-        let _ = std::fs::create_dir_all(&claude);
-        assert!(!wired(&dir), "nothing written yet");
-        let _ = std::fs::write(
-            claude.join("settings.local.json"),
-            "{\"hooks\":{\"PreToolUse\":[{\"hooks\":[{\"command\":\"rekall hook\"}]}]}}",
-        );
-        assert!(wired(&dir));
-    }
-
-    /// A settings file that mentions the crate but not the VERB is not
-    /// wiring. `rekall check` in a lint hook delivers no skill.
-    #[test]
-    fn another_rekall_verb_is_not_a_hook() {
-        let dir = std::path::PathBuf::from("target").join("check-other-verb");
-        let claude = dir.join(".claude");
-        let _ = std::fs::remove_dir_all(&dir);
-        let _ = std::fs::create_dir_all(&claude);
-        let _ = std::fs::write(
-            claude.join("settings.json"),
-            "{\"hooks\":{\"PreToolUse\":[{\"hooks\":[{\"command\":\"rekall check\"}]}]}}",
-        );
-        assert!(!wired(&dir));
     }
 }

@@ -1,5 +1,5 @@
 use super::{Env, Format, Output, need, parse_format};
-use crate::{check, corpus, ledger, scan};
+use crate::{check, corpus, hook, ledger, scan};
 use std::path::{Path, PathBuf};
 /// `check` takes no ids. It audits EVERYTHING the ledger claims, because a
 /// gate you can point at a subset is a gate that reports green for the
@@ -58,7 +58,7 @@ pub fn check_command(flags: &[String], env: &Env) -> Result<Checked, String> {
     let seen = zip_rows(&held, &bytes);
     let on_disk = artifacts_on_disk(&base, env)?;
     let mut found = check::audit(&seen, &on_disk);
-    found.extend(check::undelivered(&seen, check::wired(&base)));
+    found.extend(check::undelivered(&seen, hook::wired(&base)));
     render_check(&found, &check::notes(&seen), args.json)
 }
 

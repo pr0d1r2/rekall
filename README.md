@@ -158,7 +158,7 @@ c931906  M1
 8bd8468  S2
   delete  CLAUDE.md:8-9
   write   .rekall/skills/when-a-migration-touches-a-table/SKILL.md
-  wire    give the skill a trigger AND an explicit do-not-fire clause (V3, V4)
+  wire    give the skill a trigger AND an explicit do-not-fire clause (V3, V4), AND wire `rekall hook` -- the head disables the host's own loading, so nothing loads this skill until something delivers it (V57)
   net     +22 tokens
 ```
 
@@ -205,7 +205,8 @@ $ rekall check
 no-runner           .rekall/rules/never-commit-a-env-file.sh is still the generated placeholder, so the rule extracted from CLAUDE.md gates nothing (V2). Write the check in that script and remove the line that says it is unimplemented
 no-trigger          .rekall/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Fires when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
 no-refusal-clause   .rekall/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Does NOT fire when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
-rekall: 3 extraction problem(s). Each line above names the fix.
+undelivered         .rekall/skills/when-a-migration-touches-a-table/SKILL.md carries `disable-model-invocation: true`, so the host will not load it, and this project wires no `rekall hook` to deliver it instead -- nothing can reach the skill (V56). Wire the hook (docs/INTEGRATION.md). Only this project's settings were read, so a hook wired in your user settings is not counted here
+rekall: 4 extraction problem(s). Each line above names the fix.
 
 $ echo $?
 1
@@ -391,8 +392,9 @@ rekall issue    hand a proven skill to the loop that tends it
 plan is a reviewable artifact, a stale plan is refused rather than executed,
 and `apply` confirms before it touches anything.
 
-Every verb offers `--format human` and `--format json` with the same anatomy.
-An agent should never have to parse prose. JSON carries `class`, `sharpness`
+Every REPORTING verb offers `--format human` and `--format json` with the same
+anatomy. `hook` is the exception and takes no flags at all -- it speaks the
+harness's JSON on both ends. An agent should never have to parse prose. JSON carries `class`, `sharpness`
 and `label` as separate fields, so nothing has to string-surgery `M2`.
 
 ## The lifecycle
