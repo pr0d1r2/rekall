@@ -160,6 +160,23 @@
             ];
           };
           cargoLock.lockFile = ./Cargo.lock;
+          # The SUITE needs `itok`, so the package build does too.
+          #
+          # V8 delegates every token count to the sibling rather than
+          # reimplementing one, which makes it a real dependency of the tests
+          # and not a convenience of the dev shell. Without it five tests fail
+          # in the sandbox -- `tokens` directly, `cli::scan` through the net
+          # column -- and they fail for a MISSING TOOL while reading like a
+          # broken crate.
+          #
+          # MEASURED 2026-09-05: `nix build .#default` had never once
+          # succeeded, and `ci.yml` runs it, so CI was going to be red on the
+          # public repository's first push (`.:B17`). Nothing caught it
+          # because that repository does not exist yet, so the workflow has
+          # never executed.
+          nativeCheckInputs = [
+            itok.packages.${pkgs.stdenv.hostPlatform.system}.default
+          ];
           meta = {
             description = "mine agent memory and CLAUDE.md for rules and skills, extract them, and gate that the extraction stayed honest";
             homepage = "https://github.com/pr0d1r2/rekall";
