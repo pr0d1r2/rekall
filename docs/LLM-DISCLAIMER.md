@@ -35,11 +35,11 @@ executes it.**
 [`SPEC.md`](../SPEC.md) is the law rather than a description written
 afterwards. It carries:
 
-- **43 `§V` invariants** — what must stay true, each with the reasoning it
+- **46 `§V` invariants** — what must stay true, each with the reasoning it
   stands on rather than the rule alone.
-- **`§T` tasks** — 46 landed, 11 open. What is decided and what is not is
+- **`§T` tasks** — 48 landed, 9 open. What is decided and what is not is
   visible without reading the commit log.
-- **7 `§B` bugs** — every defect found so far, paired with the invariant
+- **8 `§B` bugs** — every defect found so far, paired with the invariant
   that now catches it. A bug that produced no invariant is a bug that will
   return.
 - **`§R` research** — the measurements the constraints rest on, each row
@@ -58,8 +58,8 @@ parsed, not about one that was skimmed.
 
 Entering the dev shell (`nix develop`, or `direnv allow`) installs
 `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk)
-against one definition of the gate in [`hk.pkl`](../hk.pkl): **18 steps on
-commit, 23 on push**, the slow half adding doctests, rustdoc, the
+against one definition of the gate in [`hk.pkl`](../hk.pkl): **20 steps on
+commit, 26 on push**, the slow half adding doctests, rustdoc, the
 no-default-features build, the packaged tarball and coverage.
 [`ci.yml`](../.github/workflows/ci.yml) calls that same definition on three
 platforms, so a laptop and a runner cannot disagree.
@@ -68,8 +68,8 @@ Some numbers, current as of the commit that carries this file:
 
 | | |
 |---|---|
-| Tests | 529, plus 1 doctest |
-| Coverage | 99.21%, against a floor of 99.26% that may only rise |
+| Tests | 567, plus 12 integration and 1 doctest |
+| Coverage | 99.15%, against a floor of 99.26% that may only rise |
 | Direct dependencies | 5 |
 | `unsafe` | `forbid`, so it cannot be reintroduced locally |
 | Network calls | none, at any flag |

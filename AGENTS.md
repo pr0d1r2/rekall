@@ -12,7 +12,7 @@ hk check          # everything, the same definition CI runs
 ```
 
 One definition in [`hk.pkl`](hk.pkl), three callers: `pre-commit` takes the
-fast 18, `pre-push` and [`ci.yml`](.github/workflows/ci.yml) take all 24. The
+fast 20, `pre-push` and [`ci.yml`](.github/workflows/ci.yml) take all 26. The
 split is by cost — a sixty-second step on every commit is a step someone
 learns to bypass.
 

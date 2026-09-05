@@ -173,8 +173,8 @@ because a runner genuinely does more work, not because your machine is loaded.
 other people's extractions and not its own is a tool nobody has run in anger.
 
 One definition, three callers: [`hk.pkl`](../hk.pkl) holds the steps,
-`pre-commit` takes the fast 18, `pre-push` and
-[`ci.yml`](../.github/workflows/ci.yml) take all 23. The split is by cost — a
+`pre-commit` takes the fast 20, `pre-push` and
+[`ci.yml`](../.github/workflows/ci.yml) take all 26. The split is by cost — a
 sixty-second step on every commit is a step someone learns to bypass, and a
 bypassed hook is worse than none.
 
@@ -182,8 +182,6 @@ bypassed hook is worse than none.
 
 Named rather than left implicit:
 
-- **`catch` is unimplemented.** Transcript intake reports itself unimplemented
-  and exits without doing anything.
 - **`x86_64-darwin` is supported and not built in CI.** There is no free
   x86_64 macOS runner; it is exercised locally.
 - **The fire counter is per-checkout.** `.rekall/fires` is untracked by design,

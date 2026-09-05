@@ -9,10 +9,10 @@
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![gate steps 18 commit / 23 push](https://img.shields.io/badge/gate_steps-18_commit_%2F_23_push-6E4AFF)](hk.pkl)
+[![gate steps 20 commit / 26 push](https://img.shields.io/badge/gate_steps-20_commit_%2F_26_push-6E4AFF)](hk.pkl)
 [![coverage floor 99.26%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.26%25-brightgreen)](.coverage)
-[![invariants 43](https://img.shields.io/badge/invariants-43-6E4AFF)](SPEC.md)
-[![bugs logged 7](https://img.shields.io/badge/bugs_logged-7-6E4AFF)](SPEC.md)
+[![invariants 46](https://img.shields.io/badge/invariants-46-6E4AFF)](SPEC.md)
+[![bugs logged 8](https://img.shields.io/badge/bugs_logged-8-6E4AFF)](SPEC.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
 [![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)](flake.nix)
@@ -403,18 +403,19 @@ and how to report something.
 
 ## Status
 
-**0.2.0 is the working rung.** The crate builds reproducibly on every
-supported platform and the gate runs — that was 0.1.0's whole guarantee. On
-top of it, every verb but one now does its job end to end, and the loop closes
-on this repository's own `CLAUDE.md` as consumer #0.
+**0.3.0 is the second-intake rung.** The crate builds reproducibly on every
+supported platform and the gate runs — that was 0.1.0's whole guarantee — and
+every verb the spec names now does its job end to end, which was 0.2.0's.
 
-`catch` is the one exception. It is recognized and reports that it is
-unimplemented, which is deliberately not the same as being unknown.
+What 0.3.0 adds is the other way in. `catch` reads a transcript, so a rule a
+human states once mid-session outlives the session as a ledger candidate
+instead of dying with it. There is no longer a verb that reports itself
+unimplemented.
 
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
-truth — 43 invariants, each carrying the reasoning it stands on; 7 recorded
+truth — 46 invariants, each carrying the reasoning it stands on; 8 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
-what is decided and what is still open, at 46 landed and 11 remaining.
+what is decided and what is still open, at 48 landed and 9 remaining.
 
 ## Development
 
@@ -423,7 +424,7 @@ direnv allow      # or: nix develop
 hk check          # the whole gate, the same definition CI runs
 ```
 
-18 steps on commit, 23 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
+20 steps on commit, 26 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
 the loop; [`INTEGRATION.md`](docs/INTEGRATION.md) is how to put `rekall` in
 someone else's gate.
 

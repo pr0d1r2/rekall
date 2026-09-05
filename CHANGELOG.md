@@ -13,8 +13,8 @@ answers one question: *what can you rely on at this tag?*
 | version | what you can rely on | status |
 |---------|----------------------|--------|
 | `0.1` | it builds reproducibly on every supported platform, and the gate runs | reached |
-| `0.2` | every verb but `catch` does its job end to end, and the tool runs against its own corpus | **current** |
-| `0.3` | second intake: `catch` mines a transcript, so a violation seen at turn 200 outlives the session | planned |
+| `0.2` | every verb but `catch` does its job end to end, and the tool runs against its own corpus | reached |
+| `0.3` | second intake: `catch` mines a transcript, so a rule stated once outlives the session | **current** |
 | `0.4` | the diagnostic half — `init` names the first cut, `--dead` answers across a team rather than one checkout | planned |
 | `1.0` | the contract frozen: the CLI surface, the JSON anatomy, the trigger format and the ledger schema | planned |
 
@@ -29,18 +29,60 @@ Nothing has been published to crates.io yet.
 
 ## [Unreleased]
 
-Documentation caught up with the code. The repository now carries the
-`docs/` set the rest of the fleet has — code of conduct, contributing,
-security policy, third-party notices, integration — plus a worked example in
-the README that is real command output rather than an illustration.
+## [0.3.0] — 2026-09-05
+
+**The second-intake rung.** Every verb the spec names now does its job; there
+is no longer one that reports itself unimplemented.
+
+### Added
+
+- `rekall catch [<session>]` — reads a JSONL transcript and proposes what a
+  human stated as a rule mid-session. A violation is a **user** turn the
+  classifier does not call `U`; the assistant's own text is not evidence,
+  because a model restating the rule it just broke would mint a candidate out
+  of its own apology. Candidates go to the ledger, never to the corpus, and
+  promotion still runs through `plan` then `apply`.
+- Unreadable transcript lines are **skipped and counted**, and the count is
+  printed even when it is zero. "Few candidates" and "few violations" are the
+  same output otherwise.
+- `cargo-deny` in the gate: `bans`, `licenses` and `sources` on commit, and
+  `advisories` — the one step in the whole gate that touches the network — on
+  push only.
+- A relative-link check (`lychee --offline`) across every tracked file, not
+  only markdown.
+- `.crate-files`, recording what the published tarball ships, with a gate step
+  that fails on any change to it.
+- `release.toml` and `AGENTS.md`.
+- `tests/cli.rs` — twelve tests over the built binary, pinning the exit codes
+  and the JSON anatomy that a unit test cannot observe.
 
 ### Fixed
 
+- The `.crate` shipped a generated skill from `.claude/skills/` while
+  excluding the `.rekall/` ledger that records it — an orphan artifact, the
+  exact state `check` exits 1 on, inside the tarball of the tool that refuses
+  it. `cargo package` was green throughout, because a tarball with the wrong
+  files in it still builds.
 - `typos --write-changes` renamed **HashiCorp** to "HashCorp" inside the
   third-party trademark notices and committed the result. The word list now
-  carries the proper noun. The underlying shape — a gate step that rewrites
-  rather than reports, so an unrecognised name is silently changed instead of
-  adjudicated — is a spec matter and is recorded as such.
+  carries the proper noun; the underlying shape — a gate step that rewrites
+  rather than reports — is recorded as a spec matter.
+- `V44` shipped wrong for one commit: it scoped a transcript violation to the
+  mood signals, which are half a directive by construction, so `catch` missed
+  both "never X" and "always X" — the two forms a correction actually takes.
+  Measured, recorded as `§B8`, and corrected to the class. (`§B8`)
+
+### Changed
+
+- Documentation caught up with the code: the `docs/` set the rest of the fleet
+  carries — code of conduct, contributing, security policy, third-party
+  notices, integration, LLM disclaimer — plus a README worked example that is
+  real command output rather than an illustration.
+- `resolve` moved out of `src/cli.rs` into `src/cli/resolve.rs` when the
+  module-size gate fired at 502 lines. Dispatch and resolution are different
+  jobs and the seam was already there.
+- Two gate wirings were removed from `INTEGRATION.md` because nobody had run
+  them. What remains is `hk` and a plain git hook, both exercised.
 
 ## [0.2.0] — 2026-09-05
 
@@ -121,5 +163,6 @@ unknown.
 - A clippy deny list with no allow-list and no lint-debt file — affordable
   exactly once, at zero lines of code.
 
+[0.3.0]: #030--2026-09-05
 [0.2.0]: #020--2026-09-05
 [0.1.0]: #010--2026-08-21

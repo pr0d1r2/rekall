@@ -274,6 +274,49 @@ local fast = new Mapping<String, Step> {
       ripsecrets || { echo 'hk: a secret is in a tracked file. ROTATE it -- deleting the line does not help, because git history keeps every version of it.' >&2; exit 1; }
       """
   }
+
+  /// RELATIVE LINKS, across every tracked file rather than only markdown.
+  /// README.md and the docs/ tree point at LICENSE, hk.pkl, flake.nix and
+  /// each other, so a link can break with no markdown touched at all --
+  /// renaming a config file is enough.
+  ///
+  /// `--offline` is not a speed choice. This crate reaches the network
+  /// nowhere, and a gate step that fetches every external URL on every
+  /// commit would make that false in the one place a developer meets most
+  /// often. A dead external link is a documentation problem; a gate that
+  /// needs a network is a gate that goes soft on a plane.
+  ["links"] {
+    glob = List("**/*")
+    /// Absence before findings: `lychee: command not found` is also a
+    /// non-zero exit, and reporting it as a broken link sends the reader
+    /// hunting for a bad path that does not exist. MEASURED in a sibling,
+    /// where exactly that message cost a push.
+    check = """
+      command -v lychee >/dev/null 2>&1 || { echo "hk: SKIPPED links -- lychee is not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a broken link. Enter the dev shell to run it." >&2; exit 0; }
+      lychee --offline --no-progress . || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }
+      """
+  }
+
+  /// THE SUPPLY CHAIN. Five direct dependencies and 26 in the tree, so
+  /// "there is nothing to scan" -- the honest answer in a zero-dependency
+  /// sibling -- is not available here.
+  ///
+  /// `advisories` is NOT in this step: it fetches the RustSec database, and
+  /// this set runs on every commit. This crate's whole claim is that it
+  /// never reaches the network, so the one check that does lives in the
+  /// push set, in `deny-advisories` below.
+  ["deny"] {
+    glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
+    /// Absence before findings: `no such command: deny` is also a non-zero
+    /// exit, and reporting it as a rejected dependency tree names the wrong
+    /// cause entirely.
+    check = """
+      cargo deny --version >/dev/null 2>&1 || { echo "hk: SKIPPED cargo-deny -- not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a clean dependency tree. Enter the dev shell to run it." >&2; exit 0; }
+      cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail, and a new LICENCE is permission granted to everything downstream forever. Both belong in deny.toml as a deliberate edit, with the argument beside them.' >&2; exit 1; }
+      """
+  }
+
+
 }
 
 /// The PUSH tier: everything too slow for a commit hook. A ~60s step on
@@ -317,48 +360,6 @@ local all = (fast) {
   /// Publishing does not ship the REPO, it ships a tarball whose file set is
   /// DERIVED -- git-tracked, minus `exclude`. That is a second file set
   /// nothing else in this repo examines.
-  /// RELATIVE LINKS, across every tracked file rather than only markdown.
-  /// README.md and the docs/ tree point at LICENSE, hk.pkl, flake.nix and
-  /// each other, so a link can break with no markdown touched at all --
-  /// renaming a config file is enough.
-  ///
-  /// `--offline` is not a speed choice. This crate reaches the network
-  /// nowhere, and a gate step that fetches every external URL on every
-  /// commit would make that false in the one place a developer meets most
-  /// often. A dead external link is a documentation problem; a gate that
-  /// needs a network is a gate that goes soft on a plane.
-  ["links"] {
-    glob = List("**/*")
-    /// Absence before findings: `lychee: command not found` is also a
-    /// non-zero exit, and reporting it as a broken link sends the reader
-    /// hunting for a bad path that does not exist. MEASURED in a sibling,
-    /// where exactly that message cost a push.
-    check = """
-      command -v lychee >/dev/null 2>&1 || { echo "hk: SKIPPED links -- lychee is not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a broken link. Enter the dev shell to run it." >&2; exit 0; }
-      lychee --offline --no-progress . || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }
-      """
-  }
-
-  /// THE SUPPLY CHAIN. Five direct dependencies and 26 in the tree, so
-  /// "there is nothing to scan" -- the honest answer in a zero-dependency
-  /// sibling -- is not available here.
-  ///
-  /// `advisories` is NOT in this step: it fetches the RustSec database, and
-  /// this set runs on every commit. This crate's whole claim is that it
-  /// never reaches the network, so the one check that does lives in the
-  /// push set, in `deny-advisories` below.
-  ["deny"] {
-    glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
-    /// Absence before findings: `no such command: deny` is also a non-zero
-    /// exit, and reporting it as a rejected dependency tree names the wrong
-    /// cause entirely.
-    check = """
-      cargo deny --version >/dev/null 2>&1 || { echo "hk: SKIPPED cargo-deny -- not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a clean dependency tree. Enter the dev shell to run it." >&2; exit 0; }
-      cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail, and a new LICENCE is permission granted to everything downstream forever. Both belong in deny.toml as a deliberate edit, with the argument beside them.' >&2; exit 1; }
-      """
-  }
-
-  /// The tarball BUILDING is not the same question as the tarball holding
   /// the right files, and only the first was ever asked here. `.crate-files`
   /// records the second answer so a change to it lands in a DIFF a reviewer
   /// reads, rather than being discovered by a consumer at publish time.

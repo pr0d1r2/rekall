@@ -7,15 +7,14 @@
 # live there rather than being restated here.
 name = "rekall"
 # A minor is a level of GUARANTEE, not a feature count. 0.1.0 was the
-# scaffold rung: the crate builds reproducibly on every supported platform
-# and the gate runs, with no verb doing its job. That rung is passed, so the
-# minor moves rather than the patch.
+# scaffold rung (builds reproducibly, gate runs, no verb works); 0.2.0 was
+# the working rung (every verb but `catch`).
 #
-# 0.2.0 is the working rung: every verb but `catch` (T18) does its job end
-# to end, and the loop closes on this crate's own corpus as consumer #0 --
-# scan, plan, apply, check, hook, log, revert. `catch` still reports itself
-# unimplemented, which is why this is 0.2.0 and not 1.0.
-version = "0.2.0"
+# 0.3.0 is the SECOND INTAKE: `catch` reads a transcript, so a rule stated
+# once in a session outlives it as a ledger candidate. Every verb section I
+# names now does its job, which is why the minor moves rather than the
+# patch -- what a consumer may rely on changed, not how much there is.
+version = "0.3.0"
 edition = "2024"
 # The FLEET PIN, not a local choice: `nixpkgs-lock` pins nixos-26.05 for
 # every repo in the fleet, and 1.95 is what it carries (SPEC.md R8). A crate
