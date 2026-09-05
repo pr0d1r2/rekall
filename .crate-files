@@ -37,6 +37,7 @@ src/cli/resolve.rs
 src/cli/revert.rs
 src/cli/scan.rs
 src/cli/show.rs
+src/cli/testing.rs
 src/config.rs
 src/corpus.rs
 src/hook.rs

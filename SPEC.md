@@ -146,7 +146,7 @@ T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T29|x|CHOSEN: `catch` persists CANDIDATE rows to the LEDGER; report-only is about the CORPUS, ⊥ the disk|V7,V45,T3
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; ADVISES ⊥ blocks, bounded time|V37,V38,V2,T3
-T41|.|move each verb's TESTS to its cli module|T3
+T41|x|move each verb's TESTS to its cli module|T3
 T44|x|`recall`/`hook`: a MISSING `M` block is GATE-ONLY, ⊥ unreadable|V37,B4
 T46|.|`init` DIAGNOSES: corpus cost vs ceiling, `U` rate, monolithic spec ∴ names the first cut|§I,V39
 T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|V2

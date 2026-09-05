@@ -138,3 +138,134 @@ pub(super) fn warnings(outcome: &scan::Outcome) -> Vec<String> {
         .map(|path| format!("could not read {} -- skipped", path.display()))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::cli::testing::*;
+    use crate::cli::{Action, Output, perform};
+
+    use std::path::Path;
+
+    fn run_in(dir: &Path, extra: &[&str]) -> Result<Output, String> {
+        let mut flags =
+            vec!["-C".to_string(), dir.to_string_lossy().to_string()];
+        flags.extend(extra.iter().map(|item| (*item).to_string()));
+        scan_command(&flags, &env())
+    }
+
+    #[test]
+    fn a_configured_project_scans_end_to_end() {
+        let dir = project("end-to-end");
+        let output = run_in(&dir, &[]).ok();
+        assert!(
+            output.as_ref().is_some_and(|out| out.text.contains("M1")),
+            "output was {output:?}"
+        );
+        assert_eq!(output.map(|out| out.warnings.len()), Some(0));
+    }
+
+    /// Paths in the report are relative to the project, not to wherever the
+    /// process happened to start. This is what keeps ids findable later.
+    #[test]
+    fn output_paths_are_project_relative() {
+        let dir = project("relative");
+        let text = text_of(&dir, &[]);
+        assert!(text.contains("CLAUDE.md:1-1"), "text was {text}");
+        assert!(
+            !text.contains("target/test-project"),
+            "the absolute temp path leaked into the report"
+        );
+    }
+
+    #[test]
+    fn json_output_parses_and_matches_the_human_row_count() {
+        let dir = project("json");
+        let human_rows = text_of(&dir, &[]).lines().count();
+        assert_eq!(json_rows(&dir), human_rows);
+        assert!(human_rows > 0, "the fixture must produce rows");
+    }
+
+    /// The rendered text, or an empty string if the scan failed. A failed
+    /// scan then shows up as a failed ASSERTION on content rather than as
+    /// a panic in a helper -- which keeps every test path executable.
+    fn text_of(dir: &Path, extra: &[&str]) -> String {
+        run_in(dir, extra).map(|out| out.text).unwrap_or_default()
+    }
+
+    fn json_rows(dir: &Path) -> usize {
+        let text = text_of(dir, &["--format", "json"]);
+        serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .as_ref()
+            .and_then(|parsed| parsed.get("rows"))
+            .and_then(|rows| rows.as_array())
+            .map_or(0, std::vec::Vec::len)
+    }
+
+    #[test]
+    fn the_sources_flag_adds_a_source_line() {
+        let dir = project("sources");
+        let plain = text_of(&dir, &[]);
+        let with_sources = text_of(&dir, &["--sources"]);
+        assert!(with_sources.lines().count() > plain.lines().count());
+        assert!(with_sources.contains("project"));
+    }
+
+    #[test]
+    fn filters_reach_through_the_command() {
+        let dir = project("filter");
+        let text = text_of(&dir, &["--class", "S"]);
+        assert_eq!(text.lines().count(), 1);
+        assert!(text.contains("S2"), "text was {text}");
+    }
+
+    #[test]
+    fn an_unreadable_corpus_file_becomes_a_named_warning() {
+        let dir = project("warned");
+        let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
+        let warnings = run_in(&dir, &[])
+            .map(|out| out.warnings)
+            .unwrap_or_default();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings.first().is_some_and(|w| w.contains("bad.md")),
+            "{warnings:?}"
+        );
+    }
+
+    /// A broken config is an error, not an empty scan. Treating it as "no
+    /// config" would scan a corpus the user never described.
+    #[test]
+    fn a_broken_project_config_stops_the_scan() {
+        let dir = project("broken");
+        let _ = std::fs::write(
+            dir.join("rekall.toml"),
+            "[sources]\nroots = \"not a list\"\n",
+        );
+        assert!(run_in(&dir, &[]).is_err());
+    }
+
+    /// The binary's SUCCESS path: a real project, printed, exit 0. This is
+    /// the arm every ordinary invocation takes, and it was the last part
+    /// of the command path never executed by the suite.
+    #[test]
+    fn a_successful_scan_exits_zero() {
+        let dir = project("exit-zero");
+        let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
+        assert_eq!(perform(Action::Scan(flags), &env()), 0);
+    }
+
+    /// A corpus with an unreadable file still SUCCEEDS -- the warning is
+    /// printed, the readable statements are reported, and the exit code
+    /// stays 0. A partial corpus is not a failed run, but it must not be
+    /// a silent one either.
+    #[test]
+    fn a_scan_with_warnings_still_exits_zero() {
+        let dir = project("exit-zero-warned");
+        let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
+        let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
+        assert_eq!(perform(Action::Scan(flags), &env()), 0);
+    }
+}

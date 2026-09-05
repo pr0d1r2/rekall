@@ -109,3 +109,189 @@ fn render_plan(built: &plan::Plan, json: bool) -> Result<String, String> {
     }
     Ok(plan::render_human(built))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::scan::scan_command;
+    use crate::cli::testing::*;
+    use crate::cli::{Action, Output, USAGE_EXIT, decide, perform};
+    use crate::plan;
+    use std::path::Path;
+
+    fn plan_in(dir: &Path, extra: &[&str]) -> Result<Output, String> {
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.extend(args(extra));
+        plan_command(&flags, &env())
+    }
+
+    fn first_scan_id(dir: &Path) -> String {
+        scan_command(&args(&["-C", &dir.to_string_lossy()]), &env())
+            .map(|out| out.text)
+            .unwrap_or_default()
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    #[test]
+    fn plan_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["plan", "abc"])),
+            Action::Plan(args(&["abc"]))
+        );
+    }
+
+    #[test]
+    fn plan_without_ids_says_where_to_get_them() {
+        let message = plan_in(Path::new("."), &[]).err().unwrap_or_default();
+        assert!(message.contains("rekall scan"), "message was {message}");
+    }
+
+    #[test]
+    fn plan_names_the_delete_the_write_and_the_wiring() {
+        let dir = plan_project("human");
+        let id = first_scan_id(&dir);
+        let text = plan_in(&dir, &[&id])
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("delete  CLAUDE.md:1-1"), "{text}");
+        assert!(text.contains("write   .rekall/rules/"), "{text}");
+        assert!(text.contains("wire "), "{text}");
+    }
+
+    /// Every id resolves BEFORE any step is built, so a typo in the second
+    /// id does not hand back a partial plan for the first.
+    #[test]
+    fn one_bad_id_produces_no_plan_at_all() {
+        let dir = plan_project("partial");
+        let id = first_scan_id(&dir);
+        let outcome = plan_in(&dir, &[&id, "zzzzzzz"]);
+        assert!(outcome.is_err());
+    }
+
+    #[test]
+    fn planning_an_unclassified_statement_is_refused() {
+        let dir = plan_project("unclassified");
+        let listed =
+            scan_command(&args(&["-C", &dir.to_string_lossy()]), &env())
+                .map(|out| out.text)
+                .unwrap_or_default();
+        let last = listed.lines().last().unwrap_or_default();
+        let id = last.split_whitespace().next().unwrap_or_default();
+        let message = plan_in(&dir, &[id]).err().unwrap_or_default();
+        assert!(message.contains("unclassified"), "message was {message}");
+    }
+
+    #[test]
+    fn an_unknown_plan_flag_is_an_error() {
+        assert!(parse_plan(&args(&["--nope"])).is_err());
+        assert!(parse_plan(&args(&["--out"])).is_err());
+    }
+
+    /// `--out` makes the plan an ARTIFACT: reviewable, diffable, and
+    /// committable before a byte of corpus moves.
+    #[test]
+    fn out_writes_a_plan_file_that_parses_back() {
+        let dir = plan_project("out");
+        let id = first_scan_id(&dir);
+        let result = plan_in(&dir, &[&id, "--out", "nested/x.plan"]);
+        assert!(result.is_ok(), "{result:?}");
+        let text = std::fs::read_to_string(dir.join("nested").join("x.plan"))
+            .unwrap_or_default();
+        assert!(
+            toml::from_str::<plan::Plan>(&text).is_ok(),
+            "plan was {text}"
+        );
+    }
+
+    #[test]
+    fn writing_a_plan_is_reported_as_a_warning_not_silently() {
+        let dir = plan_project("reported");
+        let id = first_scan_id(&dir);
+        let warnings = plan_in(&dir, &[&id, "--out", "x.plan"])
+            .map(|result| result.warnings)
+            .unwrap_or_default();
+        assert!(
+            warnings.first().is_some_and(|w| w.contains("wrote plan")),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn plan_json_is_parseable() {
+        let dir = plan_project("json");
+        let id = first_scan_id(&dir);
+        let text = plan_in(&dir, &[&id, "--format", "json"])
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&text).is_ok(),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_successful_plan_exits_zero() {
+        let dir = plan_project("exit-zero");
+        let id = first_scan_id(&dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id);
+        assert_eq!(perform(Action::Plan(flags), &env()), 0);
+    }
+
+    #[test]
+    fn a_failed_plan_exits_two() {
+        assert_eq!(
+            perform(Action::Plan(args(&["zzzzzzz"])), &env()),
+            USAGE_EXIT
+        );
+    }
+
+    #[test]
+    fn a_plan_that_cannot_be_written_is_an_error() {
+        let dir = plan_project("unwritable");
+        let id = first_scan_id(&dir);
+        let outcome =
+            plan_in(&dir, &[&id, "--out", "/definitely/not/writable/x.plan"]);
+        assert!(outcome.is_err());
+    }
+
+    #[test]
+    fn an_ambiguous_plan_id_names_the_candidates() {
+        let dir = plan_project("ambiguous");
+        let message = plan_in(&dir, &[""]).err().unwrap_or_default();
+        assert!(
+            message.contains("matches 2 statements"),
+            "message was {message}"
+        );
+    }
+
+    /// The warning that a plan file was written goes to STDERR and the
+    /// plan to stdout, so `rekall plan --out p | less` still shows the plan
+    /// and the write is still announced.
+    #[test]
+    fn writing_a_plan_still_exits_zero() {
+        let dir = plan_project("out-exit");
+        let id = first_scan_id(&dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id);
+        flags.extend(args(&["--out", "x.plan"]));
+        assert_eq!(perform(Action::Plan(flags), &env()), 0);
+    }
+
+    /// `--out` is anchored to `-C` like every other path. A relative
+    /// `--out` resolved against the PROCESS directory would drop the plan
+    /// somewhere the project it describes cannot see.
+    #[test]
+    fn a_relative_out_lands_inside_the_project() {
+        let dir = plan_project("relative-out");
+        let id = first_scan_id(&dir);
+        assert!(plan_in(&dir, &[&id, "--out", "x.plan"]).is_ok());
+        assert!(
+            dir.join("x.plan").is_file(),
+            "plan did not land in the project"
+        );
+    }
+}

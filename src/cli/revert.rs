@@ -249,3 +249,272 @@ pub fn render_revert_human(
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::testing::*;
+    use crate::cli::{Action, USAGE_EXIT, decide, perform};
+    use crate::ledger;
+    use std::path::Path;
+
+    #[test]
+    fn revert_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["revert", "abc"])),
+            Action::Revert(args(&["abc"]))
+        );
+    }
+
+    /// V9: THE PROMISE. Extract, revert, and the file is the file that was
+    /// there -- byte for byte. The ledger's verbatim text is what makes it
+    /// a replay rather than a rewrite.
+    #[test]
+    fn revert_restores_the_original_bytes() {
+        let dir = revert_project("bytes");
+        let (id, before) = extracted(&dir);
+        let result = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(result.is_ok(), "{result:?}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(after, before);
+    }
+
+    /// V1, in the other direction. Restoring the source and leaving the
+    /// artifact behind would leave two hand-maintained statements of one
+    /// rule -- the copy V1 exists to forbid.
+    #[test]
+    fn revert_removes_the_artifact_and_the_ledger_row() {
+        let dir = revert_project("artifact");
+        let (id, _) = extracted(&dir);
+        let artifact = artifact_of(&dir, &id);
+        assert!(dir.join(&artifact).is_file(), "nothing was extracted");
+        let _ = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(
+            !dir.join(&artifact).exists(),
+            "the artifact survived: {artifact}"
+        );
+        let after = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        assert!(after.extracted.is_empty(), "{after:?}");
+    }
+
+    /// V20: off a tty and without the flag, revert refuses -- and the
+    /// corpus is untouched. The confirm gate is one rule, not one per verb.
+    #[test]
+    fn revert_without_approval_refuses_and_changes_nothing() {
+        let dir = revert_project("unattended");
+        let (id, _) = extracted(&dir);
+        let extracted_corpus =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        let message = revert_in(&dir, &[&id]).err().unwrap_or_default();
+        assert!(message.contains("--auto-approve"), "message was {message}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(
+            after, extracted_corpus,
+            "a refused revert edited the corpus"
+        );
+    }
+
+    /// V13: reverting twice is a no-op at exit 0. The statement is back in
+    /// the corpus and its text rehashes to the same id, so "not in the
+    /// ledger" means work already undone rather than an unknown id.
+    #[test]
+    fn reverting_twice_is_a_no_op() {
+        let dir = revert_project("idempotent");
+        let (id, before) = extracted(&dir);
+        let _ = revert_in(&dir, &[&id, "--auto-approve"]);
+        let second = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(second.is_ok(), "{second:?}");
+        let text = second.map(|out| out.text).unwrap_or_default();
+        assert!(text.contains("nothing to revert"), "{text}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(after, before, "a second revert changed the corpus");
+    }
+
+    #[test]
+    fn an_id_in_neither_the_ledger_nor_the_corpus_is_an_error() {
+        let dir = revert_project("unknown");
+        let message = revert_in(&dir, &["zzzzzzz", "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            message.contains("no statement matches"),
+            "message was {message}"
+        );
+    }
+
+    /// A ledger holding two rows that share a prefix, written by hand
+    /// because two REAL extractions get two hex ids that are not
+    /// guaranteed to collide on any character.
+    fn write_twin_rows(dir: &Path) {
+        let _ = std::fs::create_dir_all(dir.join(ledger::DIR));
+        let _ = std::fs::write(
+            ledger::path_in(dir),
+            "[[extracted]]\nid = \"aaa1111\"\nsrc = \"CLAUDE.md\"\n\
+             line_start = 1\nline_end = 1\ntext = \"x\"\nartifact = \"a.sh\"\n\n\
+             [[extracted]]\nid = \"aaa2222\"\nsrc = \"CLAUDE.md\"\n\
+             line_start = 2\nline_end = 2\ntext = \"y\"\nartifact = \"b.sh\"\n",
+        );
+    }
+
+    /// Section I: a prefix that matches two ids is a usage error, not a
+    /// coin toss -- and it says WHICH two, so the fix is to type more
+    /// characters rather than to guess.
+    #[test]
+    fn an_ambiguous_prefix_names_the_ids_it_matched() {
+        let dir = revert_project("ambiguous");
+        write_twin_rows(&dir);
+        let message = revert_in(&dir, &["aaa", "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("Use more characters"), "{message}");
+        assert!(message.contains("aaa1111"), "{message}");
+    }
+
+    /// The pointer is the ADDRESS. If someone deleted it by hand there is
+    /// no single place the text belongs, so revert refuses -- and names
+    /// what to do instead rather than only what went wrong (V28).
+    #[test]
+    fn a_hand_edited_pointer_refuses_and_names_the_fix() {
+        let dir = revert_project("no-pointer");
+        let (id, _) = extracted(&dir);
+        let _ = std::fs::write(dir.join("CLAUDE.md"), "# Rules\n\n- prose\n");
+        let message = revert_in(&dir, &[&id, "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            message.contains("no longer holds the pointer"),
+            "message was {message}"
+        );
+        assert!(message.contains("rekall log"), "no fix named: {message}");
+    }
+
+    /// An artifact someone already deleted is REPORTED, not an error: the
+    /// corpus still ends in the state the revert promised.
+    #[test]
+    fn an_artifact_that_is_already_gone_is_reported_not_fatal() {
+        let dir = revert_project("gone");
+        let (id, before) = extracted(&dir);
+        let _ = std::fs::remove_file(dir.join(artifact_of(&dir, &id)));
+        let text = revert_in(&dir, &[&id, "--auto-approve"])
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("was already gone"), "{text}");
+        let after =
+            std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap_or_default();
+        assert_eq!(after, before);
+    }
+
+    /// An artifact that will NOT delete is an error, and the ledger row is
+    /// kept on purpose: the extraction is not fully undone, and a ledger
+    /// that said it was would hide the leftover from `check` too. A
+    /// directory standing where the file should be is the portable way to
+    /// make the removal fail.
+    #[test]
+    fn an_artifact_that_cannot_be_removed_is_an_error() {
+        let dir = revert_project("stuck");
+        let (id, _) = extracted(&dir);
+        let artifact = dir.join(artifact_of(&dir, &id));
+        let _ = std::fs::remove_file(&artifact);
+        let _ = std::fs::create_dir_all(artifact.join("in-the-way"));
+        let message = revert_in(&dir, &[&id, "--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("could not be removed"), "{message}");
+        let after = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        assert_eq!(after.extracted.len(), 1, "the row was dropped anyway");
+    }
+
+    #[test]
+    fn revert_json_is_parseable() {
+        let dir = revert_project("json");
+        let (id, _) = extracted(&dir);
+        let text =
+            revert_in(&dir, &[&id, "--auto-approve", "--format", "json"])
+                .map(|out| out.text)
+                .unwrap_or_default();
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&text).is_ok(),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_json_revert_reports_what_it_did_on_stderr() {
+        let dir = revert_project("json-warnings");
+        let (id, _) = extracted(&dir);
+        let warnings =
+            revert_in(&dir, &[&id, "--auto-approve", "--format", "json"])
+                .map(|out| out.warnings)
+                .unwrap_or_default();
+        assert!(
+            warnings.iter().any(|w| w.contains("restored ")),
+            "{warnings:?}"
+        );
+        assert!(
+            warnings.iter().any(|w| w.contains("removed ")),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn revert_without_an_id_says_what_to_run() {
+        let dir = revert_project("no-input");
+        let message = revert_in(&dir, &["--auto-approve"])
+            .err()
+            .unwrap_or_default();
+        assert!(message.contains("rekall log"), "message was {message}");
+    }
+
+    #[test]
+    fn revert_takes_one_id_and_a_second_is_an_error() {
+        assert!(parse_revert(&args(&["aaa", "bbb"])).is_err());
+        assert!(parse_revert(&args(&["--nope"])).is_err());
+        assert!(parse_revert(&args(&["--format"])).is_err());
+    }
+
+    #[test]
+    fn a_successful_revert_exits_zero() {
+        let dir = revert_project("exit-zero");
+        let (id, _) = extracted(&dir);
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.push(id);
+        flags.push("--auto-approve".to_string());
+        assert_eq!(perform(Action::Revert(flags), &env()), 0);
+    }
+
+    #[test]
+    fn a_failed_revert_exits_two() {
+        assert_eq!(
+            perform(
+                Action::Revert(args(&["zzzzzzz", "--auto-approve"])),
+                &env()
+            ),
+            USAGE_EXIT
+        );
+    }
+
+    /// The revert of a corpus file in a NESTED directory. The artifact is
+    /// resolved against the project root, and recovering that root from
+    /// the source path is the step that would silently go wrong.
+    #[test]
+    fn a_nested_source_file_resolves_its_artifact_from_the_root() {
+        let dir = nested_project("nested");
+        let nested = dir.join("docs").join("AGENTS.md");
+        let (id, before) = extracted_from(&dir, &nested);
+        let artifact = artifact_of(&dir, &id);
+        assert!(dir.join(&artifact).is_file(), "nothing was extracted");
+        let result = revert_in(&dir, &[&id, "--auto-approve"]);
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(
+            std::fs::read_to_string(&nested).unwrap_or_default(),
+            before
+        );
+        assert!(
+            !dir.join(&artifact).exists(),
+            "the artifact resolved against the wrong root: {artifact}"
+        );
+    }
+}
