@@ -46,6 +46,19 @@ pub struct Entry {
 #[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Report {
     pub entries: Vec<Entry>,
+    /// Whether the fire counter has ever been WRITTEN.
+    ///
+    /// Carried in the report rather than inferred from a column of
+    /// zeroes, because those two states look identical and mean opposite
+    /// things: nothing has fired, versus nothing has been counting.
+    pub instrumented: bool,
+    /// How many rows `--dead` DECLINED to judge for want of a counter.
+    ///
+    /// It separates "nothing is dead" from "nothing was measured", which
+    /// is the whole distinction B11 turned on -- and it is what lets an
+    /// EMPTY ledger stay silent instead of carrying a warning about a
+    /// counter no row needed.
+    pub withheld: usize,
 }
 
 /// What to leave out.
@@ -65,15 +78,49 @@ pub struct Filter {
 /// most interesting column is how the thing that changed since yesterday
 /// stops being where you left it.
 #[must_use]
-pub fn report(held: &ledger::Ledger, filter: Filter) -> Report {
+pub fn report(
+    held: &ledger::Ledger,
+    filter: Filter,
+    instrumented: bool,
+) -> Report {
     Report {
-        entries: held
-            .extracted
-            .iter()
-            .filter(|row| keep(row, filter))
-            .map(entry)
-            .collect(),
+        entries: entries(held, filter, instrumented),
+        instrumented,
+        withheld: withheld(held, filter, instrumented),
     }
+}
+
+fn withheld(
+    held: &ledger::Ledger,
+    filter: Filter,
+    instrumented: bool,
+) -> usize {
+    if filter.dead && !instrumented {
+        return held.extracted.len();
+    }
+    0
+}
+
+/// The rows to show.
+///
+/// `--dead` over an UNINSTRUMENTED ledger names NOTHING (V55). Every row
+/// reads `fires = 0` there, so the filter would return the whole ledger
+/// and call it droppable -- and the caller would be told to delete rules
+/// their gate runs on every commit. Silence plus the line that says why is
+/// the only honest answer to a question nothing measured.
+fn entries(
+    held: &ledger::Ledger,
+    filter: Filter,
+    instrumented: bool,
+) -> Vec<Entry> {
+    if filter.dead && !instrumented {
+        return Vec::new();
+    }
+    held.extracted
+        .iter()
+        .filter(|row| keep(row, filter))
+        .map(entry)
+        .collect()
 }
 
 fn keep(row: &ledger::Extracted, filter: Filter) -> bool {
@@ -139,9 +186,34 @@ pub fn floor(now: u64, ago: u64) -> u64 {
 /// questions: the row is how the artifact is doing, the text is what it
 /// was. A log that truncated the statement to fit a column would be a log
 /// you have to leave to understand.
+/// What an uninstrumented ledger is told, verbatim.
+///
+/// It NAMES THE FIX (`.:V28`) and it names what was not measured rather
+/// than what is not there. `fires` counts one delivery path of three: an
+/// hk step running a runner ENFORCES a rule and an indexed head is LOADED
+/// by the host, and neither writes this counter.
+pub const UNMEASURED: &str = "\
+unmeasured  the fire counter has never been written -- there is no `.rekall/fires` \
+here, so nothing has been MEASURED as never firing and no row is named. \
+`rekall hook` is what increments it; wire it (docs/INTEGRATION.md) and ask again. \
+Note that an hk step running a rule's runner does NOT count: this column is \
+DELIVERED-TO-AN-AGENT, not enforced.\n";
+
+/// Is there anything for the note to be ABOUT?
+///
+/// An empty ledger needs no warning about a counter no row asked for, and
+/// a warning printed over nothing is the banner people learn to skip past
+/// -- and then skip past on the run where it mattered.
+fn says_unmeasured(report: &Report) -> bool {
+    !report.entries.is_empty() || report.withheld > 0
+}
+
 #[must_use]
 pub fn render_human(report: &Report) -> String {
     let mut out = String::new();
+    if !report.instrumented && says_unmeasured(report) {
+        out.push_str(UNMEASURED);
+    }
     for entry in &report.entries {
         out.push_str(&format!("{}\n", render_row(entry)));
         for line in entry.text.lines() {
@@ -197,7 +269,8 @@ mod tests {
     /// same defect as unreachable code anywhere else.
     #[test]
     fn every_extraction_is_listed_with_its_span_and_fire_count() {
-        let out = report(&held(vec![row("aaa", 3, 100)]), Filter::default());
+        let out =
+            report(&held(vec![row("aaa", 3, 100)]), Filter::default(), true);
         let first = out.entries.first();
         assert_eq!(
             first.map(|e| e.src.clone()),
@@ -212,6 +285,51 @@ mod tests {
 
     /// V11: a never-fired artifact is DETECTABLE. That is what makes
     /// deletion arithmetic instead of nerve.
+    /// B11: every row reads `fires = 0` when NOTHING has been counting, so
+    /// the unfiltered `--dead` returned the whole ledger and called it
+    /// droppable -- seven of those rows being runners this repo's gate
+    /// executes on every commit. Unmeasured is not dead.
+    #[test]
+    fn dead_names_nothing_when_the_counter_was_never_written() {
+        let ledger = held(vec![row("aaa", 0, 100), row("bbb", 0, 200)]);
+        let filter = Filter {
+            dead: true,
+            ..Filter::default()
+        };
+        assert!(report(&ledger, filter, false).entries.is_empty());
+    }
+
+    /// And it SAYS why, rather than printing nothing at all. Silence over
+    /// a question nobody measured reads as "no dead rules", which is the
+    /// same lie in a quieter voice.
+    #[test]
+    fn an_uninstrumented_report_says_it_was_not_measured() {
+        let ledger = held(vec![row("aaa", 0, 100)]);
+        let said = render_human(&report(&ledger, Filter::default(), false));
+        assert!(said.starts_with("unmeasured"), "{said}");
+        assert!(said.contains("rekall hook"), "names the fix: {said}");
+        assert!(said.contains("not enforced"), "names the scope: {said}");
+    }
+
+    /// An instrumented ledger says nothing extra. A banner on every run is
+    /// a banner nobody reads.
+    #[test]
+    fn an_instrumented_report_is_silent_about_it() {
+        let ledger = held(vec![row("aaa", 2, 100)]);
+        let said = render_human(&report(&ledger, Filter::default(), true));
+        assert!(!said.contains("unmeasured"), "{said}");
+    }
+
+    /// The plain log still lists every row when nothing has counted --
+    /// only the CLAIM about deadness is withheld, not the ledger itself.
+    #[test]
+    fn the_plain_log_still_lists_rows_when_uninstrumented() {
+        let ledger = held(vec![row("aaa", 0, 100)]);
+        let out = report(&ledger, Filter::default(), false);
+        assert_eq!(ids(&out), vec!["aaa"]);
+        assert!(!out.instrumented);
+    }
+
     #[test]
     fn dead_lists_only_what_never_fired() {
         let ledger = held(vec![row("aaa", 0, 0), row("bbb", 7, 0)]);
@@ -219,8 +337,8 @@ mod tests {
             dead: true,
             since: None,
         };
-        assert_eq!(ids(&report(&ledger, filter)), vec!["aaa"]);
-        assert_eq!(ids(&report(&ledger, Filter::default())).len(), 2);
+        assert_eq!(ids(&report(&ledger, filter, true)), vec!["aaa"]);
+        assert_eq!(ids(&report(&ledger, Filter::default(), true)).len(), 2);
     }
 
     /// The LABEL travels with the row. V11 makes sharpness and fire count
@@ -231,7 +349,7 @@ mod tests {
     fn the_class_is_reported_beside_the_fire_count() {
         let mut fuzzy = row("aaa", 0, 0);
         fuzzy.label = "S3".to_string();
-        let out = report(&held(vec![fuzzy]), Filter::default());
+        let out = report(&held(vec![fuzzy]), Filter::default(), true);
         let text = render_human(&out);
         assert!(text.contains("S3"), "{text}");
         assert!(text.contains("fires=0"), "{text}");
@@ -244,7 +362,7 @@ mod tests {
             dead: false,
             since: Some(500),
         };
-        assert_eq!(ids(&report(&ledger, filter)), vec!["new"]);
+        assert_eq!(ids(&report(&ledger, filter, true)), vec!["new"]);
     }
 
     /// A row recorded EXACTLY at the floor is included. A cutoff that
@@ -257,7 +375,7 @@ mod tests {
             since: Some(500),
         };
         assert_eq!(
-            ids(&report(&held(vec![row("edge", 1, 500)]), filter)).len(),
+            ids(&report(&held(vec![row("edge", 1, 500)]), filter, true)).len(),
             1
         );
     }
@@ -273,7 +391,7 @@ mod tests {
             dead: true,
             since: Some(500),
         };
-        assert_eq!(ids(&report(&ledger, filter)), vec!["new-dead"]);
+        assert_eq!(ids(&report(&ledger, filter, true)), vec!["new-dead"]);
     }
 
     #[test]
@@ -310,7 +428,7 @@ mod tests {
     fn the_order_is_the_ledgers_order() {
         let ledger = held(vec![row("second", 9, 0), row("first", 0, 0)]);
         assert_eq!(
-            ids(&report(&ledger, Filter::default())),
+            ids(&report(&ledger, Filter::default(), true)),
             vec!["second", "first"]
         );
     }
@@ -319,7 +437,8 @@ mod tests {
     /// NULL rather than a char/4 stand-in that looks measured.
     #[test]
     fn reclaim_is_absent_rather_than_estimated() {
-        let out = report(&held(vec![row("aaa", 0, 0)]), Filter::default());
+        let out =
+            report(&held(vec![row("aaa", 0, 0)]), Filter::default(), true);
         assert_eq!(out.entries.first().and_then(|e| e.reclaimed), None);
         assert!(render_human(&out).contains("net=-"), "{out:?}");
     }
@@ -329,7 +448,8 @@ mod tests {
     /// corpus that shrank.
     #[test]
     fn a_losing_extraction_reports_a_negative_net() {
-        let mut out = report(&held(vec![row("aaa", 0, 0)]), Filter::default());
+        let mut out =
+            report(&held(vec![row("aaa", 0, 0)]), Filter::default(), true);
         if let Some(entry) = out.entries.first_mut() {
             entry.reclaimed = Some(-10);
         }
@@ -340,8 +460,11 @@ mod tests {
     fn the_original_text_is_printed_under_its_row() {
         let mut wrapped = row("aaa", 0, 0);
         wrapped.text = "- first line\n  continued".to_string();
-        let text =
-            render_human(&report(&held(vec![wrapped]), Filter::default()));
+        let text = render_human(&report(
+            &held(vec![wrapped]),
+            Filter::default(),
+            true,
+        ));
         assert!(text.contains("\n  - first line\n"), "{text}");
         assert!(text.contains("\n    continued\n"), "{text}");
     }
@@ -349,7 +472,7 @@ mod tests {
     #[test]
     fn an_empty_ledger_renders_nothing() {
         assert_eq!(
-            render_human(&report(&held(Vec::new()), Filter::default())),
+            render_human(&report(&held(Vec::new()), Filter::default(), true)),
             ""
         );
     }

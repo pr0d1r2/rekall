@@ -39,7 +39,7 @@ V55: `fires` counts ONE DELIVERY PATH & the artifacts travel THREE ∴ `--dead` 
 ## §T TASKS
 
 id|status|task|cites
-T69|.|`--dead` REPORTS its own instrumentation: ⊥ journal = `unmeasured`, & a row is named dead ONLY where the counter has been written & stayed 0|V55,`.:V22`
+T69|x|`--dead` REPORTS its own instrumentation: ⊥ journal = `unmeasured`, & a row is named dead ONLY where the counter has been written & stayed 0|V55,`.:V22`
 T70|.|SECOND counter: an ENFORCED count the gate increments, separate from the delivered one. Needs the runner to call back ∴ a decision about the gate contract first|V55
 
 ## §B BUGS

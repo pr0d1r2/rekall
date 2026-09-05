@@ -1,7 +1,7 @@
 use super::apply::now;
 use super::{Env, Format, Output, need, net_reclaim, parse_format};
 use crate::{ledger, log};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 /// `log` reads the ledger. Report-only, and the one verb whose whole job
 /// is to make a rule's uselessness measurable rather than suspected.
 #[derive(Debug, Default)]
@@ -42,13 +42,24 @@ fn apply_log_arg<'a>(
 pub fn log_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let args = parse_log(flags)?;
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let held =
-        ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
-    let mut report = log::report(&held, log_filter(&args)?);
+    let path = ledger::path_in(&base);
+    let held = ledger::load(&path).map_err(|e| e.to_string())?;
+    let mut report =
+        log::report(&held, log_filter(&args)?, instrumented(&path));
     let skipped = fill_log_tokens(&mut report);
     let mut out = render_log(&report, args.json)?;
     out.warnings = skipped;
     Ok(out)
+}
+
+/// Has anything ever counted a fire here?
+///
+/// The JOURNAL's existence, not its contents. `hook` creates it on the
+/// first fire and only ever appends, so its absence is proof that nothing
+/// has been counting -- which is the one thing a column of zeroes cannot
+/// tell you apart from a corpus of rules nobody needed (V55).
+fn instrumented(path: &Path) -> bool {
+    ledger::fires_beside(path).exists()
 }
 
 /// The tokens RECLAIMED by each extraction, from the verbatim text the
@@ -127,29 +138,46 @@ mod tests {
         assert!(text.contains("- never commit to `main`"), "{text}");
     }
 
-    /// V11: `--dead` is the measurement that makes deletion arithmetic
-    /// instead of nerve. A fresh extraction has never fired, so it is
-    /// dead; one that has fired drops out.
+    /// V11 with V55's scope: `--dead` is the measurement that makes
+    /// deletion arithmetic instead of nerve, and it only speaks once
+    /// something is COUNTING. B11 is the whole reason -- before this, a
+    /// ledger nothing had ever fired against reported every row as
+    /// droppable, including rules the gate runs on every commit.
+    #[test]
+    fn dead_says_nothing_until_the_counter_exists() {
+        let dir = check_project("log-dead-unmeasured");
+        let (id, _) = extracted(&dir);
+        let said = dead_text(&dir);
+        assert!(!said.contains(&id), "unmeasured is not dead: {said}");
+        assert!(said.contains("unmeasured"), "and it says so: {said}");
+    }
+
+    /// Once the journal exists the answer is real, in both directions: a
+    /// row that fired drops out, and the one beside it that did not is
+    /// named.
     #[test]
     fn dead_lists_the_never_fired_and_drops_the_rest() {
         let dir = check_project("log-dead");
-        let (id, _) = extracted(&dir);
-        assert!(dead_text(&dir).contains(&id), "a fresh extraction is dead");
-        record_a_firing(&dir, &id);
-        assert_eq!(
-            dead_text(&dir),
-            "",
-            "a fired artifact was still called dead"
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n\n- always run the tests\n",
         );
+        let (fired, _) = extracted(&dir);
+        let quiet = rule_id(&dir);
+        let _ = apply_in(&dir, &[&quiet, "--auto-approve"]);
+        record_a_firing(&dir, &fired);
+        let said = dead_text(&dir);
+        assert!(!said.contains(&fired), "a fired artifact is not dead");
+        assert!(said.contains(&quiet), "and the quiet one is: {said}");
     }
 
-    /// Count one firing straight into the ledger. `hook` will do this for
-    /// real (T13); until then the counter is exercised where it lives.
+    /// Through the JOURNAL, which is the path `hook` uses. Writing the
+    /// count straight into the ledger would leave `.rekall/fires` absent
+    /// and the report correctly refusing to answer -- which is exactly
+    /// the state this test needs to get past.
     fn record_a_firing(dir: &Path, id: &str) {
         let path = ledger::path_in(dir);
-        let mut held = ledger::load(&path).unwrap_or_default();
-        held.fired(id);
-        let _ = ledger::save(&path, &held);
+        let _ = ledger::record_fire(&ledger::fires_beside(&path), id);
     }
 
     #[test]
