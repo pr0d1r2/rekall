@@ -23,14 +23,21 @@ never says "I do not know" is lying at a fixed rate.
 
 ## Status
 
-**0.1.0 is the scaffold rung.** The crate builds reproducibly on every
-supported platform and the gate runs. No verb does its job yet: each one is
-recognized and reports that it is unimplemented, which is deliberately not the
-same as being unknown.
+**0.2.0 is the working rung.** The crate still builds reproducibly on every
+supported platform and the gate still runs — that was 0.1.0's whole guarantee.
+On top of it, every verb but one now does its job end to end, and the loop
+closes on this repository's own `CLAUDE.md`: `scan` inventories it, `plan`
+diffs an extraction, `apply` writes the artifact and leaves a pointer, `check`
+gates the result, `hook` fires it at the trigger point, `log` reports the net
+tokens, and `revert` puts the statement back verbatim.
+
+`catch` is the one exception. It is recognized and reports that it is
+unimplemented, which is deliberately not the same as being unknown.
 
 The design is settled and written down. `SPEC.md` is the source of truth —
-28 invariants, each carrying the reasoning it stands on, and a task list that
-says what is decided and what is still open.
+43 invariants, each carrying the reasoning it stands on; 7 recorded bugs, each
+naming the invariant that now catches it; and a task list that says what is
+decided and what is still open, at 46 landed and 11 remaining.
 
 ## Verbs
 

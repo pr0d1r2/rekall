@@ -1,7 +1,9 @@
 # `target/` is build output, not source. The `package` step materializes a
-# `target/package/rekall-0.1.0/Cargo.toml` that cargo generates and nobody
-# edits, and formatting a generated file is a verdict about cargo's
-# formatter rather than about this repo.
+# `target/package/rekall-<version>/Cargo.toml` that cargo generates and
+# nobody edits, and formatting a generated file is a verdict about cargo's
+# formatter rather than about this repo. The version is left as a
+# placeholder here on purpose: spelling it out makes this comment go stale
+# on every release, and the argument does not depend on which release it is.
 #
 # `.direnv/` is the same argument, louder. It holds the FLAKE INPUTS --
 # nixpkgs among them -- so leaving it in scope pointed this gate at
