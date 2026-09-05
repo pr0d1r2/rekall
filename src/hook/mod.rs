@@ -115,22 +115,115 @@ pub fn loading(report: &recall::Report) -> Vec<String> {
         .collect()
 }
 
+/// Which harness is on the other end.
+///
+/// NAMED, never sniffed (`src:V47`). Codex sends `turn_id` and
+/// `permission_mode` where Claude Code sends neither, so a discriminator
+/// would rest on ABSENCE -- and absence is what the next release changes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Agent {
+    /// The DEFAULT, admitted as one: it keeps every hook line already
+    /// pasted into a `settings.json` working, and a Codex user passes the
+    /// flag or gets V49's refusal instead of a silent no-op.
+    #[default]
+    Claude,
+    Codex,
+}
+
+/// The names this build renders for.
+pub const AGENTS: [&str; 2] = ["claude", "codex"];
+
+/// An UNKNOWN name is a usage error, never a fall back to the default
+/// (`src:V47`). Someone who typed `--agent codx` meant something by it,
+/// and quietly answering as Claude Code would deliver the wrong dialect
+/// to a harness that then loads nothing and says nothing.
+pub fn agent_named(raw: &str) -> Result<Agent, String> {
+    match raw {
+        "claude" => Ok(Agent::Claude),
+        "codex" => Ok(Agent::Codex),
+        other => Err(format!(
+            "unknown --agent `{other}` -- expected one of {}",
+            AGENTS.join(", ")
+        )),
+    }
+}
+
+/// What the harness is told, and what the human is told when it cannot be.
+///
+/// Two channels because V58 splits them: `decision` goes to stdout for the
+/// harness to parse, and `refused` goes to stderr for the person who wired
+/// this. A refusal still yields a VALID EMPTY DECISION, so the harness
+/// never meets a parse error on top of a skip.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Reply {
+    pub decision: serde_json::Value,
+    pub refused: Option<String>,
+}
+
 /// What the harness is told.
 ///
 /// SILENT when nothing loads: an empty object is a valid decision that
 /// says "no opinion", and injecting an empty context block on every tool
 /// call would be the always-on cost this whole crate exists to remove.
+///
+/// The RENDERING differs per agent and the difference is not cosmetic
+/// (V49). Emitting `additionalContext` at a Codex `PreToolUse` loads
+/// nothing and says nothing -- exit 0, a skip wearing a successful exit,
+/// which is the one failure mode this crate refuses.
 #[must_use]
-pub fn decision(event: Option<&str>, skills: &[String]) -> serde_json::Value {
+pub fn decision(agent: Agent, event: Option<&str>, skills: &[String]) -> Reply {
     if skills.is_empty() {
-        return serde_json::json!({});
+        return quiet();
     }
-    serde_json::json!({
-        "hookSpecificOutput": {
-            "hookEventName": event.unwrap_or("PreToolUse"),
-            "additionalContext": skills.join("\n\n"),
+    rendered(agent, event.unwrap_or("PreToolUse"), skills)
+}
+
+/// ONE (agent, event) pair, rendered or refused.
+fn rendered(agent: Agent, at: &str, skills: &[String]) -> Reply {
+    let joined = skills.join("\n\n");
+    match agent {
+        Agent::Claude => say(serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": at,
+                "additionalContext": joined,
+            }
+        })),
+        Agent::Codex if at == "PreToolUse" => {
+            say(serde_json::json!({ "systemMessage": joined }))
         }
-    })
+        Agent::Codex => refuse(at, skills.len()),
+    }
+}
+
+fn quiet() -> Reply {
+    Reply {
+        decision: serde_json::json!({}),
+        refused: None,
+    }
+}
+
+fn say(decision: serde_json::Value) -> Reply {
+    Reply {
+        decision,
+        refused: None,
+    }
+}
+
+/// A pair this crate has not MEASURED, named rather than guessed at.
+///
+/// It says what was dropped and where the gap is, because the alternative
+/// is an envelope nobody here has run -- and a shape guessed right is
+/// indistinguishable from one guessed wrong until it silently drops a
+/// skill (V58).
+fn refuse(event: &str, dropped: usize) -> Reply {
+    Reply {
+        decision: serde_json::json!({}),
+        refused: Some(format!(
+            "rekall: {dropped} skill(s) NOT delivered -- no measured Codex \
+             rendering for `{event}`, and this build will not guess at one. \
+             Codex `PreToolUse` is the pair that works (V49, V58)"
+        )),
+    }
 }
 
 /// Whether this project WIRES this adapter.
@@ -251,12 +344,15 @@ mod tests {
 
     #[test]
     fn nothing_loading_is_an_empty_decision() {
-        assert_eq!(decision(Some("PreToolUse"), &[]), serde_json::json!({}));
+        let out = decision(Agent::Claude, Some("PreToolUse"), &[]);
+        assert_eq!(out.decision, serde_json::json!({}));
+        assert!(out.refused.is_none());
     }
 
     #[test]
     fn a_loading_skill_is_injected_as_context() {
-        let out = decision(Some("PreToolUse"), &["be careful".to_string()]);
+        let said = ["be careful".to_string()];
+        let out = decision(Agent::Claude, Some("PreToolUse"), &said).decision;
         assert_eq!(context_of(&out), Some("be careful".to_string()));
         assert_eq!(
             out.pointer("/hookSpecificOutput/hookEventName")
@@ -267,7 +363,65 @@ mod tests {
 
     #[test]
     fn several_skills_are_joined() {
-        let out = decision(None, &["one".to_string(), "two".to_string()]);
+        let said = ["one".to_string(), "two".to_string()];
+        let out = decision(Agent::Claude, None, &said).decision;
         assert_eq!(context_of(&out), Some("one\n\ntwo".to_string()));
+    }
+
+    /// V49, and the whole reason this dialect exists. MEASURED: Codex
+    /// `PreToolUse` accepts `systemMessage` and ignores
+    /// `additionalContext`, so the Claude rendering there is a silent
+    /// no-op -- exit 0, nothing loaded, nothing said.
+    #[test]
+    fn codex_is_told_at_a_pretooluse_through_system_message() {
+        let said = ["be careful".to_string()];
+        let out = decision(Agent::Codex, Some("PreToolUse"), &said).decision;
+        assert_eq!(
+            out.get("systemMessage").and_then(serde_json::Value::as_str),
+            Some("be careful")
+        );
+        assert!(out.get("hookSpecificOutput").is_none(), "{out}");
+    }
+
+    /// V58: a pair nobody here has RUN is refused and named, never
+    /// guessed at. A shape guessed right is indistinguishable from one
+    /// guessed wrong until it silently drops a skill.
+    #[test]
+    fn an_unmeasured_codex_event_refuses_and_says_what_was_dropped() {
+        let said = ["be careful".to_string()];
+        let out = decision(Agent::Codex, Some("SessionStart"), &said);
+        assert_eq!(out.decision, serde_json::json!({}), "still valid JSON");
+        let why = out.refused.unwrap_or_default();
+        assert!(why.contains("1 skill(s) NOT delivered"), "{why}");
+        assert!(why.contains("SessionStart"), "{why}");
+        assert!(why.contains("PreToolUse"), "names what works: {why}");
+    }
+
+    /// Nothing to deliver is not a refusal, whatever the event. There is
+    /// no skip to report when there was nothing to skip.
+    #[test]
+    fn an_unmeasured_pair_with_nothing_loading_stays_quiet() {
+        let out = decision(Agent::Codex, Some("SessionStart"), &[]);
+        assert_eq!(out.decision, serde_json::json!({}));
+        assert!(out.refused.is_none());
+    }
+
+    /// `src:V47`: the name is NAMED, and an unknown one is a usage error
+    /// rather than a quiet fall back to the default -- which would hand
+    /// the wrong dialect to a harness that then loads nothing.
+    #[test]
+    fn an_unknown_agent_is_refused_and_lists_the_known_ones() {
+        assert_eq!(agent_named("claude").ok(), Some(Agent::Claude));
+        assert_eq!(agent_named("codex").ok(), Some(Agent::Codex));
+        let why = agent_named("codx").err().unwrap_or_default();
+        assert!(why.contains("codx"), "{why}");
+        assert!(why.contains("claude, codex"), "{why}");
+    }
+
+    /// The default is `claude`, admitted as one: it keeps every hook line
+    /// already pasted into a `settings.json` working.
+    #[test]
+    fn the_default_agent_is_claude() {
+        assert_eq!(Agent::default(), Agent::Claude);
     }
 }

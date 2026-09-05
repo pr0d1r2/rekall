@@ -381,7 +381,7 @@ rekall plan     diff an extraction, optionally into a plan file
 rekall apply    execute an extraction; confirms before it mutates
 rekall check    the gate -- exit 1 on drift
 rekall recall   which situational skills load here
-rekall hook     harness hook JSON on stdin, decision JSON out
+rekall hook     harness hook JSON on stdin, decision JSON out (--agent)
 rekall log      read the ledger
 rekall catch    mine a transcript for candidate statements
 rekall revert   reverse one extraction, verbatim

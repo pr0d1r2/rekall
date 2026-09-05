@@ -111,7 +111,37 @@ What it does not do:
   yields an empty decision, not a crash. The blast radius of panicking there is
   every tool use, not one report.
 
+### Codex
+
+Same adapter, one flag, because the two harnesses read different keys:
+
+```
+rekall hook --agent codex
+```
+
+Codex `PreToolUse` accepts `systemMessage` and ignores `additionalContext`,
+so without the flag rekall emits the Claude Code envelope and Codex loads
+nothing — exit 0, silently. That is the failure this flag exists to remove.
+
+The name is **named, never sniffed**. Codex sends `turn_id` and
+`permission_mode` where Claude Code sends neither, so detection would rest on
+a field's absence, and absence is what the next release changes. Omitting
+`--agent` means `claude`, which keeps every hook line already in the field
+working. An unknown name is exit 2, never a fall back.
+
+Only `PreToolUse` is rendered for Codex, because it is the only pair anyone
+here has run. At any other event rekall prints a valid empty decision, exits
+0, and says on stderr which skills it did not deliver and why. It will not
+guess at an envelope: a shape guessed right looks exactly like one guessed
+wrong, until the day it silently drops a skill.
+
+`rekall catch` needs no flag. It reads every known transcript root, and a
+file under `~/.codex/sessions` is a Codex rollout *by location* — a fact
+about where it sits rather than a guess about what it holds.
+
 ### Other harnesses
+
+rekall reads the same payload fields from both, so only the REPLY differs.
 
 The payload fields `hook` reads are `hook_event_name`, `tool_name`,
 `tool_input.file_path`, `tool_input.notebook_path`, `tool_input.command`,

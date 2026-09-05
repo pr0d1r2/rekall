@@ -13,22 +13,45 @@ use std::path::Path;
 pub fn hook_command(
     stdin: &str,
     base: &Path,
-) -> Result<serde_json::Value, String> {
+    agent: hook::Agent,
+) -> Result<hook::Reply, String> {
     let payload = hook::parse(stdin);
-    // The runner's bound comes from config (B5). Read here at the edge, so
-    // everything below stays a function of its arguments.
-    let limit = runner::limit_from(
-        resolve(base).ok().and_then(|held| held.runner_timeout_ms),
-    );
+    let said = advice_for(&payload, base)?;
+    Ok(hook::decision(
+        agent,
+        payload.hook_event_name.as_deref(),
+        &said,
+    ))
+}
+
+/// What this situation has to say, in the order V18 requires: ONE matcher,
+/// the same one `recall` prints from.
+fn advice_for(
+    payload: &hook::Payload,
+    base: &Path,
+) -> Result<Vec<String>, String> {
     let path = ledger::path_in(base);
     let held = ledger::load(&path).map_err(|e| e.to_string())?;
     let texts = read_artifacts(base, &held);
     let candidates = zip_candidates(&held, &texts);
-    let report = recall::decide(&candidates, &hook::situation(&payload));
+    let report = recall::decide(&candidates, &hook::situation(payload));
     let loading = hook::loading(&report);
     count_fires(&path, &loading);
-    let said = advice(&loading, &held, &texts, &At { base, limit });
-    Ok(hook::decision(payload.hook_event_name.as_deref(), &said))
+    let at = At {
+        base,
+        limit: bound(base),
+    };
+    Ok(advice(&loading, &held, &texts, &at))
+}
+
+/// The runner's CPU bound, from config (B5).
+///
+/// Read at the edge, so everything below stays a function of its
+/// arguments.
+fn bound(base: &Path) -> std::time::Duration {
+    runner::limit_from(
+        resolve(base).ok().and_then(|held| held.runner_timeout_ms),
+    )
 }
 
 /// What the harness is told, per firing row.
@@ -96,18 +119,53 @@ fn count_fires(path: &Path, loading: &[String]) {
 /// document, and a nonzero exit here would read as "the tool broke" on
 /// every single tool call.
 pub(super) fn run_hook(flags: &[String], env: &Env) -> u8 {
-    if !flags.is_empty() {
-        eprintln!(
-            "rekall: `hook` takes no flags -- it reads one payload on stdin"
-        );
-        return USAGE_EXIT;
-    }
+    let agent = match agent_from(flags) {
+        Ok(agent) => agent,
+        Err(why) => {
+            eprintln!("rekall: {why}");
+            return USAGE_EXIT;
+        }
+    };
+    answer(agent, env)
+}
+
+/// Read the payload, write the decision, say what could not be delivered.
+///
+/// Exit 0 either way (V58): this adapter is in the request path of every
+/// tool call, so a nonzero exit is not one bad report, it is an error on
+/// every action a person takes -- and the first fix anyone reaches for is
+/// deleting the hook line.
+fn answer(agent: hook::Agent, env: &Env) -> u8 {
     let mut stdin = String::new();
     let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin);
-    let decision = hook_command(&stdin, &env.cwd)
-        .unwrap_or_else(|_| serde_json::json!({}));
-    println!("{decision}");
+    let reply = hook_command(&stdin, &env.cwd, agent)
+        .unwrap_or_else(|_| hook::decision(agent, None, &[]));
+    if let Some(said) = reply.refused.as_deref() {
+        eprintln!("{said}");
+    }
+    println!("{}", reply.decision);
     0
+}
+
+/// `hook` takes ONE flag, and it is the only one it will ever take.
+///
+/// `--format` is refused on purpose: this verb speaks the harness's JSON
+/// on both ends, so there is no second format to choose (V17's exception).
+/// An unknown flag is a usage error rather than something ignored -- a
+/// flag silently dropped reads, to whoever typed it, exactly like a flag
+/// that was honoured.
+fn agent_from(flags: &[String]) -> Result<hook::Agent, String> {
+    match flags {
+        [] => Ok(hook::Agent::default()),
+        [flag, name] if flag == "--agent" => hook::agent_named(name),
+        [flag] if flag == "--agent" => {
+            Err("`--agent` needs a value".to_string())
+        }
+        _ => Err(
+            "`hook` takes one payload on stdin and at most `--agent <name>`"
+                .to_string(),
+        ),
+    }
 }
 
 #[cfg(test)]
@@ -132,7 +190,76 @@ mod tests {
     }
 
     fn hook_in(dir: &Path, path: &str) -> serde_json::Value {
-        hook_command(&payload(dir, path), dir).unwrap_or_default()
+        decided(&payload(dir, path), dir, hook::Agent::Claude)
+    }
+
+    /// The decision alone, which is what most of these tests assert on.
+    fn decided(
+        stdin: &str,
+        dir: &Path,
+        agent: hook::Agent,
+    ) -> serde_json::Value {
+        hook_command(stdin, dir, agent)
+            .map(|reply| reply.decision)
+            .unwrap_or_default()
+    }
+
+    /// `--agent` reaches the verb as a flag, so a Codex user can name
+    /// their harness on the line they paste into their config.
+    #[test]
+    fn the_agent_flag_is_dispatched() {
+        assert_eq!(
+            decide(&args(&["hook", "--agent", "codex"])),
+            Action::Hook(args(&["--agent", "codex"]))
+        );
+    }
+
+    #[test]
+    fn no_flag_means_claude() {
+        assert_eq!(agent_from(&[]).ok(), Some(hook::Agent::Claude));
+    }
+
+    #[test]
+    fn the_agent_flag_names_the_dialect() {
+        let flags = args(&["--agent", "codex"]);
+        assert_eq!(agent_from(&flags).ok(), Some(hook::Agent::Codex));
+    }
+
+    /// `src:V47`: an unknown name is exit 2, never a fall back. And a
+    /// flag this verb does not have is a usage error rather than
+    /// something ignored -- a flag silently dropped reads, to whoever
+    /// typed it, exactly like one that was honoured.
+    #[test]
+    fn a_bad_agent_or_a_stray_flag_exits_two() {
+        assert_eq!(
+            perform(Action::Hook(args(&["--agent", "codx"])), &env()),
+            USAGE_EXIT
+        );
+        assert!(agent_from(&args(&["--agent"])).is_err());
+        assert!(agent_from(&args(&["--format", "json"])).is_err());
+    }
+
+    /// The whole point of T61, end to end: the SAME payload and the same
+    /// project, rendered two ways because the two harnesses read two
+    /// different keys. Before this, Codex got the Claude envelope and
+    /// loaded nothing, silently.
+    #[test]
+    fn one_situation_renders_differently_per_agent() {
+        let dir = recall_project("dialects", "path = [\"**/*.rs\"]", "");
+        let said = payload(&dir, "src/main.rs");
+        let claude = decided(&said, &dir, hook::Agent::Claude);
+        let codex = decided(&said, &dir, hook::Agent::Codex);
+        assert!(claude.get("hookSpecificOutput").is_some(), "{claude}");
+        assert!(codex.get("systemMessage").is_some(), "{codex}");
+        assert_eq!(
+            claude
+                .pointer("/hookSpecificOutput/additionalContext")
+                .and_then(serde_json::Value::as_str),
+            codex
+                .get("systemMessage")
+                .and_then(serde_json::Value::as_str),
+            "same advice, two envelopes"
+        );
     }
 
     #[test]
@@ -232,7 +359,7 @@ mod tests {
     #[test]
     fn a_broken_payload_still_exits_zero_with_valid_json() {
         let dir = check_project("hook-garbage");
-        let out = hook_command("not json", &dir).unwrap_or_default();
+        let out = decided("not json", &dir, hook::Agent::Claude);
         assert_eq!(out, serde_json::json!({}));
         assert_eq!(perform(Action::Hook(Vec::new()), &env()), 0);
     }
@@ -527,8 +654,11 @@ mod tests {
     fn a_word_trigger_fires_on_what_the_tool_was_asked_to_run() {
         let dir = recall_project("word-command", "word = [\"cargo test\"]", "");
         let printed = recall_in(&dir, &["--tool", "Bash", "cargo test"]);
-        let decided = hook_command(&command_payload(&dir, "cargo test"), &dir)
-            .unwrap_or_default();
+        let decided = decided(
+            &command_payload(&dir, "cargo test"),
+            &dir,
+            hook::Agent::Claude,
+        );
         assert!(printed.starts_with("load"), "{printed}");
         assert!(
             decided.get("hookSpecificOutput").is_some(),
@@ -544,9 +674,11 @@ mod tests {
             "word = [\"cargo test\"]",
             "word = [\"--list\"]",
         );
-        let decided =
-            hook_command(&command_payload(&dir, "cargo test --list"), &dir)
-                .unwrap_or_default();
+        let decided = decided(
+            &command_payload(&dir, "cargo test --list"),
+            &dir,
+            hook::Agent::Claude,
+        );
         assert_eq!(decided, serde_json::json!({}), "{decided}");
     }
 

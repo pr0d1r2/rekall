@@ -52,8 +52,8 @@ V47: the agent comes from PROVENANCE where there is one, & is NAMED where there 
 
 id|status|task|cites
 T44|x|`recall`/`hook`: a MISSING `M` block is GATE-ONLY, ⊥ unreadable|`hook:V37`,B4
-T60|.|`--agent <name>` on `hook` & `catch`; an UNKNOWN name is exit 2, ⊥ a fallback|V47,I.hook,I.catch
-T61|.|CODEX adapter: a human turn is `payload.role` = `developer`, & `PreToolUse` takes `systemMessage`, ⊥ `additionalContext`|`catch:V46`,V47,`hook:V49`
+T60|x|`--agent <name>` on `hook`; an UNKNOWN name is exit 2, ⊥ a fallback. The `catch` half is SUPERSEDED: V47 made provenance do that job -- a file under `~/.codex/sessions` is Codex BY LOCATION, so a flag there would ask for what the path already answers|V47,I.hook
+T61|x|CODEX adapter: a human turn is `payload.role` = `developer`, & `PreToolUse` takes `systemMessage`, ⊥ `additionalContext`|`catch:V46`,V47,`hook:V49`
 
 ## §B BUGS
 

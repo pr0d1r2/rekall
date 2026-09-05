@@ -36,11 +36,11 @@ fn unreachable(seen: &Seen<'_>) -> Option<Drift> {
 
 fn said(row: &ledger::Extracted) -> String {
     format!(
-        "{} carries `{}`, so the host will not load it, and this project wires \
-         no `rekall hook` to deliver it instead -- nothing can reach the skill \
-         (V56). Wire the hook (docs/INTEGRATION.md). Only this project's \
-         settings were read, so a hook wired in your user settings is not \
-         counted here",
+        "{} carries `{}`, so the host will not load it, and nothing this check \
+         can see delivers it instead (V56). Wire `rekall hook` \
+         (docs/INTEGRATION.md). ONLY this project's `.claude/` settings were \
+         read: a hook in your user settings, or in another harness's config \
+         such as Codex's, is real wiring this cannot see",
         row.artifact,
         issue::GUARD
     )
@@ -281,8 +281,9 @@ mod tests {
             .first()
             .map(|one| one.said.clone())
             .unwrap_or_default();
-        assert!(said.contains("Wire the hook"), "{said}");
+        assert!(said.contains("Wire `rekall hook`"), "{said}");
         assert!(said.contains("user settings"), "{said}");
+        assert!(said.contains("Codex"), "another harness counts: {said}");
     }
 
     #[test]

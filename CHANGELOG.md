@@ -44,6 +44,18 @@ Nothing has been published to crates.io yet.
 - `rekall issue --all` — repairs rows that already exist: a missing
   `disable-model-invocation` back in every head, and host links a fresh
   checkout never had. It never regenerates an artifact, so triggers survive.
+- `rekall hook --agent codex` — the Codex dialect. Codex `PreToolUse` accepts
+  `systemMessage` and ignores `additionalContext`, so before this rekall
+  emitted the Claude Code envelope at a Codex hook and delivered nothing,
+  silently, at exit 0. The agent is **named, never sniffed**; omitting the
+  flag means `claude`; an unknown name is exit 2. Only measured (agent, event)
+  pairs render — any other refuses on stderr, naming the skills it did not
+  deliver, and still prints a valid empty decision at exit 0 so it cannot
+  break every tool call.
+- `check` reports a **dangling published link** — a `.claude/skills/<slug>`
+  symlink pointing at nothing, which the host still indexes and cannot read.
+  Only links into `.rekall/skills`, and silent where a ledger row already
+  explains the missing file.
 - `check` reports an **open handover** as a `note` rather than drift, in both
   formats. Notes travel beside the drift the exit code counts, never inside
   it. The JSON envelope gains a `notes` key.
