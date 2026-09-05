@@ -390,5 +390,20 @@ src       10000
 # a ceiling starts editing the document instead of reviewing it.
 
 
-README.md  5900
+# README.md 5900 -> 6000, for an INSTALL SECTION THAT WORKS.
+#
+# It said `git clone <this repo>`, which nobody can copy, and named no way to
+# build the pinned package at all -- `nix build .#default`, the path CI uses
+# and the one an rc is meant to be installed from. A first-contact document
+# whose first command is a placeholder has failed at the only job it has.
+#
+# Three trims were tried against it first and measured: shortening the note to
+# one line, folding it into the dev-shell paragraph, and tightening that
+# paragraph -- together about 40 tokens, against a real URL that costs more
+# than the placeholder it replaces. 26 short.
+#
+# The fleet argument from the 5700 -> 5900 entry stands and is not repeated.
+
+
+README.md  6000
 CLAUDE.md   600

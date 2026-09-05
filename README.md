@@ -52,14 +52,15 @@ never says "I do not know" is lying at a fixed rate.
 ## Install
 
 ```sh
-git clone <this repo> && cd rekall
+git clone https://github.com/pr0d1r2/rekall && cd rekall
 direnv allow          # or: nix develop
 cargo build --release
 ```
 
+Or `nix build .#default`, the pinned package CI builds. Not on crates.io.
+
 The dev shell pins the toolchain and puts `rekall`, `mth` and `itok` on PATH,
-so the crate can check its own spec and its own corpus without a global
-install.
+so the crate checks its own spec and its own corpus with no global install.
 
 ## Use
 
