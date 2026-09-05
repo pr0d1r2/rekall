@@ -14,7 +14,7 @@
 //! does the filesystem; everything that decides what counts as drift is
 //! testable without one.
 
-use crate::{apply, ledger, revert, trigger};
+use crate::{apply, issue, ledger, revert, trigger};
 
 /// Stable machine names for each kind of drift.
 ///
@@ -34,6 +34,11 @@ pub const LADDER: &str = "ladder";
 pub const LOOSE_QUOTE: &str = "loose-quote";
 pub const NO_PAYLOAD: &str = "no-payload";
 pub const NO_HEAD: &str = "no-head";
+pub const NO_GUARD: &str = "no-guard";
+
+/// The one NOTE kind: an issued extraction whose local copy still
+/// stands. `src/issue:V54` says that overlap is INTENDED.
+pub const HANDOVER_OPEN: &str = "handover-open";
 
 /// One thing wrong.
 ///
@@ -70,6 +75,10 @@ pub struct Seen<'a> {
     pub source: Option<&'a str>,
     pub artifact: Option<&'a str>,
 }
+
+mod head;
+mod notes;
+pub use notes::{Note, notes, render_notes};
 
 /// Every way the corpus has drifted from what the ledger claims.
 ///
@@ -151,12 +160,7 @@ fn copy_drift(seen: &Seen<'_>, text: &str) -> Vec<Drift> {
 fn artifact_drift(seen: &Seen<'_>) -> Vec<Drift> {
     let row = seen.row;
     let Some(text) = seen.artifact else {
-        return vec![drift(
-            MISSING_ARTIFACT,
-            &row.id,
-            &row.artifact,
-            said_missing_artifact(row),
-        )];
+        return absent_artifact(row);
     };
     let mut out = payload_drift(row, text);
     out.extend(by_class(row, text));
@@ -167,48 +171,28 @@ fn by_class(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
     if row.label.starts_with('M') {
         return runner_drift(row, text);
     }
-    let mut out = head_drift(row, text);
+    let mut out = head::head_drift(row, text);
+    out.extend(head::guard_drift(row, text));
     out.extend(skill_drift(row, text));
     out
 }
 
-/// V43: the HEAD is what the HOST indexes.
+/// An artifact that is not there.
 ///
-/// A skill lands in the host's own directory, so the host reads it and
-/// decides by its frontmatter. MEASURED before this existed: the first
-/// extraction listed under its ID, because the template wrote `# <hash>`
-/// as a heading and no frontmatter at all -- so the host's own trigger,
-/// the description it loads by, was seven hex characters.
-///
-/// `M` artifacts are exempt: nothing indexes `.rekall/rules`, and inventing
-/// a head for a shell script would be scaffold with no reader.
-fn head_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
-    if has_head(text) {
+/// RETIRED is the end state, not drift: the rule lives in the registry the
+/// row names, and this repository is done with it (`src/issue:V54`). The
+/// ledger that keeps the audit trail cannot be the ledger that fails the
+/// gate over the trail it kept. Every other absence is still a finding.
+fn absent_artifact(row: &ledger::Extracted) -> Vec<Drift> {
+    if issue::stage(row, false) == issue::Stage::Retired {
         return Vec::new();
     }
     vec![drift(
-        NO_HEAD,
+        MISSING_ARTIFACT,
         &row.id,
         &row.artifact,
-        format!(
-            "{} has no frontmatter, so the host that indexes this directory has nothing to \
-             name or describe it by (V43). Give it a `---` block with `name` and \
-             `description`, or regenerate it with `rekall revert {}` then `rekall apply {}`",
-            row.artifact, row.id, row.id
-        ),
+        said_missing_artifact(row),
     )]
-}
-
-fn has_head(text: &str) -> bool {
-    let mut lines = text.lines();
-    if lines.next().map(str::trim) != Some("---") {
-        return false;
-    }
-    let head: Vec<&str> =
-        lines.take_while(|line| line.trim() != "---").collect();
-    let names =
-        |key: &str| head.iter().any(|line| line.trim_start().starts_with(key));
-    names("name:") && names("description:")
 }
 
 /// V43: an artifact with no PAYLOAD mark has nothing a reader can take but
@@ -447,63 +431,12 @@ pub fn render_human(found: &[Drift]) -> String {
 }
 
 #[cfg(test)]
+mod testing;
+
+#[cfg(test)]
 mod tests {
+    use super::testing::*;
     use super::*;
-
-    fn row(label: &str) -> ledger::Extracted {
-        ledger::Extracted {
-            id: "abc1234".to_string(),
-            src: "CLAUDE.md".to_string(),
-            line_start: 3,
-            line_end: 3,
-            text: "- never commit to `main`".to_string(),
-            label: label.to_string(),
-            artifact: ".rekall/rules/no-main.sh".to_string(),
-            fires: 0,
-            at: 0,
-            issued_to: String::new(),
-        }
-    }
-
-    /// A source file in the state `apply` leaves it: pointer present,
-    /// statement gone.
-    fn extracted_source(held: &ledger::Extracted) -> String {
-        format!(
-            "# Rules\n\n{}\n\n- other prose\n",
-            apply::pointer_of(&held.id)
-        )
-    }
-
-    /// A runner that really checks something, with its payload MARKED as
-    /// the template writes it (V43).
-    const RUNNER: &str = "#!/bin/sh\n# rekall:payload\n# - never commit to `main`\n# rekall:/payload\ngrep -q main .git/HEAD && exit 1\n";
-    /// A skill whose BLOCKS are filled -- the state V29 asks for. The
-    /// prose is deliberately absent: it is never read, so a fixture that
-    /// carried some would test nothing.
-    const SKILL: &str = "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n## Fires when\n\n```rekall\npath = [\"**/*.rs\"]\n```\n\n\
-                         ## Does NOT fire when\n\n```rekall\npath = [\"**/tests/**\"]\n```\n";
-
-    /// A skill in the shape the OLD template wrote: both headings, words
-    /// under each, no block anywhere.
-    fn prose_skill() -> String {
-        format!(
-            "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
-            apply::FIRES,
-            apply::NOT_FIRES
-        )
-    }
-
-    fn blocks(fire: &str, refuse: &str) -> String {
-        format!(
-            "---\nname: s\ndescription: \"- never commit to `main`\"\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
-            apply::FIRES,
-            apply::NOT_FIRES
-        )
-    }
-
-    fn kinds(found: &[Drift]) -> Vec<&str> {
-        found.iter().map(|one| one.kind).collect()
-    }
 
     /// The clean case. Everything the ledger claims is true, so the gate
     /// says NOTHING -- success is silence (V28).
@@ -602,6 +535,69 @@ mod tests {
             artifact: Some(&half),
         }];
         assert_eq!(kinds(&audit(&seen, &[])), vec![NO_REFUSAL_CLAUSE]);
+    }
+
+    /// B10: every `S` artifact this crate wrote before V52 was
+    /// model-invocable, so the host loaded it on its own judgement and the
+    /// do-not-fire clause was bypassed on the path this crate does not
+    /// control. The gate names the verb that repairs it.
+    #[test]
+    fn a_skill_whose_head_does_not_disable_host_loading_is_drift() {
+        let held = row("S1");
+        let source = extracted_source(&held);
+        let bare = SKILL.replace("disable-model-invocation: true\n", "");
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some(&bare),
+        }];
+        let found = audit(&seen, &[]);
+        assert_eq!(kinds(&found), vec![NO_GUARD]);
+        assert!(found.iter().any(|one| one.said.contains("rekall issue")));
+    }
+
+    /// An artifact with NO head gets `no-head` and NOT also `no-guard`.
+    /// Two findings for one missing block would name the same fix twice.
+    #[test]
+    fn a_headless_skill_is_named_once() {
+        let held = row("S1");
+        let source = extracted_source(&held);
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: Some("no head at all\n"),
+        }];
+        assert!(!kinds(&audit(&seen, &[])).contains(&NO_GUARD));
+    }
+
+    /// `src/issue:V54`: a RETIRED row's artifact is gone on purpose. The
+    /// rule lives in the registry the row names, and the ledger that keeps
+    /// the audit trail cannot be the ledger that fails the gate over it.
+    #[test]
+    fn a_retired_extraction_is_not_a_missing_artifact() {
+        let mut held = row("S1");
+        held.issued_to = "../set-and-setting".to_string();
+        let source = extracted_source(&held);
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: None,
+        }];
+        assert!(audit(&seen, &[]).is_empty());
+    }
+
+    /// And a row that was NOT issued is still missing its artifact. The
+    /// exemption is the stage, not the absence.
+    #[test]
+    fn an_unissued_row_without_its_artifact_is_still_drift() {
+        let held = row("S1");
+        let source = extracted_source(&held);
+        let seen = vec![Seen {
+            row: &held,
+            source: Some(&source),
+            artifact: None,
+        }];
+        assert_eq!(kinds(&audit(&seen, &[])), vec![MISSING_ARTIFACT]);
     }
 
     #[test]

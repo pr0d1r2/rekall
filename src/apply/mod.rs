@@ -360,6 +360,7 @@ const SKILL_TEMPLATE: &str = "\
 ---
 name: {SLUG}
 description: {SUMMARY}
+disable-model-invocation: true
 ---
 
 Extracted by rekall from {SRC}:{START}-{END} (id {ID}).

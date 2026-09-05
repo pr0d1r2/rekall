@@ -57,7 +57,11 @@ pub fn check_command(flags: &[String], env: &Env) -> Result<Checked, String> {
     let bytes = read_rows(&base, &held);
     let seen = zip_rows(&held, &bytes);
     let on_disk = artifacts_on_disk(&base, env)?;
-    render_check(&check::audit(&seen, &on_disk), args.json)
+    render_check(
+        &check::audit(&seen, &on_disk),
+        &check::notes(&seen),
+        args.json,
+    )
 }
 
 /// The bytes each row is judged against, read once.
@@ -121,13 +125,15 @@ fn artifacts_on_disk(base: &Path, env: &Env) -> Result<Vec<String>, String> {
 
 /// V17: both formats, same anatomy. V28: human output is SILENT when
 /// clean -- output that always appears is output nobody reads.
-fn render_check(found: &[check::Drift], json: bool) -> Result<Checked, String> {
+fn render_check(
+    found: &[check::Drift],
+    notes: &[check::Note],
+    json: bool,
+) -> Result<Checked, String> {
     let text = if json {
-        serde_json::to_string_pretty(&Report { drift: found })
-            .map(|text| format!("{text}\n"))
-            .map_err(|error| error.to_string())?
+        as_json(found, notes)?
     } else {
-        check::render_human(found)
+        check::render_human(found) + &check::render_notes(notes)
     };
     Ok(Checked {
         output: Output {
@@ -138,12 +144,27 @@ fn render_check(found: &[check::Drift], json: bool) -> Result<Checked, String> {
     })
 }
 
+fn as_json(
+    found: &[check::Drift],
+    notes: &[check::Note],
+) -> Result<String, String> {
+    serde_json::to_string_pretty(&Report {
+        drift: found,
+        notes,
+    })
+    .map(|text| format!("{text}\n"))
+    .map_err(|error| error.to_string())
+}
+
 /// The JSON envelope. An OBJECT rather than a bare array, so a later
 /// field -- a count, a summary -- can be added without changing the type
 /// every consumer already parses.
 #[derive(serde::Serialize)]
 struct Report<'a> {
     drift: &'a [check::Drift],
+    /// True and not wrong, so it travels BESIDE the list the exit code
+    /// counts rather than inside it.
+    notes: &'a [check::Note],
 }
 
 #[cfg(test)]
@@ -288,7 +309,7 @@ mod tests {
             .unwrap_or_default();
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&text).ok(),
-            Some(serde_json::json!({"drift": []})),
+            Some(serde_json::json!({"drift": [], "notes": []})),
             "{text}"
         );
     }

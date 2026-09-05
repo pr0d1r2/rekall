@@ -47,7 +47,7 @@ T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|
 T50|.|slug ⊥ truncates mid-phrase|§I
 T62|x|artifacts move to `.rekall/`, PUBLISHED by symlink where a host indexes one; `check` verifies the link resolves & `revert` removes both|V48,V1,`src:V43`,`src/revert:V9`
 
-T66|.|`apply` writes `disable-model-invocation: true` into every `S` head; `check` VERIFIES it; the artifacts already written are REISSUED|V52,`src/trigger:V4`
+T66|x|`apply` writes `disable-model-invocation: true` into every `S` head; `check` VERIFIES it; the artifacts already written are REISSUED|V52,`src/trigger:V4`
 ## §B BUGS
 
 id|date|cause|fix
