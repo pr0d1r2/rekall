@@ -22,15 +22,15 @@ rustfmt.toml
 src/apply.rs
 src/catch.rs
 src/check.rs
-src/classify.rs
+src/classify/mod.rs
 src/classify/signals.rs
-src/cli.rs
 src/cli/apply.rs
 src/cli/catch.rs
 src/cli/check.rs
 src/cli/hook.rs
 src/cli/init.rs
 src/cli/log.rs
+src/cli/mod.rs
 src/cli/plan.rs
 src/cli/recall.rs
 src/cli/resolve.rs
