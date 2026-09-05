@@ -1,6 +1,7 @@
 ---
 name: when-a-test-fails-decide-first
 description: "When a test fails, decide first whether it is a code bug or a spec gap. A gap goes through `SPEC.md` before the fix, so the invariant that would have caught"
+disable-model-invocation: true
 ---
 
 Extracted by rekall from CLAUDE.md:39-41 (id 8fe6c04).

@@ -81,7 +81,10 @@ pub struct Extracted {
     /// asking which registry adopted a rule is asking the question this
     /// column exists to answer, and a three-state enum beside a path column
     /// would be two fields that can disagree.
-    #[serde(default)]
+    /// WRITTEN ONLY WHEN SET. An empty column on every row is noise a
+    /// reader has to skip past, and this file is read by people as often
+    /// as by this crate.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub issued_to: String,
 }
 
@@ -429,6 +432,48 @@ mod tests {
             held.extracted.first().map(|row| row.issued_to.clone()),
             Some(String::new())
         );
+    }
+
+    /// A row nobody issued writes NO column, so adding the field did not
+    /// rewrite every ledger in the fleet the first time anything saved
+    /// one. MEASURED: it did, before this attribute -- an empty
+    /// `issued_to = ""` appeared on all eleven rows of this repo's own
+    /// ledger, in a commit that was supposed to touch one artifact.
+    #[test]
+    fn a_row_that_was_never_issued_writes_no_column() {
+        let base = dir("no-column");
+        let path = path_in(&base);
+        let mut ledger = Ledger::default();
+        assert!(ledger.record(row("abc1234")));
+        assert!(save(&path, &ledger).is_ok());
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        assert!(!text.contains("issued_to"), "{text}");
+    }
+
+    /// And a row that WAS issued keeps it across a save.
+    #[test]
+    fn an_issued_row_keeps_its_destination() {
+        let base = dir("column");
+        let path = path_in(&base);
+        let mut ledger = Ledger::default();
+        assert!(ledger.record(row("abc1234")));
+        assert!(ledger.issue("abc1234", "../set-and-setting"));
+        assert!(save(&path, &ledger).is_ok());
+        assert_eq!(
+            load(&path)
+                .ok()
+                .and_then(|held| held.find("abc1234").cloned())
+                .map(|row| row.issued_to),
+            Some("../set-and-setting".to_string())
+        );
+    }
+
+    /// Issuing an id the ledger does not hold changes nothing and says
+    /// so, rather than inventing a row for it.
+    #[test]
+    fn issuing_an_unknown_id_is_false() {
+        let mut ledger = Ledger::default();
+        assert!(!ledger.issue("nope", "../elsewhere"));
     }
 
     #[test]
