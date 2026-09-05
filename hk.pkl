@@ -106,6 +106,50 @@ local fast = new Mapping<String, Step> {
   /// EXTRACTED from CLAUDE.md by rekall (id 3edbbbe). It reads THIS file
   /// and every extracted runner beside it, so the gate is judged by the
   /// rule it carries rather than by anyone remembering it.
+  /// The README's COUNTS, against the specs they claim to count.
+  ///
+  /// Five numbers -- invariants, bug rows, landed tasks, open tasks, nodes --
+  /// appear in badges and in prose, and every one of them drifted this
+  /// session while the gate stayed green: 54 against 58, 10 against 18, 16
+  /// against 23. They are exactly V22's subject, a figure DECLARED with
+  /// nothing reading it, and the fix is a runner rather than a habit.
+  ///
+  /// INLINE, and not a script under `.rekall/rules/`. That directory belongs
+  /// to EXTRACTED artifacts: every file in it is claimed by a ledger row that
+  /// records which statement it came from and how to undo it, and `rekall
+  /// check` calls anything else there an orphan. It did exactly that to the
+  /// first draft of this step, which is the tool catching its own author.
+  ["readme-counts"] {
+    glob = List("README.md", "SPEC.md", "src/**/SPEC.md")
+    check = """
+      # The file list comes from `find` with `target/` excluded, and nothing
+      # is summed. An earlier draft added per-file counts with
+      # `grep -rhc | paste -sd+ | bc` and reported 232 landed tasks against a
+      # real 23; the same pipeline by hand afterwards gave 23, so the cause
+      # was never pinned down and is not guessed at here. This version sums
+      # nothing.
+      specs() { find . -name SPEC.md -not -path './target/*' -not -path './.git/*'; }
+      rows() { specs | xargs grep -h "$1" 2>/dev/null | wc -l | tr -d ' '; }
+      num() { grep -oE "$1" README.md | head -1 | grep -oE '[0-9]+' | head -1; }
+      fail=0
+      same() {
+        [ "$2" = "$3" ] && return 0
+        echo "hk: README says $1 is $2; the specs hold $3. Fix the badge AND the prose beside it -- both are hand-written and drift apart (V22)." >&2
+        fail=1
+      }
+      v=$(specs | xargs grep -ho '^V[0-9]*' 2>/dev/null | sort -u | wc -l | tr -d ' ')
+      b=$(specs | xargs grep -ho '^B[0-9]*' 2>/dev/null | sort -u | wc -l | tr -d ' ')
+      same invariants "$(num 'invariants-[0-9]+')" "$v"
+      same 'bug rows' "$(num 'bugs_logged-[0-9]+')" "$b"
+      same nodes "$(num 'federated_nodes-[0-9]+')" "$(specs | wc -l | tr -d ' ')"
+      same 'tasks landed' "$(num 'at [0-9]+ landed')" "$(rows '^T[0-9]*|x|')"
+      same 'tasks open' "$(num 'and [0-9]+ remaining')" "$(rows '^T[0-9]*|[.]|')"
+      same 'invariants (prose)' "$(grep -oE 'truth . [0-9]+ invariants' README.md | grep -oE '[0-9]+')" "$v"
+      same 'bug rows (prose)' "$(grep -oE '; [0-9]+ recorded' README.md | grep -oE '[0-9]+')" "$b"
+      exit $fail
+      """
+  }
+
   ["failure-says-something"] {
     glob = List("hk.pkl", ".rekall/rules/**")
     check = "sh .rekall/rules/every-failing-step-names-the-fix.sh"
