@@ -186,11 +186,21 @@ pub fn commented(text: &str) -> String {
 /// The HOST indexes a skill by its folder, so the frontmatter name and the
 /// path have to agree or the same skill answers to two names.
 fn slug_of(artifact: &str) -> String {
+    skill_slug(artifact).unwrap_or_else(|| "rekall-skill".to_string())
+}
+
+/// `.rekall/skills/<slug>/SKILL.md` -> `<slug>`, or nothing.
+///
+/// ONE definition, three callers (V41): the frontmatter name above, the
+/// host link `apply` publishes, and the link `revert` and `issue` remove.
+/// Those were three copies of four lines, which is the shape that lets one
+/// of them drift while the other two keep working.
+#[must_use]
+pub fn skill_slug(artifact: &str) -> Option<String> {
     std::path::Path::new(artifact)
         .parent()
         .and_then(std::path::Path::file_name)
-        .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_else(|| "rekall-skill".to_string())
+        .map(|name| name.to_string_lossy().into_owned())
 }
 
 /// The one line the HOST decides by (V43).

@@ -2,7 +2,7 @@ use super::apply::{approved, consent_for};
 use super::{
     Env, Format, Output, load_corpus, need, one, parse_format, report,
 };
-use crate::{ledger, plan, revert};
+use crate::{apply, ledger, plan, revert};
 use std::path::{Path, PathBuf};
 /// `revert` takes ONE id plus `--auto-approve` and the usual flags.
 ///
@@ -209,11 +209,7 @@ fn perform_revert(
 /// Best effort and silent: a link nobody created is not an error, and a
 /// link that cannot be removed must not stop the corpus being restored.
 fn unpublish(base: &Path, artifact: &str) {
-    let Some(slug) = Path::new(artifact)
-        .parent()
-        .and_then(Path::file_name)
-        .map(|s| s.to_string_lossy().into_owned())
-    else {
+    let Some(slug) = apply::skill_slug(artifact) else {
         return;
     };
     let link = base.join(".claude").join("skills").join(slug);

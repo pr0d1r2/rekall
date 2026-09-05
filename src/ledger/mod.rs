@@ -36,7 +36,9 @@ pub const FILE: &str = "ledger.toml";
 pub const FIRES: &str = "fires";
 
 /// One extraction, with everything `revert` needs.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub struct Extracted {
     pub id: String,
     /// The STABLE name -- project-relative or `~`-prefixed, never absolute,
@@ -311,6 +313,20 @@ impl Ledger {
     }
 
     /// Remove an extraction, returning the row so `revert` can replay it.
+    /// Record WHERE a row was issued.
+    ///
+    /// Set rather than appended: re-issuing to a second registry replaces
+    /// the destination, because a row that named two would be describing
+    /// a rule with two owners and no answer to which one tends it.
+    pub fn issue(&mut self, id: &str, to: &str) -> bool {
+        let Some(row) = self.extracted.iter_mut().find(|row| row.id == id)
+        else {
+            return false;
+        };
+        row.issued_to = to.to_string();
+        true
+    }
+
     pub fn take(&mut self, id: &str) -> Option<Extracted> {
         let at = self.extracted.iter().position(|row| row.id == id)?;
         Some(self.extracted.remove(at))

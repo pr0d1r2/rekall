@@ -13,6 +13,6 @@ V54: the move is ZERO-DOWNTIME ∴ BOTH copies stand for a while, & the LEDGER i
 ## §T TASKS
 
 id|status|task|cites
-T65|.|a fresh checkout gets ⊥ published links: `publish` runs at `apply` ONLY. Republish the ledger's `S` rows where a host dir exists|`src/apply:V48`,`.:V22`
-T67|.|`rekall issue <id>... --to <dir>`: MOVE a proven extraction to where a loop tends it -- portable `SKILL.md` out, local artifact STANDS (V54), ledger row records WHERE. LOCAL WRITE ONLY, ⊥ a remote & ⊥ a `--push` (`.:V5`, `.:V15`). Knows ⊥ a destination's layout ∴ the registry ADOPTS. Subsumes T65's republish & T66's reissue: BOTH are `issue` over rows that already exist|`src/apply:V52`,V53,V54,`src/apply:V48`
-T68|.|RETIREMENT: `rekall issue --retire <id>` drops the local artifact & its link, KEEPS the row & its `issued_to`, & RESTORES ⊥ prose to the corpus -- the rule now lives one repo out, ∴ this is ⊥ `revert` (`revert:V9`). `check` treats a retired row as COMPLETE|V54,V53
+T65|x|a fresh checkout gets ⊥ published links: `publish` runs at `apply` ONLY. Republish the ledger's `S` rows where a host dir exists|`src/apply:V48`,`.:V22`
+T67|x|`rekall issue <id>... --to <dir>`: MOVE a proven extraction to where a loop tends it -- portable `SKILL.md` out, local artifact STANDS (V54), ledger row records WHERE. LOCAL WRITE ONLY, ⊥ a remote & ⊥ a `--push` (`.:V5`, `.:V15`). Knows ⊥ a destination's layout ∴ the registry ADOPTS. Subsumes T65's republish & T66's reissue: BOTH are `issue` over rows that already exist|`src/apply:V52`,V53,V54,`src/apply:V48`
+T68|x|RETIREMENT: `rekall issue --retire <id>` drops the local artifact & its link, KEEPS the row & its `issued_to`, & RESTORES ⊥ prose to the corpus -- the rule now lives one repo out, ∴ this is ⊥ `revert` (`revert:V9`). `check` treats a retired row as COMPLETE|V54,V53

@@ -361,10 +361,23 @@ fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
 /// repo that has none would be this crate deciding which agent someone
 /// runs, which is exactly what V47 refuses to guess at.
 fn publish(base: &Path, step: &plan::Step) -> Result<(), String> {
-    if !step.label.starts_with('S') {
+    publish_artifact(base, &step.label, &step.artifact)
+}
+
+/// The same link, from a LEDGER ROW rather than a plan step.
+///
+/// `issue` republishes rows that already exist (`src/issue:T65`), and a
+/// second implementation of "where does the host link go" is how the two
+/// paths end up disagreeing about it.
+pub(super) fn publish_artifact(
+    base: &Path,
+    label: &str,
+    artifact: &str,
+) -> Result<(), String> {
+    if !label.starts_with('S') {
         return Ok(());
     }
-    let Some(slug) = artifact_slug(&step.artifact) else {
+    let Some(slug) = apply::skill_slug(artifact) else {
         return Ok(());
     };
     let hosts = base.join(".claude").join("skills");
@@ -375,14 +388,6 @@ fn publish(base: &Path, step: &plan::Step) -> Result<(), String> {
         &hosts.join(&slug),
         &base.join(".rekall").join("skills").join(&slug),
     )
-}
-
-/// `.rekall/skills/<slug>/SKILL.md` -> `<slug>`.
-fn artifact_slug(artifact: &str) -> Option<String> {
-    Path::new(artifact)
-        .parent()
-        .and_then(Path::file_name)
-        .map(|s| s.to_string_lossy().into_owned())
 }
 
 fn link_skill(link: &Path, target: &Path) -> Result<(), String> {

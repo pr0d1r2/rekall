@@ -23,6 +23,7 @@ mod catch;
 mod check;
 mod hook;
 mod init;
+mod issue;
 mod log;
 mod plan;
 mod recall;
@@ -57,8 +58,10 @@ pub const USAGE_EXIT: u8 = 2;
 /// wrong" indistinguishable to the caller that has to react.
 pub const DRIFT_EXIT: u8 = 1;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub enum Format {
+    /// PROSE is the default because a person is the default reader (V17).
+    #[default]
     Human,
     Json,
 }
@@ -123,9 +126,9 @@ pub fn parse_format(raw: &str) -> Result<Format, String> {
 }
 
 /// Every verb SPEC.md section I defines, in the order it lists them.
-pub const VERBS: [&str; 11] = [
+pub const VERBS: [&str; 12] = [
     "init", "scan", "show", "plan", "apply", "check", "recall", "hook", "log",
-    "catch", "revert",
+    "catch", "revert", "issue",
 ];
 
 pub const USAGE: &str = "\
@@ -145,6 +148,7 @@ verbs:
   log     read the ledger
   catch   mine a transcript for candidate statements
   revert  reverse one extraction, verbatim; confirms before it mutates
+  issue   hand a proven skill to the loop that tends it
 
 exit: 0 ok, 1 drift or violation, 2 usage
 ";
@@ -171,6 +175,7 @@ pub enum Action {
     Log(Vec<String>),
     Recall(Vec<String>),
     Hook(Vec<String>),
+    Issue(Vec<String>),
     /// A verb section I defines that this build cannot perform.
     Unimplemented(String),
     /// A verb the binary has never heard of -- a typo, not a backlog row.
@@ -204,7 +209,7 @@ pub fn decide(args: &[String]) -> Action {
 /// function, so the mapping needs no match arm per verb -- which is what
 /// the line limit kept objecting to as this list grew.
 type Make = fn(Vec<String>) -> Action;
-const IMPLEMENTS: [(&str, Make); 11] = [
+const IMPLEMENTS: [(&str, Make); 12] = [
     ("scan", Action::Scan),
     ("init", Action::Init),
     ("show", Action::Show),
@@ -216,6 +221,7 @@ const IMPLEMENTS: [(&str, Make); 11] = [
     ("recall", Action::Recall),
     ("hook", Action::Hook),
     ("catch", Action::Catch),
+    ("issue", Action::Issue),
 ];
 
 fn verb_action(verb: &str, flags: Vec<String>) -> Action {
@@ -278,6 +284,7 @@ pub(super) fn reported(action: Action, env: &Env) -> Result<Output, String> {
         Action::Log(flags) => log_command(&flags, env),
         Action::Catch(flags) => catch::catch_command(&flags, env),
         Action::Recall(flags) => recall_command(&flags, env),
+        Action::Issue(flags) => issue::issue_command(&flags, env),
         other => Err(format!("{other:?} does not report an Output")),
     }
 }
@@ -708,9 +715,9 @@ mod tests {
     /// code, different message -- the distinction is the message's job.
     /// The verbs that actually do something. Kept beside the loop below so
     /// implementing a verb without dispatching it fails here.
-    const IMPLEMENTED: [&str; 11] = [
+    const IMPLEMENTED: [&str; 12] = [
         "scan", "init", "show", "plan", "apply", "revert", "check", "log",
-        "recall", "hook", "catch",
+        "recall", "hook", "catch", "issue",
     ];
 
     /// EVERY verb section I names now dispatches, so the loop below has an

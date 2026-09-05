@@ -14,6 +14,7 @@ pub mod config;
 pub mod corpus;
 pub mod hook;
 pub mod init;
+pub mod issue;
 pub mod ledger;
 pub mod log;
 pub mod plan;
