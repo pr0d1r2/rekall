@@ -402,6 +402,7 @@ pub fn row_for(step: &plan::Step, at: u64) -> ledger::Extracted {
         artifact: step.artifact.clone(),
         fires: 0,
         at,
+        issued_to: String::new(),
     }
 }
 

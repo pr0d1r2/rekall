@@ -461,6 +461,7 @@ mod tests {
             artifact: ".rekall/rules/no-main.sh".to_string(),
             fires: 0,
             at: 0,
+            issued_to: String::new(),
         }
     }
 

@@ -67,6 +67,20 @@ pub struct Extracted {
     /// taking a date dependency for one column.
     #[serde(default)]
     pub at: u64,
+    /// Where the artifact was ISSUED to, empty until it is.
+    ///
+    /// The row's STAGE, and the only place it is recorded. Empty means the
+    /// extraction lives here and nowhere else. Set, with the artifact still
+    /// present, means the handover is open and both copies stand
+    /// (`src/issue:V54`). Set, with the artifact gone, means RETIRED -- the
+    /// rule lives one repo out, and `check` must not call that an orphan.
+    ///
+    /// A String and not an enum, because it also has to say WHERE: a reader
+    /// asking which registry adopted a rule is asking the question this
+    /// column exists to answer, and a three-state enum beside a path column
+    /// would be two fields that can disagree.
+    #[serde(default)]
+    pub issued_to: String,
 }
 
 /// A statement `catch` proposed. Report-only for the corpus; promotion goes
@@ -352,6 +366,7 @@ mod tests {
             artifact: ".claude/rules/no-main.sh".to_string(),
             fires: 0,
             at: 1_700_000_000,
+            issued_to: String::new(),
         }
     }
 
@@ -373,6 +388,31 @@ mod tests {
         let _ = std::fs::create_dir_all(path.parent().unwrap_or(&base));
         let _ = std::fs::write(&path, "this = = not toml");
         assert!(load(&path).is_err());
+    }
+
+    /// A ledger written before `issued_to` existed still loads, and every
+    /// row in it reads as NOT ISSUED.
+    ///
+    /// This is the whole reason the column defaults rather than being
+    /// required: every ledger in the field was written without it, and a
+    /// store that refuses to parse after an upgrade takes `revert` -- the
+    /// one verb that has to work on old rows -- down with it.
+    #[test]
+    fn a_row_written_before_the_column_existed_reads_as_not_issued() {
+        let base = dir("pre-issue");
+        let path = path_in(&base);
+        let _ = std::fs::create_dir_all(path.parent().unwrap_or(&base));
+        let _ = std::fs::write(
+            &path,
+            "[[extracted]]\nid = \"abc1234\"\nsrc = \"CLAUDE.md\"\n\
+             line_start = 1\nline_end = 2\ntext = \"x\"\n\
+             artifact = \".rekall/rules/x.sh\"\n",
+        );
+        let held = load(&path).ok().unwrap_or_default();
+        assert_eq!(
+            held.extracted.first().map(|row| row.issued_to.clone()),
+            Some(String::new())
+        );
     }
 
     #[test]

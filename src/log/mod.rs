@@ -176,6 +176,7 @@ mod tests {
             artifact: ".rekall/rules/no-main.sh".to_string(),
             fires,
             at,
+            issued_to: String::new(),
         }
     }
 

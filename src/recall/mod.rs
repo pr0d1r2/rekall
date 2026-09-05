@@ -183,6 +183,7 @@ mod tests {
             artifact: format!(".claude/skills/{id}/SKILL.md"),
             fires: 0,
             at: 0,
+            issued_to: String::new(),
         }
     }
 
