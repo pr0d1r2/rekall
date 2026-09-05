@@ -1,0 +1,285 @@
+//! `catch` -- the SECOND intake (T18).
+//!
+//! `scan` reads a corpus somebody wrote deliberately. This reads a
+//! TRANSCRIPT, where a rule appears the moment a human corrects the agent
+//! and is gone with the session that produced it. A violation seen at turn
+//! 200 is lost tomorrow unless the candidate outlives it, which is the
+//! whole reason the verb exists (section I).
+//!
+//! Three invariants shape everything here:
+//!
+//! * **V44** -- a violation is a USER turn the classifier calls a RULE,
+//!   which is to say anything but `U`. The assistant's own text is not
+//!   evidence, and the criterion is the CLASS rather than a signal family
+//!   -- scoping it to mood shipped for one commit and missed both "never
+//!   X" and "always X", which B8 measured.
+//! * **V45** -- writing CANDIDATE rows to the ledger is not a breach of
+//!   report-only. Report-only is about the CORPUS, not the disk.
+//! * **V46** -- a transcript is someone else's document, so unknown fields
+//!   are ignored and unreadable lines are skipped AND COUNTED.
+
+use crate::classify::{self, Form, Weights};
+use crate::statement;
+
+/// One statement worth proposing, with the argument for it attached.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Caught {
+    pub id: String,
+    pub src: String,
+    pub text: String,
+    /// `class`, `sharpness` and `label` are carried SEPARATELY, the same
+    /// anatomy `scan` reports (V17). A consumer of `catch --format json`
+    /// must not have to split "M2" back into its parts any more than a
+    /// consumer of `scan` does.
+    pub class: String,
+    pub sharpness: Option<u8>,
+    pub label: String,
+    pub signals: Vec<String>,
+}
+
+/// What one pass over a transcript found, and what it could not read.
+///
+/// `skipped` is reported rather than swallowed. A transcript half of which
+/// failed to parse yields few candidates, and "few candidates" and "few
+/// violations" are the same output unless the count says otherwise --
+/// V26's lie moved from a gate step into a verb.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Report {
+    pub caught: Vec<Caught>,
+    pub turns: usize,
+    pub skipped: usize,
+}
+
+/// Read a transcript and propose every user statement that classifies as
+/// a rule.
+#[must_use]
+pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
+    let (turns, skipped) = user_turns(jsonl);
+    let mut caught = Vec::new();
+    for turn in &turns {
+        collect(turn, src, weights, &mut caught);
+    }
+    Report {
+        caught,
+        turns: turns.len(),
+        skipped,
+    }
+}
+
+/// Statements inside ONE user turn.
+///
+/// `Form::ListItem` is deliberate and is V44 doing V40's scoping in the
+/// other coordinate. V40 counts mood only inside a list item because a
+/// corpus states its rules as bullets and its context as paragraphs. A
+/// transcript has no bullets; what separates a rule from context there is
+/// WHO IS SPEAKING, and that filter has already been applied by the time
+/// this is called. Passing `Paragraph` here would score every user turn as
+/// context and the verb would find nothing at all.
+///
+/// The kept rows are everything the classifier does NOT call `U`. That is
+/// section I's "classed like any other" taken literally: `U` is already the
+/// answer for a request, so a transcript's ordinary "could you look at the
+/// parser?" falls out without a second rule to describe it.
+fn collect(turn: &str, src: &str, weights: &Weights, out: &mut Vec<Caught>) {
+    for said in statement::split(turn, src) {
+        let verdict = classify::classify(&said.text, Form::ListItem, weights);
+        if verdict.class == classify::Class::U {
+            continue;
+        }
+        out.push(Caught {
+            id: said.id,
+            src: src.to_owned(),
+            text: said.text,
+            class: verdict.class.to_string(),
+            sharpness: verdict.sharpness,
+            label: verdict.label(),
+            signals: verdict.names(),
+        });
+    }
+}
+
+/// The user's turns, and how many lines could not be read.
+fn user_turns(jsonl: &str) -> (Vec<String>, usize) {
+    let mut turns = Vec::new();
+    let mut skipped: usize = 0;
+    for line in jsonl.lines().filter(|l| !l.trim().is_empty()) {
+        match serde_json::from_str::<serde_json::Value>(line) {
+            Ok(value) => push_user(&value, &mut turns),
+            Err(_) => skipped = skipped.saturating_add(1),
+        }
+    }
+    (turns, skipped)
+}
+
+fn push_user(value: &serde_json::Value, turns: &mut Vec<String>) {
+    if role_of(value) != Some("user") {
+        return;
+    }
+    let text = text_of(value);
+    if !text.trim().is_empty() {
+        turns.push(text);
+    }
+}
+
+/// Who spoke, read from whichever of three spellings the payload uses.
+///
+/// V46: this is someone else's document. A reader that insists on one
+/// shape breaks on the harness's next release, which is the lesson `hook`
+/// already learned the expensive way (B7).
+fn role_of(value: &serde_json::Value) -> Option<&str> {
+    value
+        .get("role")
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| nested_str(value, "message", "role"))
+        .or_else(|| value.get("type").and_then(serde_json::Value::as_str))
+}
+
+fn nested_str<'a>(
+    value: &'a serde_json::Value,
+    outer: &str,
+    inner: &str,
+) -> Option<&'a str> {
+    value
+        .get(outer)
+        .and_then(|held| held.get(inner))
+        .and_then(serde_json::Value::as_str)
+}
+
+/// What was said. Content is a bare string in some payloads and a list of
+/// typed blocks in others; anything else yields nothing rather than an
+/// error, because an unfamiliar shape is not a corrupt file.
+fn text_of(value: &serde_json::Value) -> String {
+    let content = value
+        .get("content")
+        .or_else(|| value.get("message").and_then(|held| held.get("content")));
+    match content {
+        Some(serde_json::Value::String(said)) => said.clone(),
+        Some(serde_json::Value::Array(blocks)) => blocks_text(blocks),
+        _ => String::new(),
+    }
+}
+
+fn blocks_text(blocks: &[serde_json::Value]) -> String {
+    blocks
+        .iter()
+        .filter_map(|block| block.get("text"))
+        .filter_map(serde_json::Value::as_str)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn caught(jsonl: &str) -> Report {
+        catch(jsonl, "session.jsonl", &Weights::default())
+    }
+
+    const CORRECTION: &str =
+        r#"{"role":"user","content":"Never commit a .env file."}"#;
+
+    #[test]
+    fn a_user_correction_becomes_a_candidate() {
+        let out = caught(CORRECTION);
+        assert_eq!(out.caught.len(), 1);
+        assert_eq!(out.turns, 1);
+        assert_eq!(out.skipped, 0);
+    }
+
+    /// V44's load-bearing half. A model restating the rule it just broke
+    /// would otherwise mint a candidate out of its own apology, and the
+    /// ledger would fill with rules nobody wrote.
+    #[test]
+    fn the_assistant_saying_the_same_thing_is_not_evidence() {
+        let said =
+            r#"{"role":"assistant","content":"Never commit a .env file."}"#;
+        assert!(caught(said).caught.is_empty());
+        assert_eq!(caught(said).turns, 0);
+    }
+
+    #[test]
+    fn an_ordinary_request_is_not_a_violation() {
+        let said =
+            r#"{"role":"user","content":"Could you look at the parser?"}"#;
+        assert!(
+            caught(said).caught.is_empty(),
+            "a transcript is mostly requests; they are not rules"
+        );
+    }
+
+    #[test]
+    fn a_nested_message_carries_the_same_meaning() {
+        let said = r#"{"message":{"role":"user","content":"Never commit a .env file."}}"#;
+        assert_eq!(caught(said).caught.len(), 1);
+    }
+
+    #[test]
+    fn typed_content_blocks_are_read() {
+        let said = concat!(
+            r#"{"role":"user","content":[{"type":"text","#,
+            r#""text":"Never commit a .env file."}]}"#
+        );
+        assert_eq!(caught(said).caught.len(), 1);
+    }
+
+    /// V46: an unfamiliar field is not a corrupt file.
+    #[test]
+    fn an_unknown_field_is_ignored_not_rejected() {
+        let said = concat!(
+            r#"{"role":"user","content":"Never commit a .env file.","#,
+            r#""uuid":"x","tokens":{"in":4}}"#
+        );
+        assert_eq!(caught(said).caught.len(), 1);
+        assert_eq!(caught(said).skipped, 0);
+    }
+
+    /// V46's other half: skipped AND counted. Silence here would read as
+    /// "no violations found".
+    #[test]
+    fn an_unreadable_line_is_skipped_and_counted() {
+        let said = format!("{CORRECTION}\nthis is not json\n{{oh dear\n");
+        let out = caught(&said);
+        assert_eq!(out.caught.len(), 1, "the readable line still counts");
+        assert_eq!(out.skipped, 2, "both bad lines must be reported");
+    }
+
+    #[test]
+    fn a_blank_line_is_not_a_skip() {
+        let said = format!("\n{CORRECTION}\n\n");
+        assert_eq!(caught(&said).skipped, 0);
+    }
+
+    #[test]
+    fn an_empty_transcript_finds_nothing_and_says_nothing_failed() {
+        let out = caught("");
+        assert!(out.caught.is_empty());
+        assert_eq!(out.skipped, 0);
+        assert_eq!(out.turns, 0);
+    }
+
+    #[test]
+    fn a_caught_statement_carries_its_argument() {
+        let Some(first) = caught(CORRECTION).caught.first().cloned() else {
+            assert!(caught(CORRECTION).caught.is_empty(), "expected one row");
+            return;
+        };
+        assert!(!first.id.is_empty(), "a candidate needs an id");
+        assert_eq!(first.src, "session.jsonl");
+        assert!(!first.label.is_empty(), "a candidate carries its class");
+        assert!(!first.signals.is_empty(), "and why it was classed so");
+    }
+
+    /// Two turns saying the same thing are one candidate's worth of id, so
+    /// re-reading a transcript does not grow the ledger. The ledger's
+    /// `propose` refuses the duplicate; this proves the ids collide as it
+    /// expects them to.
+    #[test]
+    fn the_same_correction_twice_yields_the_same_id() {
+        let said = format!("{CORRECTION}\n{CORRECTION}");
+        let out = caught(&said);
+        let ids: Vec<&str> = out.caught.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(out.turns, 2);
+        assert!(ids.windows(2).all(|w| w.first() == w.last()));
+    }
+}

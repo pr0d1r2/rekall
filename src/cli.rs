@@ -7,7 +7,7 @@
 
 // The crate modules are reached by FULL PATH inside the verb modules,
 // because `mod apply;` below would otherwise shadow `crate::apply`.
-use crate::{classify, config, statement, tokens};
+use crate::{statement, tokens};
 use std::path::{Path, PathBuf};
 
 /// One module per VERB. `cli.rs` keeps dispatch, the shared parse
@@ -19,12 +19,14 @@ use std::path::{Path, PathBuf};
 /// caps a FILE, so the one dimension nobody measured is the one that
 /// drifted (V22, again). The gate measures it now.
 mod apply;
+mod catch;
 mod check;
 mod hook;
 mod init;
 mod log;
 mod plan;
 mod recall;
+mod resolve;
 mod revert;
 mod scan;
 mod show;
@@ -39,6 +41,7 @@ pub use init::{InitArgs, init_command, parse_init};
 pub use log::{LogArgs, log_command, parse_log};
 pub use plan::{NO_PLAN_IDS, PlanArgs, parse_plan, plan_command};
 pub use recall::{RecallArgs, parse_recall, recall_command};
+pub use resolve::{Resolved, resolve};
 pub use revert::{
     NO_REVERT_INPUT, RevertArgs, parse_revert, render_revert_human,
     revert_command,
@@ -106,7 +109,7 @@ pub(super) fn need<'a>(
         .ok_or_else(|| format!("`{flag}` needs a value"))
 }
 
-/// An unknown `--format` is a USAGE error, never a silent fall back to
+/// An unknown `--format` is a USAGE , never a silent fall back to
 /// prose (V17). An agent that asked for json and received a table would
 /// parse garbage rather than fail.
 pub fn parse_format(raw: &str) -> Result<Format, String> {
@@ -117,46 +120,6 @@ pub fn parse_format(raw: &str) -> Result<Format, String> {
             "unknown --format `{other}` -- expected `human` or `json`"
         )),
     }
-}
-
-/// Load both config scopes and report every root with the scope that named
-/// it. The union lives in `config::merge`; this keeps the attribution so
-/// `--sources` can show where each root came from.
-pub fn resolve(cwd: &Path) -> Result<Resolved, String> {
-    let user = load_optional(config::user_path().as_deref())?;
-    let project = load_optional(config::find_project(cwd).as_deref())?;
-    let merged = config::merge(user.clone(), project.clone());
-    Ok(Resolved {
-        roots: config::attribute(&user, &project),
-        globs: merged.sources.globs.unwrap_or_default(),
-        weights: classify::Weights::from_config(
-            merged.signals.deadband,
-            &merged.signals.weight,
-        ),
-        runner_timeout_ms: merged.triggers.runner_timeout_ms,
-    })
-}
-
-pub struct Resolved {
-    pub roots: Vec<(String, config::Scope)>,
-    pub globs: Vec<String>,
-    /// The classifier table both scopes agreed on (V30).
-    pub weights: classify::Weights,
-    /// How long a fired `M` rule gets, from `[triggers]` (B5).
-    pub runner_timeout_ms: Option<u64>,
-}
-
-/// A config file that is absent is fine; one that is present and broken is
-/// not. Treating a parse error as "no config" would run the scan against a
-/// corpus the user never described.
-fn load_optional(path: Option<&Path>) -> Result<config::Config, String> {
-    let Some(path) = path else {
-        return Ok(config::Config::default());
-    };
-    if !path.is_file() {
-        return Ok(config::Config::default());
-    }
-    config::load_file(path).map_err(|error| error.to_string())
 }
 
 /// Every verb SPEC.md section I defines, in the order it lists them.
@@ -203,6 +166,7 @@ pub enum Action {
     Plan(Vec<String>),
     Apply(Vec<String>),
     Revert(Vec<String>),
+    Catch(Vec<String>),
     Check(Vec<String>),
     Log(Vec<String>),
     Recall(Vec<String>),
@@ -240,7 +204,7 @@ pub fn decide(args: &[String]) -> Action {
 /// function, so the mapping needs no match arm per verb -- which is what
 /// the line limit kept objecting to as this list grew.
 type Make = fn(Vec<String>) -> Action;
-const IMPLEMENTS: [(&str, Make); 10] = [
+const IMPLEMENTS: [(&str, Make); 11] = [
     ("scan", Action::Scan),
     ("init", Action::Init),
     ("show", Action::Show),
@@ -251,6 +215,7 @@ const IMPLEMENTS: [(&str, Make); 10] = [
     ("log", Action::Log),
     ("recall", Action::Recall),
     ("hook", Action::Hook),
+    ("catch", Action::Catch),
 ];
 
 fn verb_action(verb: &str, flags: Vec<String>) -> Action {
@@ -311,6 +276,7 @@ fn reported(action: Action, env: &Env) -> Result<Output, String> {
         Action::Apply(flags) => apply_command(&flags, env),
         Action::Revert(flags) => revert_command(&flags, env),
         Action::Log(flags) => log_command(&flags, env),
+        Action::Catch(flags) => catch::catch_command(&flags, env),
         Action::Recall(flags) => recall_command(&flags, env),
         other => Err(format!("{other:?} does not report an Output")),
     }
@@ -601,20 +567,6 @@ mod tests {
         assert!(parse_scan(&args(&["--top", "many"])).is_err());
     }
 
-    /// An absent config is fine; a broken one is not. Treating a parse
-    /// error as "no config" would scan a corpus the user never described.
-    #[test]
-    fn an_absent_config_is_not_an_error() {
-        assert!(load_optional(None).is_ok());
-        assert!(
-            load_optional(Some(Path::new("definitely/not/here.toml"))).is_ok()
-        );
-    }
-
-    #[test]
-    fn a_broken_config_is_an_error() {
-        assert!(load_optional(Some(Path::new("Cargo.lock"))).is_err());
-    }
     #[test]
     fn a_scan_with_no_configured_roots_says_what_to_run() {
         let outcome = scan_command(&args(&["-C", "/tmp"]), &env());
@@ -749,11 +701,20 @@ mod tests {
     /// code, different message -- the distinction is the message's job.
     /// The verbs that actually do something. Kept beside the loop below so
     /// implementing a verb without dispatching it fails here.
-    const IMPLEMENTED: [&str; 10] = [
+    const IMPLEMENTED: [&str; 11] = [
         "scan", "init", "show", "plan", "apply", "revert", "check", "log",
-        "recall", "hook",
+        "recall", "hook", "catch",
     ];
 
+    /// EVERY verb section I names now dispatches, so the loop below has an
+    /// empty body -- and that is the assertion. `catch` was the last
+    /// backlog row, and this test failed on the commit that landed it,
+    /// which is the failure a stale test is supposed to produce.
+    ///
+    /// The `Unimplemented` arm STAYS. It is not dead: section I can name a
+    /// verb before this build performs it, and the day it does, the
+    /// distinction between a backlog row and a typo has to already exist.
+    /// Deleting it would mean rebuilding it under pressure.
     #[test]
     fn a_specified_verb_is_unimplemented_not_unknown() {
         for verb in VERBS {
@@ -766,6 +727,16 @@ mod tests {
                 "{verb} should be recognized"
             );
         }
+    }
+
+    /// The other half, which the loop above can no longer prove now that
+    /// nothing is unimplemented: an unheard-of verb is still a typo.
+    #[test]
+    fn an_unheard_of_verb_is_a_typo_not_a_backlog_row() {
+        assert_eq!(
+            decide(&args(&["teleport"])),
+            Action::Unknown("teleport".to_string())
+        );
     }
 
     #[test]
