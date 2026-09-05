@@ -9,10 +9,11 @@
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![gate steps 20 commit / 26 push](https://img.shields.io/badge/gate_steps-20_commit_%2F_26_push-6E4AFF)](hk.pkl)
+[![gate steps 21 commit / 27 push](https://img.shields.io/badge/gate_steps-21_commit_%2F_27_push-6E4AFF)](hk.pkl)
 [![coverage floor 99.26%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.26%25-brightgreen)](.coverage)
-[![invariants 46](https://img.shields.io/badge/invariants-46-6E4AFF)](SPEC.md)
-[![bugs logged 8](https://img.shields.io/badge/bugs_logged-8-6E4AFF)](SPEC.md)
+[![invariants 51](https://img.shields.io/badge/invariants-51-6E4AFF)](SPEC.md)
+[![bugs logged 9](https://img.shields.io/badge/bugs_logged-9-6E4AFF)](SPEC.md)
+[![federated nodes 22](https://img.shields.io/badge/federated_nodes-22-6E4AFF)](docs/FEDERATION.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
 [![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)](flake.nix)
@@ -92,8 +93,8 @@ the turns where none of them apply.
 $ rekall init
 wrote  ~/acme/rekall.toml
 root   CLAUDE.md
-user   ~/.claude/CLAUDE.md  (yours, not written here)
-user   ~/.claude/projects  (yours, not written here)
+absent ~/.claude/CLAUDE.md
+absent ~/.claude/projects
 absent AGENTS.md
 absent .claude/skills
 
@@ -156,7 +157,7 @@ c931906  M1
   net     +2 tokens
 8bd8468  S2
   delete  CLAUDE.md:8-9
-  write   .claude/skills/when-a-migration-touches-a-table/SKILL.md
+  write   .rekall/skills/when-a-migration-touches-a-table/SKILL.md
   wire    give the skill a trigger AND an explicit do-not-fire clause (V3, V4)
   net     +22 tokens
 ```
@@ -175,10 +176,10 @@ before a byte of corpus moves.
 ```console
 $ rekall apply c931906 8bd8468 --auto-approve
 write   .rekall/rules/never-commit-a-env-file.sh
-write   .claude/skills/when-a-migration-touches-a-table/SKILL.md
+write   .rekall/skills/when-a-migration-touches-a-table/SKILL.md
 edit    CLAUDE.md
 done    wrote .rekall/rules/never-commit-a-env-file.sh
-done    wrote .claude/skills/when-a-migration-touches-a-table/SKILL.md
+done    wrote .rekall/skills/when-a-migration-touches-a-table/SKILL.md
 done    edited CLAUDE.md
 done    recorded 2 extraction(s)
 ```
@@ -202,8 +203,8 @@ being run without a terminal.
 ```console
 $ rekall check
 no-runner           .rekall/rules/never-commit-a-env-file.sh is still the generated placeholder, so the rule extracted from CLAUDE.md gates nothing (V2). Write the check in that script and remove the line that says it is unimplemented
-no-trigger          .claude/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Fires when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
-no-refusal-clause   .claude/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Does NOT fire when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
+no-trigger          .rekall/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Fires when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
+no-refusal-clause   .rekall/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Does NOT fire when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
 rekall: 3 extraction problem(s). Each line above names the fix.
 
 $ echo $?
@@ -263,7 +264,7 @@ Silent and zero. The gate says nothing when there is nothing to say.
 $ rekall recall "ALTER TABLE orders ADD COLUMN region text" \
     --tool Edit --path db/migrate/003_orders.sql
 skip    c931906  M1  .rekall/rules/never-commit-a-env-file.sh  (trigger did not match)
-load    8bd8468  S2  .claude/skills/when-a-migration-touches-a-table/SKILL.md  (trigger matched)
+load    8bd8468  S2  .rekall/skills/when-a-migration-touches-a-table/SKILL.md  (trigger matched)
 ```
 
 Now the same edit against a test fixture:
@@ -315,7 +316,7 @@ bug, not a footnote.
 $ rekall log
 c931906  CLAUDE.md:7-7  M1  fires=2  net=+2  .rekall/rules/never-commit-a-env-file.sh
   - Never commit a `.env` file.
-8bd8468  CLAUDE.md:8-9  S2  fires=1  net=+22  .claude/skills/when-a-migration-touches-a-table/SKILL.md
+8bd8468  CLAUDE.md:8-9  S2  fires=1  net=+22  .rekall/skills/when-a-migration-touches-a-table/SKILL.md
   - When a migration touches a table with more than a million rows, take the
     backup first and say in the PR how long the restore took.
 ```
@@ -330,9 +331,9 @@ document accretes forever. A rule that never fired is one you can drop and
 ```console
 $ rekall revert 8bd8468 --auto-approve
 restore CLAUDE.md
-remove  .claude/skills/when-a-migration-touches-a-table/SKILL.md
+remove  .rekall/skills/when-a-migration-touches-a-table/SKILL.md
 done    restored CLAUDE.md
-done    removed .claude/skills/when-a-migration-touches-a-table/SKILL.md
+done    removed .rekall/skills/when-a-migration-touches-a-table/SKILL.md
 done    dropped the ledger row for 8bd8468
 ```
 
@@ -412,10 +413,14 @@ human states once mid-session outlives the session as a ledger candidate
 instead of dying with it. There is no longer a verb that reports itself
 unimplemented.
 
+The spec is FEDERATED -- 22 nodes, one per module, each owning the rules for
+its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
+and why the root is a route rather than a reading.
+
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
-truth — 46 invariants, each carrying the reasoning it stands on; 8 recorded
+truth — 51 invariants, each carrying the reasoning it stands on; 9 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
-what is decided and what is still open, at 48 landed and 9 remaining.
+what is decided and what is still open, at 12 landed and 10 remaining.
 
 ## Development
 
@@ -424,7 +429,7 @@ direnv allow      # or: nix develop
 hk check          # the whole gate, the same definition CI runs
 ```
 
-20 steps on commit, 26 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
+21 steps on commit, 27 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
 the loop; [`INTEGRATION.md`](docs/INTEGRATION.md) is how to put `rekall` in
 someone else's gate.
 

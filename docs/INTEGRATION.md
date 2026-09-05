@@ -128,7 +128,7 @@ deliberately the only part that knows a harness exists.
 $ rekall recall "ALTER TABLE orders ADD COLUMN region text" \
     --tool Edit --path db/migrate/003_orders.sql
 skip    c931906  M1  .rekall/rules/never-commit-a-env-file.sh  (trigger did not match)
-load    8bd8468  S2  .claude/skills/when-a-migration-touches-a-table/SKILL.md  (trigger matched)
+load    8bd8468  S2  .rekall/skills/when-a-migration-touches-a-table/SKILL.md  (trigger matched)
 ```
 
 One matcher sits behind both verbs, so what `recall` prints is what `hook`
@@ -173,8 +173,8 @@ because a runner genuinely does more work, not because your machine is loaded.
 other people's extractions and not its own is a tool nobody has run in anger.
 
 One definition, three callers: [`hk.pkl`](../hk.pkl) holds the steps,
-`pre-commit` takes the fast 20, `pre-push` and
-[`ci.yml`](../.github/workflows/ci.yml) take all 26. The split is by cost — a
+`pre-commit` takes the fast 21, `pre-push` and
+[`ci.yml`](../.github/workflows/ci.yml) take all 27. The split is by cost — a
 sixty-second step on every commit is a step someone learns to bypass, and a
 bypassed hook is worse than none.
 

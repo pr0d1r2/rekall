@@ -12,7 +12,7 @@ hk check          # everything, the same definition CI runs
 ```
 
 One definition in [`hk.pkl`](hk.pkl), three callers: `pre-commit` takes the
-fast 20, `pre-push` and [`ci.yml`](.github/workflows/ci.yml) take all 26. The
+fast 21, `pre-push` and [`ci.yml`](.github/workflows/ci.yml) take all 27. The
 split is by cost — a sixty-second step on every commit is a step someone
 learns to bypass.
 
@@ -32,7 +32,7 @@ interpret.
 `CLAUDE.md` is doing two jobs on purpose. It is the working agreement an agent
 reads, and it is the corpus `rekall` is pointed at as consumer #0 — the `M` and
 `S` statements extracted from it live in `.rekall/rules/` and
-`.claude/skills/`. Editing it changes what this repo gates itself with, so an
+`.rekall/skills/`. Editing it changes what this repo gates itself with, so an
 edit there is a change to the corpus, not only to prose.
 
 That is why this file points rather than repeats. A rule copied here would be a
@@ -48,7 +48,7 @@ second always-on statement of something already stated once — the exact shape
 3. **When a test fails, decide which kind it is before editing** — a code bug,
    or a spec gap. A gap goes to `§B` and produces its invariant *before* the
    fix lands. This is the one process rule worth being pedantic about, and
-   `.claude/skills/when-a-test-fails-decide-first/` is the extracted form of
+   `.rekall/skills/when-a-test-fails-decide-first/` is the extracted form of
    it.
 4. **One decision per commit**, with the reasoning in the message. Straight to
    `main`; there are no feature branches here and the gate is the review.

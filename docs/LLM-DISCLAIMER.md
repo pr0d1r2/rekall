@@ -35,11 +35,11 @@ executes it.**
 [`SPEC.md`](../SPEC.md) is the law rather than a description written
 afterwards. It carries:
 
-- **46 `§V` invariants** — what must stay true, each with the reasoning it
+- **51 `§V` invariants** — what must stay true, each with the reasoning it
   stands on rather than the rule alone.
-- **`§T` tasks** — 48 landed, 9 open. What is decided and what is not is
+- **`§T` tasks** — 12 landed, 10 open. What is decided and what is not is
   visible without reading the commit log.
-- **8 `§B` bugs** — every defect found so far, paired with the invariant
+- **9 `§B` bugs** — every defect found so far, paired with the invariant
   that now catches it. A bug that produced no invariant is a bug that will
   return.
 - **`§R` research** — the measurements the constraints rest on, each row
@@ -58,8 +58,8 @@ parsed, not about one that was skimmed.
 
 Entering the dev shell (`nix develop`, or `direnv allow`) installs
 `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk)
-against one definition of the gate in [`hk.pkl`](../hk.pkl): **20 steps on
-commit, 26 on push**, the slow half adding doctests, rustdoc, the
+against one definition of the gate in [`hk.pkl`](../hk.pkl): **21 steps on
+commit, 27 on push**, the slow half adding doctests, rustdoc, the
 no-default-features build, the packaged tarball and coverage.
 [`ci.yml`](../.github/workflows/ci.yml) calls that same definition on three
 platforms, so a laptop and a runner cannot disagree.
