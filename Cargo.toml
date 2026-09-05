@@ -32,6 +32,12 @@ categories = ["command-line-utilities", "development-tools"]
 # What NOT to ship: the dev environment and the gate machinery, which only
 # mean anything inside the git repo. A `.crate` is source a consumer builds,
 # not a clone of how it is developed.
+#
+# What DOES ship and is easy to mistake for machinery: `SPEC.md`,
+# `.context-limits`, `.coverage`, `clippy.toml` and `rustfmt.toml`. Those are
+# RECORDS -- the law, the ceilings, the floor, the lint decisions -- and a
+# consumer reading the crate to judge it needs them more than the repo does.
+# The fleet ships them for the same reason.
 exclude = [
   ".envrc",
   ".github/",
@@ -40,7 +46,25 @@ exclude = [
   "flake.lock",
   "hk.pkl",
   "pkl/",
+  # BOTH HALVES OF AN EXTRACTION, or neither. `.rekall/` holds the ledger and
+  # the generated rule runners; `.claude/skills/` holds the generated skills.
+  # They are one artifact set produced by one `apply`, and shipping the skills
+  # while excluding the ledger that records them would put an artifact in the
+  # tarball with nothing to say where it came from or how to reverse it -- the
+  # orphan `check` refuses (V2).
   ".rekall/",
+  ".claude/",
+  # Gate TOOL configuration, as opposed to gate records. These configure
+  # `typos` and `taplo`, which a consumer building from the tarball never
+  # runs. `clippy.toml` and `rustfmt.toml` are deliberately NOT here: cargo
+  # reads those when anyone builds or lints this source, tarball included.
+  "_typos.toml",
+  ".taplo.toml",
+  # THIS REPO'S OWN corpus config, pointing at this repo's own `CLAUDE.md`.
+  # Shipping it hands a consumer a config for a corpus they do not have, and
+  # `init` exists to write them a correct one. A wrong config that looks
+  # authoritative is worse than an absent one the cold start fills in.
+  "rekall.toml",
 ]
 
 # lib + bin. The library is the contract a consumer and a test both use;
