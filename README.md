@@ -94,7 +94,7 @@ the turns where none of them apply.
 $ rekall init
 wrote  ~/acme/rekall.toml
 root   CLAUDE.md
-absent ~/.claude/CLAUDE.md
+user   ~/.claude/CLAUDE.md  (yours, not written here)
 absent ~/.claude/projects
 absent AGENTS.md
 absent .claude/skills
@@ -206,7 +206,7 @@ $ rekall check
 no-runner           .rekall/rules/never-commit-a-env-file.sh is still the generated placeholder, so the rule extracted from CLAUDE.md gates nothing (V2). Write the check in that script and remove the line that says it is unimplemented
 no-trigger          .rekall/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Fires when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
 no-refusal-clause   .rekall/skills/when-a-migration-touches-a-table/SKILL.md has an empty or absent `## Does NOT fire when` block, so nothing can match it -- and an unfilled trigger leaves the statement as always-on prose, which is what it was extracted FROM (V3, V4). Fill the ```rekall block under it: `tool` for exact names, `path` for globs, `word` for literals
-undelivered         .rekall/skills/when-a-migration-touches-a-table/SKILL.md carries `disable-model-invocation: true`, so the host will not load it, and this project wires no `rekall hook` to deliver it instead -- nothing can reach the skill (V56). Wire the hook (docs/INTEGRATION.md). Only this project's settings were read, so a hook wired in your user settings is not counted here
+undelivered         .rekall/skills/when-a-migration-touches-a-table/SKILL.md carries `disable-model-invocation: true`, so the host will not load it, and nothing this check can see delivers it instead (V56). Wire `rekall hook` (docs/INTEGRATION.md). ONLY this project's `.claude/` settings were read: a hook in your user settings, or in another harness's config such as Codex's, is real wiring this cannot see
 rekall: 4 extraction problem(s). Each line above names the fix.
 
 $ echo $?

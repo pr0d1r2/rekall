@@ -300,3 +300,47 @@ fn hook_injects_nothing_when_nothing_was_extracted() {
     assert!(!said.contains("additionalContext"), "nothing to inject");
     cleanup(&at);
 }
+
+/// The README says, in those words, that every console block in it is real
+/// output. That is a CLAIM about this binary, and until now nothing read it.
+/// Two of those blocks had drifted -- an `init` example printing a paragraph
+/// that only appears when a user root is FOUND while showing none, and a
+/// `check` example carrying a message the code stopped producing when V56
+/// learned to name its own blind spot.
+///
+/// The README's own corpus, run through the README's own commands, and the
+/// README must CONTAIN what comes back. `contains` rather than equality
+/// because the block sits inside prose and a fence; what matters is that the
+/// bytes a reader will copy are bytes this binary produced.
+#[test]
+fn the_readme_scan_block_is_real_output() {
+    let at = fixture("readme");
+    let _ = std::fs::write(at.join("CLAUDE.md"), README_CORPUS);
+    let _ = run(&at, &["init"]);
+    let (code, out, _) = run(&at, &["scan"]);
+    cleanup(&at);
+    assert_eq!(code, 0, "scan failed on the README's own corpus");
+    assert!(!out.is_empty(), "scan produced nothing");
+    let readme = std::fs::read_to_string("README.md").unwrap_or_default();
+    for line in out.lines() {
+        assert!(
+            readme.contains(line.trim_end()),
+            "the README's scan block has drifted; this line is not in it:\n  {line}"
+        );
+    }
+}
+
+/// The corpus the README prints above its scan block, byte for byte. If
+/// these disagree the ids change and the test above says so.
+const README_CORPUS: &str = "\
+# Working on acme
+
+## Conventions
+
+- Rust source is ASCII only. Unicode belongs in test fixtures, not in
+  identifiers.
+- Never commit a `.env` file.
+- When a migration touches a table with more than a million rows, take the
+  backup first and say in the PR how long the restore took.
+- Prefer `anyhow` at the binary edge and `thiserror` in libraries.
+";
