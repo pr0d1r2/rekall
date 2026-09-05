@@ -199,6 +199,9 @@
             # it: that builtin does exactly what its name says and nothing
             # else, so an `AWS_SECRET_ACCESS_KEY=...` line walks past it.
             pkgs.ripsecrets
+            # Relative links, in a repo that just grew a docs/ tree. Offline
+            # only -- see the `links` step in hk.pkl.
+            pkgs.lychee
             # The release, driven by config rather than a shell script that
             # re-implements what this already does.
             pkgs.cargo-release

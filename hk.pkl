@@ -317,6 +317,28 @@ local all = (fast) {
   /// Publishing does not ship the REPO, it ships a tarball whose file set is
   /// DERIVED -- git-tracked, minus `exclude`. That is a second file set
   /// nothing else in this repo examines.
+  /// RELATIVE LINKS, across every tracked file rather than only markdown.
+  /// README.md and the docs/ tree point at LICENSE, hk.pkl, flake.nix and
+  /// each other, so a link can break with no markdown touched at all --
+  /// renaming a config file is enough.
+  ///
+  /// `--offline` is not a speed choice. This crate reaches the network
+  /// nowhere, and a gate step that fetches every external URL on every
+  /// commit would make that false in the one place a developer meets most
+  /// often. A dead external link is a documentation problem; a gate that
+  /// needs a network is a gate that goes soft on a plane.
+  ["links"] {
+    glob = List("**/*")
+    /// Absence before findings: `lychee: command not found` is also a
+    /// non-zero exit, and reporting it as a broken link sends the reader
+    /// hunting for a bad path that does not exist. MEASURED in a sibling,
+    /// where exactly that message cost a push.
+    check = """
+      command -v lychee >/dev/null 2>&1 || { echo 'hk: lychee is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a broken link.' >&2; exit 1; }
+      lychee --offline --no-progress . || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }
+      """
+  }
+
   /// THE SUPPLY CHAIN. Five direct dependencies and 26 in the tree, so
   /// "there is nothing to scan" -- the honest answer in a zero-dependency
   /// sibling -- is not available here.
