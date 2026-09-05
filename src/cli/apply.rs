@@ -343,7 +343,7 @@ fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
     let path = base.join(&step.artifact);
     let parent = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    std::fs::write(&path, apply::artifact_text(step))
+    std::fs::write(&path, apply::artifact::text(step))
         .map_err(|error| error.to_string())?;
     if step.label.starts_with('M') {
         make_runnable(&path)?;
@@ -379,7 +379,7 @@ pub(super) fn publish_artifact(
     if !label.starts_with('S') {
         return Ok(());
     }
-    let Some(slug) = apply::skill_slug(artifact) else {
+    let Some(slug) = apply::artifact::skill_slug(artifact) else {
         return Ok(());
     };
     let hosts = base.join(".claude").join("skills");

@@ -212,7 +212,7 @@ fn repair_needed(row: &ledger::Extracted, base: &Path) -> String {
 /// written into CI artifacts.
 fn link_needed(row: &ledger::Extracted, base: &Path) -> String {
     let hosts = base.join(".claude").join("skills");
-    let Some(slug) = apply::skill_slug(&row.artifact) else {
+    let Some(slug) = apply::artifact::skill_slug(&row.artifact) else {
         return String::new();
     };
     if !hosts.is_dir() || hosts.join(&slug).symlink_metadata().is_ok() {
@@ -228,8 +228,8 @@ fn link_needed(row: &ledger::Extracted, base: &Path) -> String {
 /// skill as a self-contained directory and leaves adoption to the
 /// registry -- which is the only side that knows where its own sets live.
 fn destination(dir: &Path, artifact: &str) -> PathBuf {
-    let slug =
-        apply::skill_slug(artifact).unwrap_or_else(|| "rekall-skill".into());
+    let slug = apply::artifact::skill_slug(artifact)
+        .unwrap_or_else(|| "rekall-skill".into());
     dir.join(slug).join("SKILL.md")
 }
 
@@ -389,7 +389,7 @@ fn drop_artifact(
 /// The host's link goes before the file it points at, for the reason
 /// `revert` states: a dangling link is a leftover nothing reports.
 fn unlink(base: &Path, artifact: &str) {
-    let Some(slug) = apply::skill_slug(artifact) else {
+    let Some(slug) = apply::artifact::skill_slug(artifact) else {
         return;
     };
     let link = base.join(".claude").join("skills").join(slug);
@@ -525,8 +525,8 @@ mod tests {
         let (dir, id) = issue_project("zero-downtime");
         let out = dir.join("registry");
         let _ = issue_in(&dir, &[&id, "--to", &out.to_string_lossy()]);
-        let slug =
-            apply::skill_slug(&artifact_of(&dir, &id)).unwrap_or_default();
+        let slug = apply::artifact::skill_slug(&artifact_of(&dir, &id))
+            .unwrap_or_default();
         assert!(out.join(&slug).join("SKILL.md").is_file(), "copy written");
         assert!(
             dir.join(artifact_of(&dir, &id)).is_file(),
@@ -552,7 +552,7 @@ mod tests {
         let out = dir.join("registry");
         let _ = issue_in(&dir, &[&id, "--to", &out.to_string_lossy()]);
         let artifact = artifact_of(&dir, &id);
-        let slug = apply::skill_slug(&artifact).unwrap_or_default();
+        let slug = apply::artifact::skill_slug(&artifact).unwrap_or_default();
         assert_eq!(
             std::fs::read_to_string(out.join(slug).join("SKILL.md")).ok(),
             std::fs::read_to_string(dir.join(&artifact)).ok()
@@ -680,8 +680,8 @@ mod tests {
         let _ = std::fs::create_dir_all(&hosts);
         let text = issue_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
         assert!(text.contains("linked"), "{text}");
-        let slug =
-            apply::skill_slug(&artifact_of(&dir, &id)).unwrap_or_default();
+        let slug = apply::artifact::skill_slug(&artifact_of(&dir, &id))
+            .unwrap_or_default();
         assert!(hosts.join(&slug).symlink_metadata().is_ok(), "link made");
         let again = issue_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
         assert!(again.contains("nothing to issue"), "{again}");
@@ -708,8 +708,8 @@ mod tests {
         let _ = std::fs::create_dir_all(&hosts);
         let out = dir.join("registry");
         let _ = issue_in(&dir, &[&id, "--to", &out.to_string_lossy()]);
-        let slug =
-            apply::skill_slug(&artifact_of(&dir, &id)).unwrap_or_default();
+        let slug = apply::artifact::skill_slug(&artifact_of(&dir, &id))
+            .unwrap_or_default();
         let _ = issue_in(&dir, &[&id, "--retire"]);
         assert!(hosts.join(&slug).symlink_metadata().is_err(), "link gone");
     }

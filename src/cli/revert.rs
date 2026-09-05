@@ -209,7 +209,7 @@ fn perform_revert(
 /// Best effort and silent: a link nobody created is not an error, and a
 /// link that cannot be removed must not stop the corpus being restored.
 fn unpublish(base: &Path, artifact: &str) {
-    let Some(slug) = apply::skill_slug(artifact) else {
+    let Some(slug) = apply::artifact::skill_slug(artifact) else {
         return;
     };
     let link = base.join(".claude").join("skills").join(slug);

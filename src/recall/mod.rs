@@ -93,8 +93,8 @@ fn verdict(
         return (false, GONE);
     };
     let (Some(fire), Some(refuse)) = (
-        block(text, crate::apply::FIRES),
-        block(text, crate::apply::NOT_FIRES),
+        block(text, crate::apply::artifact::FIRES),
+        block(text, crate::apply::artifact::NOT_FIRES),
     ) else {
         return (false, UNREADABLE);
     };
@@ -190,8 +190,8 @@ mod tests {
     fn skill(fire: &str, refuse: &str) -> String {
         format!(
             "# s\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
-            crate::apply::FIRES,
-            crate::apply::NOT_FIRES
+            crate::apply::artifact::FIRES,
+            crate::apply::artifact::NOT_FIRES
         )
     }
 
@@ -296,7 +296,7 @@ mod tests {
         let held = row("aaa", "S1");
         let text = format!(
             "# s\n\n{}\n\n```rekall\npath = [\"**/*.rs\"]\n```\n",
-            crate::apply::FIRES
+            crate::apply::artifact::FIRES
         );
         assert_eq!(first(&one(&held, &text)), (true, LOADS.to_string()));
     }

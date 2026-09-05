@@ -47,16 +47,16 @@ pub(super) const SKILL: &str = "---\nname: s\ndescription: \"- never commit to `
 pub(super) fn prose_skill() -> String {
     format!(
         "---\nname: s\ndescription: \"- never commit to `main`\"\ndisable-model-invocation: true\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\nEditing any `*.rs` file.\n\n{}\n\nReading, or in a test.\n",
-        apply::FIRES,
-        apply::NOT_FIRES
+        apply::artifact::FIRES,
+        apply::artifact::NOT_FIRES
     )
 }
 
 pub(super) fn blocks(fire: &str, refuse: &str) -> String {
     format!(
         "---\nname: s\ndescription: \"- never commit to `main`\"\ndisable-model-invocation: true\n---\n\n<!-- rekall:payload -->\n- never commit to `main`\n<!-- rekall:/payload -->\n\n{}\n\n```rekall\n{fire}\n```\n\n{}\n\n```rekall\n{refuse}\n```\n",
-        apply::FIRES,
-        apply::NOT_FIRES
+        apply::artifact::FIRES,
+        apply::artifact::NOT_FIRES
     )
 }
 

@@ -87,7 +87,8 @@ fn said_by(
         // is the gate's finding to report, not the hook's to enforce by
         // withholding a rule someone is about to need.
         return text.map(|whole| {
-            crate::apply::payload_of(whole).unwrap_or_else(|| whole.to_string())
+            crate::apply::artifact::payload_of(whole)
+                .unwrap_or_else(|| whole.to_string())
         });
     }
     runner::run(&at.base.join(&row.artifact), at.limit).advice()
@@ -398,8 +399,8 @@ mod tests {
             &path,
             format!(
                 "{held}\n# {}\n#\n# ```rekall\n# {fire}\n# ```\n#\n# {}\n#\n# ```rekall\n# ```\n",
-                apply::FIRES,
-                apply::NOT_FIRES
+                apply::artifact::FIRES,
+                apply::artifact::NOT_FIRES
             ),
         );
     }
@@ -523,7 +524,7 @@ mod tests {
         held.replacen("# tool = []", "# tool = [\"Edit\"]", 1)
             .lines()
             .map(|line| {
-                if line.contains(apply::UNIMPLEMENTED) {
+                if line.contains(apply::artifact::UNIMPLEMENTED) {
                     "echo 'main is protected' >&2"
                 } else {
                     line

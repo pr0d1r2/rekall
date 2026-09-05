@@ -124,7 +124,7 @@ fn already_named(link: &Path, seen: &[Seen<'_>]) -> bool {
         .file_name()
         .map(|name| name.to_string_lossy().into_owned());
     seen.iter()
-        .any(|one| apply::skill_slug(&one.row.artifact) == slug)
+        .any(|one| apply::artifact::skill_slug(&one.row.artifact) == slug)
 }
 
 fn said_dangling(shown: &str) -> String {

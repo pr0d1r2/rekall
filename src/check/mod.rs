@@ -219,7 +219,7 @@ fn absent_artifact(row: &ledger::Extracted) -> Vec<Drift> {
 /// RUNNER said -- but the rule is one rule, and an artifact that carries
 /// its statement unmarked is one nobody can quote from later.
 fn payload_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
-    if apply::payload_of(text).is_some() {
+    if apply::artifact::payload_of(text).is_some() {
         return Vec::new();
     }
     vec![drift(
@@ -248,8 +248,14 @@ fn marks_for(artifact: &str) -> (&'static str, &'static str) {
     let markdown = artifact.ends_with(".md");
     let at = usize::from(markdown);
     (
-        apply::PAYLOAD_OPEN.get(at).copied().unwrap_or_default(),
-        apply::PAYLOAD_CLOSE.get(at).copied().unwrap_or_default(),
+        apply::artifact::PAYLOAD_OPEN
+            .get(at)
+            .copied()
+            .unwrap_or_default(),
+        apply::artifact::PAYLOAD_CLOSE
+            .get(at)
+            .copied()
+            .unwrap_or_default(),
     )
 }
 
@@ -269,7 +275,8 @@ fn runner_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
     if let Some(loose) = loose_quote(row, text) {
         return vec![loose];
     }
-    if !text.trim().is_empty() && !text.contains(apply::UNIMPLEMENTED) {
+    if !text.trim().is_empty() && !text.contains(apply::artifact::UNIMPLEMENTED)
+    {
         return Vec::new();
     }
     vec![drift(
@@ -325,8 +332,13 @@ fn skill_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
     if row.label == "S3" {
         return semantic_drift(row, text);
     }
-    let mut out = block_drift(row, text, apply::FIRES, NO_TRIGGER);
-    out.extend(block_drift(row, text, apply::NOT_FIRES, NO_REFUSAL_CLAUSE));
+    let mut out = block_drift(row, text, apply::artifact::FIRES, NO_TRIGGER);
+    out.extend(block_drift(
+        row,
+        text,
+        apply::artifact::NOT_FIRES,
+        NO_REFUSAL_CLAUSE,
+    ));
     out
 }
 
@@ -364,9 +376,12 @@ fn block_drift(
 
 /// V29's other direction: an `S3` that grew a real trigger is misfiled.
 fn semantic_drift(row: &ledger::Extracted, text: &str) -> Vec<Drift> {
-    let filled = [apply::FIRES, apply::NOT_FIRES].iter().any(|heading| {
-        trigger::parse_block(text, heading).is_ok_and(|held| !held.is_empty())
-    });
+    let filled = [apply::artifact::FIRES, apply::artifact::NOT_FIRES]
+        .iter()
+        .any(|heading| {
+            trigger::parse_block(text, heading)
+                .is_ok_and(|held| !held.is_empty())
+        });
     if !filled {
         return Vec::new();
     }
@@ -475,7 +490,7 @@ mod tests {
     /// here rather than hand-copied, so the gate is tested against the
     /// bytes it will really meet.
     fn generated(held: &ledger::Extracted) -> String {
-        apply::artifact_text(&crate::plan::Step {
+        apply::artifact::text(&crate::plan::Step {
             id: held.id.clone(),
             src: held.src.clone(),
             line_start: held.line_start,

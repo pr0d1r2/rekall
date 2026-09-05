@@ -22,7 +22,9 @@ docs/THIRD-PARTY-NOTICES.md
 rustfmt.toml
 src/SPEC.md
 src/apply/SPEC.md
+src/apply/artifact.rs
 src/apply/mod.rs
+src/apply/testing.rs
 src/catch/SPEC.md
 src/catch/mod.rs
 src/check/SPEC.md
