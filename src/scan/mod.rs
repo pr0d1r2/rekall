@@ -106,6 +106,36 @@ pub fn stable_name(path: &Path, base: &Path, home: Option<&str>) -> String {
     path.to_string_lossy().to_string()
 }
 
+/// The INVERSE of `stable_name`, and it lives here so one module owns both
+/// directions of the encoding.
+///
+/// `stable_name` writes a path three ways -- relative to the project, then
+/// `~/`-prefixed, then absolute -- and for a long time three callers decoded
+/// it with `base.join(name)`, which is only correct for the FIRST. A `~`
+/// source became `<project>/~/...`, which cannot exist, so extracting from
+/// agent memory died at the write with a bare `No such file or directory`
+/// (`apply:B20`).
+///
+/// `None` means UNRESOLVABLE, which is a refusal the caller must name rather
+/// than a path it may guess at: a `~/` name with no home to expand it
+/// against is the case, and joining it onto the project would recreate the
+/// bug this function exists to remove.
+#[must_use]
+pub fn resolve_name(
+    name: &str,
+    base: &Path,
+    home: Option<&str>,
+) -> Option<PathBuf> {
+    if let Some(rest) = name.strip_prefix("~/") {
+        return home.map(|home| Path::new(home).join(rest));
+    }
+    let path = Path::new(name);
+    if path.is_absolute() {
+        return Some(path.to_path_buf());
+    }
+    Some(base.join(path))
+}
+
 /// What a scan produced, including what it could not read.
 #[derive(Debug, Default)]
 pub struct Outcome {
@@ -334,6 +364,49 @@ mod tests {
     /// front stops every conditional opener from matching, and the row
     /// still gets a plausible class from its remaining words -- so the bug
     /// shows up as a missing signal rather than as a wrong answer.
+    /// The two directions are one encoding, so they round-trip. Three
+    /// shapes, because `stable_name` writes three: project-relative,
+    /// `~/`-prefixed, and absolute-with-no-home-to-shorten-it.
+    #[test]
+    fn a_stable_name_resolves_back_to_the_path_it_came_from() {
+        let base = Path::new("/w/proj");
+        let home = Some("/home/u");
+        for original in [
+            Path::new("/w/proj/CLAUDE.md"),
+            Path::new("/home/u/.claude/projects/p/memory/a.md"),
+            Path::new("/elsewhere/notes.md"),
+        ] {
+            let name = stable_name(original, base, home);
+            assert_eq!(
+                resolve_name(&name, base, home).as_deref(),
+                Some(original),
+                "round trip failed for {name}"
+            );
+        }
+    }
+
+    /// `apply:B20`: this is the join that broke memory extraction. A `~`
+    /// name must NOT become `<project>/~/...`.
+    #[test]
+    fn a_home_name_does_not_get_joined_onto_the_project() {
+        let got = resolve_name(
+            "~/.claude/CLAUDE.md",
+            Path::new("/w/p"),
+            Some("/home/u"),
+        );
+        assert_eq!(
+            got.as_deref(),
+            Some(Path::new("/home/u/.claude/CLAUDE.md"))
+        );
+    }
+
+    /// V59: what cannot be resolved is UNRESOLVABLE, not guessed at. A `~`
+    /// name with no home has no answer, and inventing one recreates B20.
+    #[test]
+    fn a_home_name_with_no_home_is_unresolvable() {
+        assert!(resolve_name("~/x.md", Path::new("/w/p"), None).is_none());
+    }
+
     #[test]
     fn a_bulleted_conditional_still_fires_its_trigger_signal() {
         let row = row_of("- when writing tests, prefer table-driven cases\n");

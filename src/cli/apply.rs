@@ -99,6 +99,7 @@ pub fn apply_command(flags: &[String], env: &Env) -> Result<Output, String> {
         held,
         outcome,
         path,
+        home: env.home.clone(),
     };
     commit(&args, &requested.plan, &base, staged)
 }
@@ -123,10 +124,16 @@ struct Requested {
     already: Vec<String>,
 }
 
+/// Everything a write needs, carried together.
+///
+/// `home` rides here rather than as another parameter: `perform_apply` was
+/// at the argument limit, and the thing that knows where the ledger lives
+/// should know how to resolve what the ledger NAMES (V59).
 struct Staged {
     held: ledger::Ledger,
     outcome: apply::Outcome,
     path: PathBuf,
+    home: Option<String>,
 }
 
 /// Either the plan file the user handed us, or one built from ids.
@@ -268,7 +275,7 @@ fn perform_apply(
     base: &Path,
     staged: &mut Staged,
 ) -> Result<Vec<String>, String> {
-    let mut done = write_all(pending, base)?;
+    let mut done = write_all(pending, base, staged.home.as_deref())?;
     for step in pending {
         staged.held.record(apply::row_for(step, now()));
     }
@@ -329,100 +336,15 @@ fn ask_at_terminal() -> Result<Consent, String> {
 fn write_all(
     pending: &[plan::Step],
     base: &Path,
+    home: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let mut done = Vec::new();
     for step in pending {
-        write_artifact(base, step)?;
+        super::publish::write_artifact(base, step)?;
         done.push(format!("wrote {}", step.artifact));
     }
-    edit_sources(pending, base, &mut done)?;
+    edit_sources(pending, base, home, &mut done)?;
     Ok(done)
-}
-
-fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
-    let path = base.join(&step.artifact);
-    let parent = path.parent().unwrap_or(Path::new("."));
-    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    std::fs::write(&path, apply::artifact::text(step))
-        .map_err(|error| error.to_string())?;
-    if step.label.starts_with('M') {
-        make_runnable(&path)?;
-    }
-    publish(base, step)
-}
-
-/// Link the artifact into a host's own skills directory where one exists.
-///
-/// A SYMLINK and not a copy: Claude Code follows a `<skill-name>` link,
-/// reads the target, and loads the skill once however many paths reach it
-/// (`.:R17`). So the canonical file stays single under `.rekall/` -- V1
-/// holds, because a link is not a copy and cannot drift from what it
-/// points at.
-///
-/// Only where the host directory ALREADY exists. Creating `.claude/` in a
-/// repo that has none would be this crate deciding which agent someone
-/// runs, which is exactly what V47 refuses to guess at.
-fn publish(base: &Path, step: &plan::Step) -> Result<(), String> {
-    publish_artifact(base, &step.label, &step.artifact)
-}
-
-/// The same link, from a LEDGER ROW rather than a plan step.
-///
-/// `issue` republishes rows that already exist (`src/issue:T65`), and a
-/// second implementation of "where does the host link go" is how the two
-/// paths end up disagreeing about it.
-pub(super) fn publish_artifact(
-    base: &Path,
-    label: &str,
-    artifact: &str,
-) -> Result<(), String> {
-    if !label.starts_with('S') {
-        return Ok(());
-    }
-    let Some(slug) = apply::artifact::skill_slug(artifact) else {
-        return Ok(());
-    };
-    let hosts = base.join(".claude").join("skills");
-    if !hosts.is_dir() {
-        return Ok(());
-    }
-    link_skill(
-        &hosts.join(&slug),
-        &base.join(".rekall").join("skills").join(&slug),
-    )
-}
-
-fn link_skill(link: &Path, target: &Path) -> Result<(), String> {
-    if link.exists() || link.symlink_metadata().is_ok() {
-        return Ok(());
-    }
-    let rel = Path::new("..").join("..").join(".rekall").join("skills");
-    let _ = target;
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(rel.join(name_of(link)), link)
-            .map_err(|why| format!("cannot link `{}`: {why}", link.display()))
-    }
-    #[cfg(not(unix))]
-    {
-        Ok(())
-    }
-}
-
-fn name_of(path: &Path) -> String {
-    path.file_name()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default()
-}
-
-/// An `M` artifact arrives EXECUTABLE. A runner nothing can execute is a
-/// rule with no runner, which V2 says gates nothing -- and the failure
-/// would surface as "permission denied" at a tool call rather than as
-/// something `check` could tell you about.
-pub(super) fn make_runnable(path: &Path) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
-        .map_err(|error| error.to_string())
 }
 
 /// One rewrite per source file, with every span for that file applied
@@ -431,14 +353,16 @@ pub(super) fn make_runnable(path: &Path) -> Result<(), String> {
 fn edit_sources(
     pending: &[plan::Step],
     base: &Path,
+    home: Option<&str>,
     done: &mut Vec<String>,
 ) -> Result<(), String> {
     for src in sources_touched(pending) {
         let steps: Vec<plan::Step> =
             pending.iter().filter(|s| s.src == src).cloned().collect();
-        let path = base.join(&src);
+        let path = scan::resolve_name(&src, base, home)
+            .ok_or_else(|| unresolvable(&src))?;
         let text = std::fs::read_to_string(&path)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| format!("{}: {error}", path.display()))?;
         let edited = apply::splice_all(&text, &steps).ok_or_else(|| {
             format!("{src}: a span no longer fits -- re-run `rekall plan`")
         })?;
@@ -446,6 +370,20 @@ fn edit_sources(
         done.push(format!("edited {src}"));
     }
     Ok(())
+}
+
+/// V59: what cannot be RESOLVED is refused by name and with a reason.
+///
+/// The only way to get here is a `~/` source with no home to expand it
+/// against. Joining it onto the project would put `<project>/~/...` in front
+/// of the user, which is `apply:B20` -- an error about a path nobody named.
+fn unresolvable(src: &str) -> String {
+    format!(
+        "{src} cannot be resolved: it is under your home directory and HOME \
+         is not set, so there is no way to find the file this extraction came \
+         from. Set HOME, or re-run from a checkout where the source is inside \
+         the project"
+    )
 }
 
 fn sources_touched(pending: &[plan::Step]) -> Vec<String> {
@@ -480,6 +418,8 @@ pub fn render_apply_human(outcome: &apply::Outcome, done: &[String]) -> String {
 mod tests {
     use super::*;
     use crate::cli::plan::plan_command;
+    use crate::cli::revert::revert_command;
+    use crate::cli::scan::scan_command;
     use crate::cli::testing::*;
     use crate::cli::{Action, USAGE_EXIT, decide, perform};
     use crate::{ledger, plan};
@@ -504,6 +444,144 @@ mod tests {
             "# Rules\n\n- never commit to `main`\n\n- background prose\n",
         );
         dir
+    }
+
+    /// A project whose corpus includes a USER root -- the shape `init`
+    /// detects and refuses to write into a tracked config (`init:V36`), and
+    /// the one a person opts into from `~/.config/rekall/rekall.toml`.
+    fn memory_project(name: &str) -> (PathBuf, PathBuf, Env) {
+        let dir = PathBuf::from("target").join("cli-memory").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(dir.join("home").join(".claude"));
+        let _ = std::fs::create_dir_all(dir.join("proj"));
+        // ABSOLUTE, because that is what the binary hands in: `HOME` is read
+        // from the process, and a relative one silently expands `~` against
+        // the test runner's cwd instead.
+        let home = canon(dir.join("home"));
+        let proj = canon(dir.join("proj"));
+        fill_memory_project(&home, &proj);
+        let at = Env {
+            cwd: proj.clone(),
+            home: Some(home.to_string_lossy().into_owned()),
+        };
+        (proj, home.join(".claude").join("CLAUDE.md"), at)
+    }
+
+    fn canon(path: PathBuf) -> PathBuf {
+        std::fs::canonicalize(&path).unwrap_or(path)
+    }
+
+    fn fill_memory_project(home: &Path, proj: &Path) {
+        let _ = std::fs::write(
+            home.join(".claude").join("CLAUDE.md"),
+            "- always deploy behind a feature flag\n",
+        );
+        let _ = std::fs::write(
+            proj.join("rekall.toml"),
+            "[sources]\nroots = [\".\", \"~/.claude/CLAUDE.md\"]\n",
+        );
+        let _ =
+            std::fs::write(proj.join("CLAUDE.md"), "# P\n\n- other prose\n");
+    }
+
+    /// The id of the statement that lives in agent memory.
+    fn memory_id(proj: &Path, at: &Env) -> String {
+        scan_command(&dash_c(proj), at)
+            .map(|o| o.text)
+            .unwrap_or_default()
+            .lines()
+            .find(|l| l.contains(".claude/CLAUDE.md"))
+            .and_then(|l| l.split_whitespace().next().map(str::to_string))
+            .unwrap_or_default()
+    }
+
+    /// V59 AND V16 together, end to end. `apply` NAMED this file, so it may
+    /// edit it -- and B20 is the measurement of it failing to.
+    #[test]
+    fn an_extraction_from_agent_memory_edits_the_memory_file() {
+        let (proj, memory, at) = memory_project("extract");
+        let before = std::fs::read_to_string(&memory).unwrap_or_default();
+        let id = memory_id(&proj, &at);
+        assert!(!id.is_empty(), "the memory statement was not scanned");
+        let mut flags = dash_c(&proj);
+        flags.push(id.clone());
+        flags.push("--auto-approve".to_string());
+        let out = apply_command(&flags, &at);
+        assert!(out.is_ok(), "apply refused a source it named: {out:?}");
+        let after = std::fs::read_to_string(&memory).unwrap_or_default();
+        assert_ne!(before, after, "the memory file was not edited");
+        assert!(after.contains(&id), "no pointer left in its place (V1)");
+    }
+
+    /// `.:V9`: an extraction that cannot be reversed is not an extraction.
+    /// `revert` resolves the same name `apply` did, or the statement is lost.
+    #[test]
+    fn an_extraction_from_agent_memory_reverts_verbatim() {
+        let (proj, memory, at) = memory_project("revert");
+        let before = std::fs::read_to_string(&memory).unwrap_or_default();
+        let id = memory_id(&proj, &at);
+        let mut flags = dash_c(&proj);
+        flags.push(id.clone());
+        flags.push("--auto-approve".to_string());
+        let _ = apply_command(&flags, &at);
+        let _ = revert_command(&flags, &at);
+        assert_eq!(
+            std::fs::read_to_string(&memory).unwrap_or_default(),
+            before,
+            "the memory file did not come back byte for byte"
+        );
+    }
+
+    /// V59 at the WRITE BOUNDARY, called directly because the CLI cannot
+    /// reach it. Without `HOME` the memory statement is not in the corpus at
+    /// all, so `apply` refuses at the id lookup long before the write -- the
+    /// test below asserts that real behaviour. This one asserts the guard
+    /// that stands where `B20` actually failed, so a future reordering meets
+    /// a named refusal instead of a bare errno.
+    #[test]
+    fn the_write_boundary_refuses_an_unresolvable_source_by_name() {
+        let mut done = Vec::new();
+        let why =
+            edit_sources(&[home_step()], Path::new("/w/p"), None, &mut done)
+                .err()
+                .unwrap_or_default();
+        assert!(why.contains(".claude/CLAUDE.md"), "names the file: {why}");
+        assert!(why.contains("HOME"), "names the reason: {why}");
+        assert!(done.is_empty(), "refused before writing anything");
+    }
+
+    /// Built here rather than borrowed: `apply::testing` is private to its
+    /// own module, and widening a fixture's visibility across modules is a
+    /// worse trade than one obvious constructor.
+    fn home_step() -> plan::Step {
+        plan::Step {
+            id: "abc1234".to_string(),
+            src: "~/.claude/CLAUDE.md".to_string(),
+            line_start: 1,
+            line_end: 1,
+            text: "- always deploy behind a flag".to_string(),
+            label: "M1".to_string(),
+            artifact: ".rekall/rules/x.sh".to_string(),
+            runner: String::new(),
+            wiring: "wire it".to_string(),
+            net: None,
+        }
+    }
+
+    /// And what a person actually meets: with no `HOME`, the `~` root cannot
+    /// be expanded, so the statement was never scanned and the id is simply
+    /// unknown. That is a correct refusal too, and it is the one the CLI
+    /// gives.
+    #[test]
+    fn without_a_home_the_memory_statement_is_not_in_the_corpus() {
+        let (proj, _memory, mut at) = memory_project("nohome");
+        let id = memory_id(&proj, &at);
+        let mut flags = dash_c(&proj);
+        flags.push(id.clone());
+        flags.push("--auto-approve".to_string());
+        at.home = None;
+        let why = apply_command(&flags, &at).err().unwrap_or_default();
+        assert!(why.contains(&id), "names what it could not find: {why}");
     }
 
     #[test]
@@ -850,7 +928,7 @@ mod tests {
     fn a_skill_is_linked_into_a_host_directory_that_exists() {
         let at = host_dir("linked", true);
         let step = skill_step("some-rule");
-        assert!(publish(&at, &step).is_ok());
+        assert!(crate::cli::publish::publish(&at, &step).is_ok());
         let link = at.join(".claude").join("skills").join("some-rule");
         assert!(link.symlink_metadata().is_ok(), "no link at {link:?}");
         assert!(
@@ -867,7 +945,9 @@ mod tests {
     #[test]
     fn no_host_directory_means_no_link_and_no_error() {
         let at = host_dir("nohost", false);
-        assert!(publish(&at, &skill_step("some-rule")).is_ok());
+        assert!(
+            crate::cli::publish::publish(&at, &skill_step("some-rule")).is_ok()
+        );
         assert!(!at.join(".claude").exists(), "a host dir was invented");
         let _ = std::fs::remove_dir_all(&at);
     }
@@ -880,7 +960,7 @@ mod tests {
         let mut step = skill_step("a-rule");
         step.label = "M1".to_string();
         step.artifact = ".rekall/rules/a-rule.sh".to_string();
-        assert!(publish(&at, &step).is_ok());
+        assert!(crate::cli::publish::publish(&at, &step).is_ok());
         assert!(!at.join(".claude").join("skills").join("a-rule").exists());
         let _ = std::fs::remove_dir_all(&at);
     }
@@ -889,9 +969,9 @@ mod tests {
     fn publishing_twice_leaves_the_first_link_alone() {
         let at = host_dir("twice", true);
         let step = skill_step("some-rule");
-        assert!(publish(&at, &step).is_ok());
+        assert!(crate::cli::publish::publish(&at, &step).is_ok());
         assert!(
-            publish(&at, &step).is_ok(),
+            crate::cli::publish::publish(&at, &step).is_ok(),
             "a second publish must not fail"
         );
         let _ = std::fs::remove_dir_all(&at);

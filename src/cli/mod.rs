@@ -26,6 +26,7 @@ mod init;
 mod issue;
 mod log;
 mod plan;
+mod publish;
 mod recall;
 mod resolve;
 mod revert;

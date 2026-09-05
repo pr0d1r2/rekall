@@ -54,7 +54,7 @@ pub fn check_command(flags: &[String], env: &Env) -> Result<Checked, String> {
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let held =
         ledger::load(&ledger::path_in(&base)).map_err(|e| e.to_string())?;
-    let bytes = read_rows(&base, &held);
+    let bytes = read_rows(&base, env.home.as_deref(), &held);
     let seen = zip_rows(&held, &bytes);
     let on_disk = artifacts_on_disk(&base, env)?;
     let mut found = check::audit(&seen, &on_disk);
@@ -74,11 +74,16 @@ struct Bytes {
     artifact: Option<String>,
 }
 
-fn read_rows(base: &Path, held: &ledger::Ledger) -> Vec<Bytes> {
+fn read_rows(
+    base: &Path,
+    home: Option<&str>,
+    held: &ledger::Ledger,
+) -> Vec<Bytes> {
     held.extracted
         .iter()
         .map(|row| Bytes {
-            source: std::fs::read_to_string(base.join(&row.src)).ok(),
+            source: scan::resolve_name(&row.src, base, home)
+                .and_then(|path| std::fs::read_to_string(path).ok()),
             artifact: std::fs::read_to_string(base.join(&row.artifact)).ok(),
         })
         .collect()

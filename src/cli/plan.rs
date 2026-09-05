@@ -48,7 +48,7 @@ pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     }
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
     let loaded = load_corpus(&base, env)?;
-    let mut built = built_from(&args, &loaded, &base)?;
+    let mut built = built_from(&args, &loaded, env, &base)?;
     fill_net(&mut built);
     emit_plan(&built, &args, &base)
 }
@@ -56,11 +56,44 @@ pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
 fn built_from(
     args: &PlanArgs,
     loaded: &scan::Loaded,
+    at: &Env,
     base: &Path,
 ) -> Result<plan::Plan, String> {
     let chosen = choose(&loaded.statements, &args.ids)?;
-    plan::build(&chosen, &loaded.sources, &loaded.weights, hook::wired(base))
-        .map_err(|error| error.to_string())
+    let built = plan::build(
+        &chosen,
+        &loaded.sources,
+        &loaded.weights,
+        hook::wired(base),
+    )
+    .map_err(|error| error.to_string())?;
+    refuse_unresolvable(&built, base, at.home.as_deref())?;
+    Ok(built)
+}
+
+/// V59: a plan does not promise a `delete` that `apply` will refuse.
+///
+/// `plan` prints `delete <src>:<span>` for every row, and `apply` is the verb
+/// that has to find that file. Where it cannot -- a `~/` source with no HOME
+/// to expand it against -- the two disagree, and the user meets the
+/// disagreement as a failure after approving the move rather than as a line
+/// before it. That is `B13` in a place where the file is somebody's memory.
+fn refuse_unresolvable(
+    built: &plan::Plan,
+    base: &Path,
+    home: Option<&str>,
+) -> Result<(), String> {
+    for step in &built.steps {
+        if scan::resolve_name(&step.src, base, home).is_none() {
+            return Err(format!(
+                "{} cannot be resolved: it is under your home directory and \
+                 HOME is not set, so `rekall apply` could not edit it. This \
+                 plan is not offered rather than offered and refused later",
+                step.src
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// V39: name the net BEFORE the move, so a losing extraction is visible

@@ -46,6 +46,7 @@ src/cli/issue.rs
 src/cli/log.rs
 src/cli/mod.rs
 src/cli/plan.rs
+src/cli/publish.rs
 src/cli/recall.rs
 src/cli/resolve.rs
 src/cli/revert.rs

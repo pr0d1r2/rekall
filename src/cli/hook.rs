@@ -172,7 +172,6 @@ fn agent_from(flags: &[String]) -> Result<hook::Agent, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::apply as apply_cli;
     use crate::cli::apply::read_answer;
 
     use crate::cli::reported;
@@ -385,7 +384,7 @@ mod tests {
         let (id, _) = extracted(&dir);
         let path = dir.join(artifact_of(&dir, &id));
         let _ = std::fs::write(&path, body);
-        let _ = apply_cli::make_runnable(&path);
+        let _ = crate::cli::publish::make_runnable(&path);
         write_trigger(&dir, &id, "path = [\"**/*.rs\"]");
         dir
     }

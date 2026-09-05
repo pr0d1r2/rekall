@@ -2,7 +2,7 @@ use super::apply::{approved, consent_for};
 use super::{
     Env, Format, Output, load_corpus, need, one, parse_format, report,
 };
-use crate::{apply, ledger, plan, revert};
+use crate::{apply, ledger, plan, revert, scan};
 use std::path::{Path, PathBuf};
 /// `revert` takes ONE id plus `--auto-approve` and the usual flags.
 ///
@@ -70,7 +70,7 @@ pub fn revert_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let args = parse_revert(flags)?;
     let id = args.id.clone().ok_or_else(|| NO_REVERT_INPUT.to_string())?;
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let mut held = Held::open(&base)?;
+    let mut held = Held::open(&base, env.home.as_deref())?;
     let Some(row) = chosen_row(&held.ledger, &id, &base, env)? else {
         return nothing_to_revert(&id, args.json);
     };
@@ -94,7 +94,7 @@ fn undo(
     args: &RevertArgs,
     held: &mut Held,
 ) -> Result<Output, String> {
-    let restored = restored_text(row, base)?;
+    let restored = restored_text(row, base, held.home.as_deref())?;
     let outcome = revert::preview(row);
     let named = render_revert_human(&outcome, &[]);
     approved(&consent_for(args.auto_approve, &named)?)?;
@@ -104,16 +104,26 @@ fn undo(
 
 /// The ledger and where it lives, carried together so writing it back does
 /// not need the path threaded through every call beneath it.
+/// The ledger, where it lives, and the home a `~` source resolves against.
+///
+/// `home` is here rather than a fifth argument: `undo` was already at the
+/// four-parameter limit, and a store that knows where the ledger is should
+/// know how to find what the ledger NAMES.
 struct Held {
     ledger: ledger::Ledger,
     path: PathBuf,
+    home: Option<String>,
 }
 
 impl Held {
-    fn open(base: &Path) -> Result<Self, String> {
+    fn open(base: &Path, home: Option<&str>) -> Result<Self, String> {
         let path = ledger::path_in(base);
         let ledger = ledger::load(&path).map_err(|error| error.to_string())?;
-        Ok(Self { ledger, path })
+        Ok(Self {
+            ledger,
+            path,
+            home: home.map(str::to_string),
+        })
     }
 }
 
@@ -167,8 +177,15 @@ struct Restored {
 fn restored_text(
     row: &ledger::Extracted,
     base: &Path,
+    home: Option<&str>,
 ) -> Result<Restored, String> {
-    let path = base.join(&row.src);
+    let path = scan::resolve_name(&row.src, base, home).ok_or_else(|| {
+        format!(
+            "{} cannot be resolved: it is under your home directory and HOME \
+             is not set, so the statement cannot be put back",
+            row.src
+        )
+    })?;
     let text =
         std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
     let text =

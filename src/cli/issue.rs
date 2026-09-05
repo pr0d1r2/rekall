@@ -1,4 +1,5 @@
-use super::apply::{approved, consent_for, publish_artifact};
+use super::apply::{approved, consent_for};
+use super::publish::publish_artifact;
 use super::{Env, Format, Output, need, parse_format, report};
 use crate::{apply, issue, ledger};
 use std::path::{Path, PathBuf};
