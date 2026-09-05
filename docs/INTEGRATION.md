@@ -195,6 +195,27 @@ the bound configurable and never changed what it measures. It is recorded as
 `runner:B16` rather than quietly corrected, because a document that overstates
 a repair is how the repair stops being made.
 
+## Pointing it at a scratch corpus
+
+`REKALL_HOME` replaces `HOME` when the corpus resolves a `~` root. Your
+config is still found under the real `HOME`; only the corpus moves:
+
+```sh
+REKALL_HOME=/tmp/scratch rekall scan
+```
+
+This exists because this tool's corpus can be your agent memory, and running
+a destructive experiment against the data you are studying is the one way to
+lose it. Use it whenever you are trying something out against a memory root.
+
+An empty value is treated as unset, the same trap `XDG_CONFIG_HOME=""` sets
+one module over — an empty override would resolve `~/x` to `/x`.
+
+**It does not make your real corpus safe.** Forget the variable and you get
+the ordinary behaviour. The guard that matters is still `rekall plan`, which
+names every file before `apply` touches one.
+
+
 ## What `rekall` will not do to your repository
 
 - It does not write to a memory directory unless `apply` named that file.

@@ -7,8 +7,10 @@
 
 // The crate modules are reached by FULL PATH inside the verb modules,
 // because `mod apply;` below would otherwise shadow `crate::apply`.
+pub use env::{Env, HOME_OVERRIDE, corpus_home};
+
 use crate::{statement, tokens};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// One module per VERB. `cli.rs` keeps dispatch, the shared parse
 /// helpers and the two report shapes; each verb took its own flags,
@@ -21,6 +23,7 @@ use std::path::{Path, PathBuf};
 mod apply;
 mod catch;
 mod check;
+mod env;
 mod hook;
 mod init;
 mod issue;
@@ -240,19 +243,6 @@ fn verb_action(verb: &str, flags: Vec<String>) -> Action {
 /// A value rather than an `ExitCode` so tests can assert on it: `ExitCode`
 /// is deliberately opaque and implements no comparison, which would leave
 /// every arm here exercised but unasserted. `dispatch` converts once.
-/// The process facts the library needs but must not READ for itself.
-///
-/// `current_dir` and `HOME` are process globals. A library that reaches for
-/// them is a library whose behaviour depends on state no caller passed and
-/// no test can set -- `std::env::set_var` is unsafe in edition 2024, and
-/// mutating it would race other tests anyway. The binary reads them once,
-/// at the edge, and hands them in.
-#[derive(Debug, Clone)]
-pub struct Env {
-    pub cwd: PathBuf,
-    pub home: Option<String>,
-}
-
 #[must_use]
 pub fn perform(action: Action, env: &Env) -> u8 {
     match action {
@@ -480,6 +470,47 @@ mod testing;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    /// V63: the override wins, so a session can be pointed at a scratch
+    /// corpus instead of somebody's real agent memory.
+    #[test]
+    fn the_override_replaces_home() {
+        assert_eq!(
+            corpus_home(Some("/tmp/fake".into()), Some("/home/u".into())),
+            Some("/tmp/fake".to_string())
+        );
+    }
+
+    /// EMPTY IS UNSET. `config::non_empty_var` learned this from
+    /// `XDG_CONFIG_HOME=""` resolving a user config to `/rekall/...`; here an
+    /// empty override would resolve `~/x` to `/x`.
+    #[test]
+    fn an_empty_override_falls_back_to_home() {
+        assert_eq!(
+            corpus_home(Some(String::new()), Some("/home/u".into())),
+            Some("/home/u".to_string())
+        );
+    }
+
+    #[test]
+    fn no_override_leaves_home_alone() {
+        assert_eq!(
+            corpus_home(None, Some("/home/u".into())),
+            Some("/home/u".to_string())
+        );
+        assert_eq!(corpus_home(None, None), None);
+    }
+
+    /// An override with NO home behind it still stands: pointing at a
+    /// scratch tree must not need a real home to exist.
+    #[test]
+    fn the_override_works_without_a_home() {
+        assert_eq!(
+            corpus_home(Some("/tmp/fake".into()), None),
+            Some("/tmp/fake".to_string())
+        );
+    }
     // The CRATE modules, named explicitly. `use super::*` now also pulls in
     // the cli submodules of the same name, and an explicit import beats a
     // glob -- so this is what keeps `plan::Plan` meaning the domain type.

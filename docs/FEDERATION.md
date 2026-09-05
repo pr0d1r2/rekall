@@ -92,6 +92,22 @@ however it is qualified, while `sherd` resolves the qualified path. The two
 disagree, and the `§T` cites column is the form both accept — so a
 cross-edge citation belongs there rather than in prose.
 
+### A qualified citation is not checked at all
+
+`sherd validate` catches a bare local id that no `§V` declares — it refused
+`V47` in `src/apply` while that rule lived in `src`. It does **not** resolve a
+qualified one. `` `config:V25` `` passes cleanly, and `config` declares only
+`V36`.
+
+Measured by writing that exact citation into `src/cli/SPEC.md` and watching a
+clean `sherd validate`. So the form the federation *requires* for crossing an
+edge is the form nothing verifies, which is the worse half to leave unchecked.
+
+Together with the orphan report above, that is the shape of the gap: **the
+tooling reads one file at a time, and every cross-node claim is on trust.**
+Closing it needs a checker that loads the whole tree and resolves both
+directions — the same checker `T38` is blocked on.
+
 ## The tooling
 
 `microlith` (`mth`) is intra-file by design and has **no `§F` verb at all**, so

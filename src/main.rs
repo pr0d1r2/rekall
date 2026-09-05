@@ -1,7 +1,8 @@
 //! `rekall` -- turn always-on agent prose into tangibles.
 //!
 //! The process EDGE, and nothing else. It reads the two process globals the
-//! library refuses to reach for -- the working directory and `HOME` -- and
+//! library refuses to reach for -- the working directory, `HOME`, and the
+//! `REKALL_HOME` that overrides it (`V63`) -- and
 //! hands them in, then turns a `u8` into an `ExitCode`.
 //!
 //! Everything that decides anything lives in `rekall::cli`, where a test can
@@ -23,7 +24,10 @@ fn main() -> ExitCode {
     };
     let env = cli::Env {
         cwd,
-        home: std::env::var("HOME").ok(),
+        home: cli::corpus_home(
+            std::env::var(cli::HOME_OVERRIDE).ok(),
+            std::env::var("HOME").ok(),
+        ),
     };
     ExitCode::from(cli::perform(cli::decide(&args), &env))
 }
