@@ -26,6 +26,22 @@
 # The branch a release may happen from. The `.crate` records the commit it was
 # built from, so publishing off anything that later disappears leaves the
 # artifact naming a commit nobody can resolve.
+# THE TAG PUSH NEEDS `--no-verify`, and this is not a bypass to feel bad
+# about. hk's pre-push step asks git for the files between `origin/main` and
+# the ref being pushed; a TAG is not a commit object, so it fails with
+# "Failed to find merge base" and the push is refused. Measured twice, on
+# v0.4.0-rc.1 and v0.4.0-rc.2 (`.:B18`).
+#
+# The order that makes skipping it honest, and it is the order to follow:
+#
+#     git push origin main                  # the gate RUNS here
+#     git rev-parse v<tag>^{commit}         # confirm it is that commit
+#     git push --no-verify origin v<tag>
+#
+# The tag then points at content the gate has already passed. CHECK that
+# rather than assuming it: the skip is only safe because of the check.
+# `cargo release --execute` pushes its own tag and will meet the same wall.
+
 # A RELEASE CANDIDATE DOES NOT PUBLISH, and `publish = true` below is about
 # the real thing. Run an rc with the flag that says so:
 #
