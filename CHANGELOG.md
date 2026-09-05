@@ -30,9 +30,34 @@ Nothing has been published to crates.io yet.
 
 ## [Unreleased]
 
+## [0.4.0-rc.2] — 2026-09-05
+
+**rc.1 could not be installed by the path the documentation names.** Testing
+it is what found that, which is what a candidate is for.
+
+### Fixed
+
+- `nix build .#default` now succeeds. It never had, and `ci.yml` runs it, so
+  CI was going to be red on the public repository's first push — unnoticed
+  because that repository does not exist, so the workflow has never executed
+  once. Five of the eleven sandbox failures were `itok` missing from
+  `nativeCheckInputs`: V8 delegates every token count to the sibling, which
+  makes it a dependency of the suite rather than a convenience of the dev
+  shell.
+- The runner's bound is **wall-clock**, and `docs/INTEGRATION.md` said CPU
+  time. V38's fix for B5 made the bound configurable and never changed what
+  it measures, so the page described a repair nobody performed while B5 went
+  on recurring behind it. Six runner tests were racing that bound under
+  ordinary test parallelism; they now use a generous one and say why.
+
+Verified end to end: `./result/bin/rekall` from the nix build reports
+`0.4.0-rc.2` and runs `init`, `scan`, `plan`, `apply`, `check` and
+`log --dead` against a fresh corpus.
+
 ## [0.4.0-rc.1] — 2026-09-05
 
-**A release candidate, for testing before the rung is claimed.** Nothing is
+**Superseded by rc.2, which is the first one that installs.** A release
+candidate, for testing before the rung is claimed. Nothing is
 published to crates.io from an rc: `Cargo.toml`'s `repository` still points at
 a repository that does not exist yet, and crates.io versions can be yanked but
 never deleted. This is a tag to install from and run against real corpora.
@@ -240,6 +265,7 @@ unknown.
 - A clippy deny list with no allow-list and no lint-debt file — affordable
   exactly once, at zero lines of code.
 
+[0.4.0-rc.2]: #040-rc2--2026-09-05
 [0.4.0-rc.1]: #040-rc1--2026-09-05
 [0.3.0]: #030--2026-09-05
 [0.2.0]: #020--2026-09-05
