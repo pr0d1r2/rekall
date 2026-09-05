@@ -214,9 +214,9 @@ a repair is how the repair stops being made.
 `rekall check` is a step in its own gate. That is not a demo. A tool that gates
 other people's extractions and not its own is a tool nobody has run in anger.
 
-One definition, three callers: [`hk.pkl`](../hk.pkl) holds the steps,
+One definition, three callers: [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl) holds the steps,
 `pre-commit` takes the fast 21, `pre-push` and
-[`ci.yml`](../.github/workflows/ci.yml) take all 27. The split is by cost — a
+[`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) take all 27. The split is by cost — a
 sixty-second step on every commit is a step someone learns to bypass, and a
 bypassed hook is worse than none.
 

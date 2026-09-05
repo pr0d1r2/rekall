@@ -8,18 +8,18 @@
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
-[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
-[![gate steps 21 commit / 27 push](https://img.shields.io/badge/gate_steps-21_commit_%2F_27_push-6E4AFF)](hk.pkl)
+[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
+[![gate steps 21 commit / 27 push](https://img.shields.io/badge/gate_steps-21_commit_%2F_27_push-6E4AFF)][hk]
 [![coverage floor 99.26%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.26%25-brightgreen)](.coverage)
 [![invariants 59](https://img.shields.io/badge/invariants-61-6E4AFF)](SPEC.md)
 [![bugs logged 20](https://img.shields.io/badge/bugs_logged-20-6E4AFF)](SPEC.md)
 [![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
-[![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
-[![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)](flake.nix)
-[![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)](flake.nix)
-[![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)](flake.nix)
-[![arm macos](https://img.shields.io/badge/macos-5277C3?logo=arm&logoColor=white)](flake.nix)
+[![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]
+[![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)][flake]
+[![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)][flake]
+[![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)][flake]
+[![arm macos](https://img.shields.io/badge/macos-5277C3?logo=arm&logoColor=white)][flake]
 
 [![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
 [![built with Opus 5](https://img.shields.io/badge/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)
@@ -522,3 +522,6 @@ carry evidence, and that applies to the maintainers too.
 ## License
 
 MIT. Third-party notices: [`THIRD-PARTY-NOTICES.md`](docs/THIRD-PARTY-NOTICES.md).
+
+[flake]: https://github.com/pr0d1r2/rekall/blob/main/flake.nix
+[hk]: https://github.com/pr0d1r2/rekall/blob/main/hk.pkl

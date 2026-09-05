@@ -106,6 +106,47 @@ local fast = new Mapping<String, Step> {
   /// EXTRACTED from CLAUDE.md by rekall (id 3edbbbe). It reads THIS file
   /// and every extracted runner beside it, so the gate is judged by the
   /// rule it carries rather than by anyone remembering it.
+  /// SHIPPED docs must not link to UNSHIPPED files.
+  ///
+  /// `lychee` resolves every relative link in this repository and passes,
+  /// because in a checkout they all exist. The `.crate` is a different file
+  /// set: `hk.pkl`, `flake.nix` and `.github/` are excluded on purpose, and
+  /// a link to one of them is a dead link for everyone reading on crates.io
+  /// or docs.rs. MEASURED: 8 such links across 4 files, with the link
+  /// checker green the whole time -- a check looking at the wrong file set.
+  ///
+  /// Links to an excluded file belong as ABSOLUTE urls to the repository,
+  /// which is where that file actually lives.
+  ["shipped-links"] {
+    glob = List("README.md", "docs/**/*.md", ".crate-files", "Cargo.toml")
+    check = """
+      # NO BACKSLASHES IN THIS SCRIPT, deliberately. pkl does not collapse
+      # `\\` in a triple-quoted string, so an escape written here reaches the
+      # shell doubled and the pattern silently matches nothing -- which is
+      # how the first draft of this step passed while a dead link was in the
+      # README. Bracket classes do the same job and survive the trip.
+      out=$(
+        for f in README.md docs/*.md; do
+          [ -f "$f" ] || continue
+          grep -oE '][(][A-Za-z0-9_./-]+[)]' "$f" | sed 's/^..//; s/.$//' | while read -r t; do
+            t="${t%%#*}"
+            [ -z "$t" ] && continue
+            case "$f" in
+              docs/*) case "$t" in ../*) n="${t#../}" ;; *) n="docs/$t" ;; esac ;;
+              *) n="$t" ;;
+            esac
+            grep -qxF "$n" .crate-files || echo "  $f -> $t"
+          done
+        done
+      )
+      [ -z "$out" ] && exit 0
+      echo "hk: a SHIPPED doc links to a file the .crate EXCLUDES, so the link is dead for every reader on crates.io and docs.rs:" >&2
+      echo "$out" >&2
+      echo "Make it an absolute repository url, or stop excluding the file." >&2
+      exit 1
+      """
+  }
+
   /// The README's COUNTS, against the specs they claim to count.
   ///
   /// Five numbers -- invariants, bug rows, landed tasks, open tasks, nodes --
