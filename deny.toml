@@ -1,0 +1,76 @@
+# cargo-deny: the supply chain, such as it is.
+#
+# ONE TOOL, NOT THREE. cargo-audit and osv-scanner ask the advisories
+# question this already answers, against the same or an overlapping
+# database. Three tools for one question is the shape this project's own
+# rules reject, and it would be a poor look in a crate whose `check` verb
+# exists because a rule stated twice is a rule nobody maintains.
+
+# WHAT MAY BE IN THE TREE.
+#
+# Unlike the zero-dependency siblings, this crate cannot allowlist only
+# itself: it takes five direct dependencies and the argument each one had to
+# win is recorded in docs/THIRD-PARTY-NOTICES.md. What this section does
+# instead is make a SIXTH arrival visible, and make duplication a decision.
+[bans]
+# A dep appearing twice at different versions is a merge waiting to happen,
+# and it doubles the code a `cargo audit` finding could apply to.
+multiple-versions = "deny"
+# `*` in a version requirement means "whatever ships today", which is the
+# opposite of what the tracked lock and `nix build` are for.
+wildcards = "deny"
+# MEASURED, not tolerated in advance: `toml 0.9` pulls `winnow 1.0` while
+# `serde_spanned` in the same tree still resolves `winnow 0.7`. Both come
+# from the TOML stack this crate did not want to hand-roll, neither is
+# reachable from our own code, and the duplicate disappears upstream rather
+# than here.
+#
+# It is skipped BY NAME so the deny above keeps its teeth for everything
+# else. Deleting this entry is the check that the merge has happened; if it
+# passes, the skip is stale and should go.
+skip = [
+  { crate = "winnow", reason = "toml 0.9 and serde_spanned disagree upstream" },
+]
+
+# EXACTLY what the tree uses today, which is four licences and no more.
+#
+# The temptation is to pre-allow the usual permissive set -- BSD, ISC,
+# MPL -- and cargo-deny answers that with `license-not-encountered`
+# warnings. It is right to. Those entries are permission granted in advance
+# for dependencies that do not exist, and a list nobody had to think about
+# is not a policy.
+#
+# Growing this is a JUDGEMENT: an entry accepts that licence for everything
+# downstream, forever. Making it a deliberate edit at the moment a
+# dependency actually arrives is the whole value of the file.
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  # `aho-corasick`, `globset`, `memchr`, `same-file` and `walkdir` are all
+  # BurntSushi's, all dual `Unlicense OR MIT`. Listed because the tree
+  # genuinely contains it, not because public-domain dedication is being
+  # invited in generally.
+  "Unlicense",
+  # `unicode-ident` embeds the Unicode character tables and carries this
+  # alongside its MIT/Apache dual licence. Permissive, and it asks only that
+  # its notice travel with the data -- which docs/THIRD-PARTY-NOTICES.md is.
+  "Unicode-3.0",
+]
+# Below this, a licence is "probably fine" rather than known to be. That is
+# not a standard this repo applies to anything else.
+confidence-threshold = 0.93
+
+# crates.io or nothing. A git dependency is not reproducible from the lock
+# alone and cannot be yanked, which is the property `nix build` relies on.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+
+# NETWORK, unlike every other check in this gate: this fetches the RustSec
+# advisory database. That is why `deny-advisories` is a PUSH step and not a
+# commit step -- the whole point of this crate is that it never reaches the
+# network, and the one place that claim is allowed to bend is a tool the
+# crate does not ship. It stays out of the loop a developer runs most often.
+[advisories]
+yanked = "deny"

@@ -199,6 +199,10 @@
             # it: that builtin does exactly what its name says and nothing
             # else, so an `AWS_SECRET_ACCESS_KEY=...` line walks past it.
             pkgs.ripsecrets
+            # The supply chain. This crate has FIVE direct dependencies and
+            # 26 in the tree, so "there is nothing to scan" is not available
+            # as an answer here the way it is in a zero-dependency sibling.
+            pkgs.cargo-deny
           ];
           # Pin locale so tool output is deterministic across machines.
           LANG = "C.UTF-8";

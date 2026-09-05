@@ -317,6 +317,25 @@ local all = (fast) {
   /// Publishing does not ship the REPO, it ships a tarball whose file set is
   /// DERIVED -- git-tracked, minus `exclude`. That is a second file set
   /// nothing else in this repo examines.
+  /// THE SUPPLY CHAIN. Five direct dependencies and 26 in the tree, so
+  /// "there is nothing to scan" -- the honest answer in a zero-dependency
+  /// sibling -- is not available here.
+  ///
+  /// `advisories` is NOT in this step: it fetches the RustSec database, and
+  /// this set runs on every commit. This crate's whole claim is that it
+  /// never reaches the network, so the one check that does lives in the
+  /// push set, in `deny-advisories` below.
+  ["deny"] {
+    glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
+    /// Absence before findings: `no such command: deny` is also a non-zero
+    /// exit, and reporting it as a rejected dependency tree names the wrong
+    /// cause entirely.
+    check = """
+      cargo deny --version >/dev/null 2>&1 || { echo 'hk: cargo-deny is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail, and a new LICENCE is permission granted to everything downstream forever. Both belong in deny.toml as a deliberate edit, with the argument beside them.' >&2; exit 1; }
+      """
+  }
+
   /// The tarball BUILDING is not the same question as the tarball holding
   /// the right files, and only the first was ever asked here. `.crate-files`
   /// records the second answer so a change to it lands in a DIFF a reviewer
@@ -381,6 +400,24 @@ local all = (fast) {
       awk -v n="$now" -v w="$was" 'BEGIN{exit !(n+0 < w+0)}' && { echo "hk: refusing to RECORD a drop, $was% -> $now%. Cover the gap, or edit .coverage by hand with the reason." >&2; exit 1; }
       awk -v n="$now" '/^lines /{print "lines " n; next} {print}' .coverage > .coverage.new
       mv .coverage.new .coverage
+      """
+  }
+
+  /// THE ONE NETWORK STEP IN THE WHOLE GATE. It fetches the RustSec
+  /// advisory database, so it sits with the expensive axes rather than on
+  /// every commit -- this crate reaches the network nowhere, and the gate
+  /// should not quietly make a developer do so on every `git commit`.
+  ///
+  /// Paired with `deny` in the fast set, which is what keeps the tree small
+  /// enough for this to mean something.
+  ["deny-advisories"] {
+    glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
+    depends = List("coverage")
+    /// Absence before findings, as in `deny`: a missing tool is not a clean
+    /// bill of health.
+    check = """
+      cargo deny --version >/dev/null 2>&1 || { echo 'hk: cargo-deny is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      cargo deny check advisories || { echo 'hk: a dependency carries a security advisory or has been yanked. Bump it, or record why it is not reachable from this crate in deny.toml.' >&2; exit 1; }
       """
   }
 }
