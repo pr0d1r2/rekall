@@ -12,11 +12,14 @@ CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WIN
 
 ## §F FEDERATION
 
-dir|owns|⊥owns|tokens src|the CRATE, federated one node per module: what each verb & each subsystem ! hold true|the crate-wide law, which stays HERE ∵ it is what every node INHERITS|-
+dir|owns|⊥owns|tokens
+src|the CRATE, federated one node per module: what each verb & each subsystem ! hold true|the crate-wide law, which stays HERE ∵ it is what every node INHERITS|-
 
 ## §N NAV
 
-rel|path|lens up|-|- self|.|-
+rel|path|lens
+up|-|-
+self|.|-
 
 ## §C CONSTRAINTS
 
