@@ -1,6 +1,7 @@
 .cargo_vcs_info.json
 .context-limits
 .coverage
+AGENTS.md
 CHANGELOG.md
 CLAUDE.md
 Cargo.lock
