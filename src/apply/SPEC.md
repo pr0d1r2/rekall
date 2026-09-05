@@ -40,6 +40,8 @@ V48: an `S` ARTIFACT is REKALL'S, PUBLISHED by SYMLINK where a host indexes one.
 
 V52: the HEAD DISABLES the host's own loading. `disable-model-invocation: true` in every `S` artifact, ∵ the host CANNOT express a ⊥-fire clause -- `paths:` limits WHEN it auto-loads & there is ⊥ frontmatter for WHEN IT ! NOT -- ∴ the only rendering that keeps the REFUSAL CLAUSE true is to switch the host's automatic path OFF & leave delivery to `hook`, which reads the block. The file stays PRESENT: indexed, deduped, `/name`-invocable BY A HUMAN, which is a person choosing & ⊥ a model guessing. `paths:` is deliberately ⊥ emitted alongside it: with auto-loading off the key does nothing, & shipping a key the host ignores is what `hook:V49` forbids one file over. `check` VERIFIES the guard as it already verifies the head (T59) -- a head is a CONTROL SURFACE & ⊥ only an index entry.
 
+V53: an artifact is TRACKED from the moment it exists, & ISSUING MOVES it. V1 ONE LEVEL OUT: prose leaves the CORPUS & a pointer stays; the artifact leaves the REPO & the LEDGER ROW stays, ∴ what a registry adopts is ⊥ a second copy of anything. TRACKED & ⊥ gitignored through the trial ∵ the AUDIT TRAIL is the whole point -- this repo's history says what was EXTRACTED & when, the registry's says what was ADOPTED & when, & a gitignored trial has ⊥ history to show. It also keeps ONE ledger: MEASURED, a gitignored artifact against a tracked row makes `check` say `missing-artifact` on every CLONE, & splitting the ledger to quiet that would put reversibility in two stores. PROMOTION is EARNED, ⊥ automatic: fires are the evidence, & `--dead` already NAMES the rules that never earned one. REJECTED: a gitignored trial, which hides a rule from the measurement meant to end it.
+
 ## §T TASKS
 
 id|status|task|cites
@@ -50,7 +52,7 @@ T62|x|artifacts move to `.rekall/`, PUBLISHED by symlink where a host indexes on
 T65|.|a fresh checkout gets ⊥ published links: `publish` runs at `apply` ONLY. Republish the ledger's `S` rows where a host dir exists|V48,`.:V22`
 
 T66|.|`apply` writes `disable-model-invocation: true` into every `S` head; `check` VERIFIES it; the artifacts already written are REISSUED|V52,`src/trigger:V4`
-T67|.|`rekall issue <id> --to <path>`: write a PORTABLE `SKILL.md` where a loop tends it. LOCAL WRITE ONLY -- ⊥ a remote, ⊥ a `--push`, ∵ `.:V5` & `.:V15` hold at every verb. Knows ⊥ a registry's layout: `set-and-setting` is ONE destination & others run their own|V48,`.:V5`,`.:V15`
+T67|.|`rekall issue <id>... --to <dir>`: MOVE a proven extraction to where a loop tends it -- portable `SKILL.md` out, ledger row KEEPS the record. LOCAL WRITE ONLY, ⊥ a remote & ⊥ a `--push` (`.:V5`, `.:V15`). Knows ⊥ a destination's layout ∴ the registry ADOPTS. Subsumes T65's republish & T66's reissue: BOTH are `issue` over rows that already exist|V52,V53,V48
 
 ## §B BUGS
 

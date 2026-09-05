@@ -365,6 +365,33 @@ Every verb offers `--format human` and `--format json` with the same anatomy.
 An agent should never have to parse prose. JSON carries `class`, `sharpness`
 and `label` as separate fields, so nothing has to string-surgery `M2`.
 
+## The lifecycle
+
+A verb list is not a process. Extraction is the first step of four, and a
+skill earns each one:
+
+| stage | where it lives | what proves it |
+|---|---|---|
+| **extracted** | `.rekall/`, tracked | nothing yet -- it is a hypothesis |
+| **in trial** | same | `hook` fires it; the counter climbs |
+| **issued** | a registry you name | fires, and a human agreeing |
+| **consumed** | back through the registry's own materializer | it is curated now |
+
+It is **tracked from the moment it exists**, not hidden until it proves
+itself. The audit trail is the point: this repository's history says what
+was extracted and when, and the registry's says what was adopted and when.
+A trial nobody can see has no history to show, and it would be hidden from
+`rekall log --dead` -- the very measurement meant to end it.
+
+Issuing is a **move**, not a copy. Prose leaves the corpus and a pointer
+stays; the artifact leaves the repository and the ledger row stays. What a
+registry adopts is not a second copy of anything, which is the same rule
+that governs the first step, one level out.
+
+Nothing here reaches the network. `issue` writes to a path you name and
+git does the travelling -- the corpus is private, and no verb in this
+crate has a network path at all.
+
 ## Exit codes
 
 | Code | Meaning |
