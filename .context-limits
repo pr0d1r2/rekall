@@ -242,9 +242,28 @@
 # for it should be sent, and ST's job is what is DECIDED and what is OPEN --
 # a done row is neither.
 #
-# The ceiling returns to 12400 rather than staying at 13450 with the slack
+# The ceiling returned to 12400 rather than staying at 13450 with the slack
 # in hand, because a cap with a thousand tokens of room is not a cap. The
 # next addition argues for itself, which is the entire mechanism.
-SPEC.md   12400
+#
+# THE NEXT ADDITION ARGUED, same day: V47 (the agent is NAMED, not sniffed),
+# V48 (an S artifact is rekall's, delivery is the hook's), V49 (a dialect
+# that cannot deliver FAILS or SAYS SO), an amended V46, and T60-T62. That
+# is what the fold was performed FOR -- the work was specified and blocked
+# on 6 tokens of headroom.
+#
+# 12394 -> 13127, spending 733 of the 1045 the fold repaid. The ceiling goes
+# to 13400, which is not a new number: it is the figure reviewed earlier
+# today, and the file ends the day 50 BELOW the 13450 it reached and 273
+# under its own cap. A raise that lands beneath the session's own high water
+# mark, paid for by a compaction measured first, is the mechanism working.
+#
+# The standing answer is unchanged and now has one fewer excuse: SB
+# compaction is still ~30 tokens, the ST fold is SPENT, and the next move is
+# federation by SUBSYSTEM -- measured 2026-09-05 at ~400 tok of SF/SN
+# residue per node in a sibling, against ~121 tok per invariant here, so it
+# pays only once the root outgrows a window. Per-VERB federation was costed
+# and REJECTED: 11 nodes of residue to relocate 11 rows, a 3.3x loss.
+SPEC.md   13400
 README.md  5700
 CLAUDE.md   600
