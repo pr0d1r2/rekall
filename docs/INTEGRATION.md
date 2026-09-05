@@ -18,7 +18,14 @@ generated placeholder, a situational skill with an empty or absent trigger, a
 skill with no do-not-fire clause, an orphan artifact, or a source span that was
 supposed to be deleted and is still there.
 
+Two wirings are given below and no others, because these are the two that have
+actually been run. A config snippet nobody executed is a claim, and this is the
+wrong project to publish untested claims in.
+
 ### hk
+
+What this repository uses, and what the rest of the Rust side of the fleet
+uses:
 
 ```pkl
 ["rekall-check"] {
@@ -29,35 +36,27 @@ supposed to be deleted and is still there.
 }
 ```
 
-### lefthook
-
-```yaml
-pre-commit:
-  commands:
-    rekall-check:
-      glob: "{**/CLAUDE.md,**/AGENTS.md,.rekall/**,.claude/skills/**}"
-      run: rekall check
-```
-
-### pre-commit (the Python framework)
-
-```yaml
-- repo: local
-  hooks:
-    - id: rekall-check
-      name: rekall check
-      entry: rekall check
-      language: system
-      pass_filenames: false
-```
-
 ### Plain git
+
+The fallback that needs no runner at all:
 
 ```sh
 #!/bin/sh
 # .git/hooks/pre-commit
 exec rekall check
 ```
+
+Verified in both directions: a complete extraction commits, and an extraction
+with an unfilled trigger exits 1, prints the two problems and leaves the tree
+uncommitted.
+
+### Anything else
+
+`rekall check` is an ordinary command that exits nonzero, so any hook runner
+that can call a command can call this one. Writing out configs for runners
+nobody here has tried would be guessing at their glob syntax and their
+pass-the-filenames semantics, and getting either wrong costs a reader more than
+the missing snippet does.
 
 ### CI
 
