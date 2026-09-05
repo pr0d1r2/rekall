@@ -131,6 +131,10 @@ fn role_of(value: &serde_json::Value) -> Option<&str> {
         .get("role")
         .and_then(serde_json::Value::as_str)
         .or_else(|| nested_str(value, "message", "role"))
+        // Codex nests the whole turn under `payload` (R16). Without this
+        // the role lookup falls through to `type`, reads "response_item",
+        // matches no human, and reports a confident zero.
+        .or_else(|| nested_str(value, "payload", "role"))
         .or_else(|| value.get("type").and_then(serde_json::Value::as_str))
 }
 
@@ -151,7 +155,8 @@ fn nested_str<'a>(
 fn text_of(value: &serde_json::Value) -> String {
     let content = value
         .get("content")
-        .or_else(|| value.get("message").and_then(|held| held.get("content")));
+        .or_else(|| value.get("message").and_then(|held| held.get("content")))
+        .or_else(|| value.get("payload").and_then(|held| held.get("content")));
     match content {
         Some(serde_json::Value::String(said)) => said.clone(),
         Some(serde_json::Value::Array(blocks)) => blocks_text(blocks),
@@ -281,5 +286,50 @@ mod tests {
         let ids: Vec<&str> = out.caught.iter().map(|c| c.id.as_str()).collect();
         assert_eq!(out.turns, 2);
         assert!(ids.windows(2).all(|w| w.first() == w.last()));
+    }
+    /// The CODEX shape, from R16 rather than from documentation: the turn
+    /// nests under `payload`, the human is `user` there, and the words are
+    /// in `payload.content[].text` as `input_text` blocks.
+    const CODEX_USER: &str = concat!(
+        r#"{"timestamp":"2026-09-05T10:11:24Z","type":"response_item","#,
+        r#""payload":{"type":"message","role":"user","content":"#,
+        r#"[{"type":"input_text","text":"Never commit a .env file."}]}}"#
+    );
+
+    #[test]
+    fn a_codex_user_turn_is_read_through_payload() {
+        let out = caught(CODEX_USER);
+        assert_eq!(out.turns, 1, "payload.role must be reached");
+        assert_eq!(out.caught.len(), 1);
+    }
+
+    /// V51, and the reason it is not merely tidiness. `developer` appears
+    /// exactly once per Codex session and IS the injected `AGENTS.md`. The
+    /// only public writeup of this format calls it the human; believing it
+    /// would mine the agent's own rules file and hand them back as finds.
+    #[test]
+    fn a_codex_developer_turn_is_the_instructions_and_is_not_evidence() {
+        let said =
+            CODEX_USER.replace(r#""role":"user""#, r#""role":"developer""#);
+        let out = caught(&said);
+        assert_eq!(out.turns, 0, "the instruction preamble is not a turn");
+        assert!(out.caught.is_empty());
+    }
+
+    #[test]
+    fn a_codex_assistant_turn_is_not_evidence_either() {
+        let said =
+            CODEX_USER.replace(r#""role":"user""#, r#""role":"assistant""#);
+        assert_eq!(caught(&said).turns, 0);
+    }
+
+    /// Both harnesses in one file: `catch` iterates roots, so a run may
+    /// meet either shape and must not need telling which.
+    #[test]
+    fn claude_and_codex_shapes_read_side_by_side() {
+        let claude = r#"{"role":"user","content":"Always run the gate before pushing."}"#;
+        let out = caught(&format!("{CODEX_USER}\n{claude}"));
+        assert_eq!(out.turns, 2, "one shape must not shadow the other");
+        assert_eq!(out.skipped, 0);
     }
 }

@@ -66,20 +66,62 @@ fn session_path(args: &CatchArgs, env: &Env) -> Result<PathBuf, String> {
     if let Some(named) = &args.session {
         return Ok(PathBuf::from(named));
     }
-    let root = transcript_root(env)?;
-    newest(&root).ok_or_else(|| {
-        format!(
-            "no transcript found under `{}`. Name one explicitly: `rekall catch <path>`",
-            root.display()
-        )
-    })
+    let roots = transcript_roots(env)?;
+    if roots.is_empty() {
+        return Err(
+            "no transcript root exists on this machine -- looked for `~/.claude/projects` and `~/.codex/sessions`. Name a transcript explicitly: `rekall catch <path>`"
+                .to_string(),
+        );
+    }
+    roots
+        .iter()
+        .filter_map(|root| newest(root))
+        .max_by_key(|path| modified_at(path))
+        .ok_or_else(|| no_transcript(&roots))
 }
 
-fn transcript_root(env: &Env) -> Result<PathBuf, String> {
+/// Names every root that was looked in, not just the first. A reader who
+/// runs two agents needs to know which one was empty.
+fn no_transcript(roots: &[PathBuf]) -> String {
+    let looked = roots
+        .iter()
+        .map(|r| format!("`{}`", r.display()))
+        .collect::<Vec<_>>()
+        .join(" or ");
+    format!(
+        "no transcript found under {looked}. Name one explicitly: `rekall catch <path>`"
+    )
+}
+
+fn modified_at(path: &Path) -> std::time::SystemTime {
+    path.metadata()
+        .and_then(|m| m.modified())
+        .unwrap_or(std::time::UNIX_EPOCH)
+}
+
+/// Every transcript root this build knows, in the order it knows them.
+///
+/// ITERATED rather than selected, which is why `catch` needs no `--agent`
+/// (`..:V47`). A file under `~/.codex/sessions` is Codex BY LOCATION --
+/// a fact about where it sits rather than a guess about what it holds --
+/// so provenance answers the question sniffing a payload would only
+/// gamble on.
+///
+/// A root that does not exist is skipped in silence: not every machine
+/// runs every agent, and an absent directory is a fact about this box
+/// rather than a fault to report.
+fn transcript_roots(env: &Env) -> Result<Vec<PathBuf>, String> {
     let home = env.home.as_deref().ok_or_else(|| {
-        "HOME is unset, so the transcript root cannot be derived. Name a transcript explicitly: `rekall catch <path>`".to_string()
+        "HOME is unset, so no transcript root can be derived. Name a transcript explicitly: `rekall catch <path>`".to_string()
     })?;
-    Ok(PathBuf::from(home).join(".claude").join("projects"))
+    let at = PathBuf::from(home);
+    Ok(vec![
+        at.join(".claude").join("projects"),
+        at.join(".codex").join("sessions"),
+    ]
+    .into_iter()
+    .filter(|root| root.is_dir())
+    .collect())
 }
 
 /// The most recently modified file under `root`, at any depth.
@@ -403,5 +445,92 @@ mod tests {
     fn first_line_trims_and_stops_at_the_break() {
         assert_eq!(first_line("  one  \ntwo"), "one");
         assert_eq!(first_line(""), "");
+    }
+    fn home_with(name: &str, dirs: &[&str]) -> PathBuf {
+        let at = PathBuf::from("target").join("test-home").join(name);
+        let _ = std::fs::remove_dir_all(&at);
+        for d in dirs {
+            let _ = std::fs::create_dir_all(at.join(d));
+        }
+        let _ = std::fs::create_dir_all(&at);
+        at
+    }
+
+    fn env_home(at: &Path) -> Env {
+        Env {
+            cwd: PathBuf::from("."),
+            home: Some(at.to_string_lossy().into_owned()),
+        }
+    }
+
+    /// Both agents present: both roots, in a fixed order so the report a
+    /// reader gets does not depend on directory iteration.
+    #[test]
+    fn every_known_root_that_exists_is_returned() {
+        let at = home_with("both", &[".claude/projects", ".codex/sessions"]);
+        let found = transcript_roots(&env_home(&at)).unwrap_or_default();
+        let ends: Vec<bool> = found
+            .iter()
+            .zip(["projects", "sessions"])
+            .map(|(p, want)| p.ends_with(want))
+            .collect();
+        assert_eq!(ends, vec![true, true], "{found:?}");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /// Not every machine runs every agent. An absent root is a fact about
+    /// the box, not a fault, so it is skipped rather than reported.
+    #[test]
+    fn a_root_that_does_not_exist_is_skipped_in_silence() {
+        let at = home_with("codexonly", &[".codex/sessions"]);
+        let found = transcript_roots(&env_home(&at)).unwrap_or_default();
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(
+            found.first().is_some_and(|p| p.ends_with("sessions")),
+            "{found:?}"
+        );
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    #[test]
+    fn no_home_names_what_it_could_not_derive() {
+        let bare = Env {
+            cwd: PathBuf::from("."),
+            home: None,
+        };
+        let why = transcript_roots(&bare).err().unwrap_or_default();
+        assert!(why.contains("HOME"), "{why}");
+        assert!(why.contains("rekall catch <path>"), "{why}");
+    }
+
+    /// A machine running neither agent gets told what was looked for,
+    /// rather than a bare "not found" it cannot act on.
+    #[test]
+    fn no_root_at_all_names_both_places_it_looked() {
+        let at = home_with("neither", &[]);
+        let args = CatchArgs::default();
+        let why = session_path(&args, &env_home(&at))
+            .err()
+            .unwrap_or_default();
+        assert!(why.contains(".claude"), "{why}");
+        assert!(why.contains(".codex"), "{why}");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    #[test]
+    fn the_message_for_empty_roots_names_each_one() {
+        let said =
+            no_transcript(&[PathBuf::from("/a/one"), PathBuf::from("/b/two")]);
+        assert!(said.contains("/a/one"), "{said}");
+        assert!(said.contains("/b/two"), "{said}");
+        assert!(said.contains(" or "), "{said}");
+    }
+
+    #[test]
+    fn an_unreadable_path_sorts_oldest_rather_than_erroring() {
+        assert_eq!(
+            modified_at(Path::new("nowhere/at/all")),
+            std::time::UNIX_EPOCH
+        );
     }
 }
