@@ -192,6 +192,36 @@
 # not by this commit. The next one has to argue against the fleet figure,
 # which is a harder argument than arguing against a stub.
 
-SPEC.md   12400
+# RAISED 2026-09-05, 12400 -> 13400. THE THIRD RAISE, and the paragraph
+# above says the standing answer is no longer a raise. Here is why it is
+# one anyway, and what that paragraph got wrong.
+#
+# WHAT IT BUYS: V44, V45, V46 -- the three decisions blocking T18. V44 says
+# what MARKS a violation in a transcript (user turns carrying V40 mood, and
+# the assistant's own text is not evidence). V45 says that report-only is
+# about the CORPUS and not the DISK, which is what T29 recorded as ASSUMED
+# RATHER THAN CHOSEN since 2026-08-21. V46 says a transcript is someone
+# else's document and is read tolerantly. Two of those settle questions the
+# spec had been carrying open; none of them is a feature.
+#
+# WHAT THE PARAGRAPH ABOVE GOT WRONG, and this is the load-bearing part:
+# it names compacting SB oldest-first as the next honest move, and it also
+# measures that compaction at ~30 tokens. The gap is 930. The recorded
+# alternative cannot pay, and following it would have meant three rounds of
+# SB surgery that still left the file over. An answer that does not cover
+# the shortfall is not an answer a raise has to beat.
+#
+# WHAT ELSE WAS MEASURED, not guessed: SV = 5562, done ST rows = 1569,
+# SB = 633, open ST = 304. Folding the 47 done ST rows is the only
+# compaction large enough (~1500), and it was REJECTED for a reason the
+# file should record: those rows carry the `cites` backlinks into SV, so
+# folding them makes `mth derive` report orphan invariants. Trading the
+# spec's own integrity check for headroom is a worse deal than a number.
+#
+# THE STANDING ANSWER, RESTATED: the next move is still not a raise, and it
+# is now not SB compaction either. It is folding done ST rows ONCE `mth`
+# can carry their citations elsewhere, or extracting this file the way
+# CLAUDE.md is being extracted. A fourth raise needs one of those tried.
+SPEC.md   13400
 README.md  5700
 CLAUDE.md   600
