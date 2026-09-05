@@ -170,6 +170,28 @@
 # blackbox's SN/SF mechanism, and V39 already records that this spec does
 # not use it.
 
+# README.md RAISED 2026-09-05, 1000 -> 5700.
+#
+# The 1000 was MEASURED against the scaffold README: 98 lines that said no
+# verb does its job yet. That README was replaced, so the ceiling was
+# measuring a document this repo no longer has.
+#
+# The new figure is NOT chosen to fit. It is the FLEET number -- itok
+# ships 5700 for a 5333-token README, and microlith and sherd sit at 5348
+# and 6520 with no ceiling declared. This README measures 4908, so the
+# headroom is real rather than shrink-wrapped around today.
+#
+# WHAT THE TOKENS BOUGHT, since a raise has to name that: a worked example
+# that is real command output for all eleven verbs, the badge block the
+# siblings carry, and the sections a public repo is read for -- install,
+# exit codes, guarantees, security, contributing. The alternative was a
+# README that links to a walkthrough nobody clicks; a first-contact
+# document that defers its only demonstration is a document that failed.
+#
+# THE CEILING STILL BINDS. It is one raise, to a number set elsewhere and
+# not by this commit. The next one has to argue against the fleet figure,
+# which is a harder argument than arguing against a stub.
+
 SPEC.md   12400
-README.md  1000
+README.md  5700
 CLAUDE.md   600
