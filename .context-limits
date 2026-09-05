@@ -282,6 +282,23 @@
 # at 13500 of a 131072 window that trigger is still far off, so the honest
 # read is that this file is not yet big, only tightly capped.
 
-SPEC.md   13500
+# FEDERATED 2026-09-05, and the ceiling comes DOWN rather than up for the
+# first time. 13500 -> 8500: the root shed 5379 tokens to `src` and the
+# twenty module nodes, measured 13486 -> 8107.
+#
+# WHAT THE ROOT IS NOW: a ROUTE. It carries the crate-wide law every node
+# inherits and the Â§F edge that says where everything else lives, and it is
+# read to find the node rather than to learn the rule. 8k is the right size
+# for that job and the wrong size for a document anyone reads end to end.
+#
+# `src` is the CHAIN ceiling for every node beneath it -- root + src + the
+# node, which is what an agent actually loads to work in one place. Largest
+# today is src/catch at 8963, so 10000 starts payable with room for a node
+# to grow before anyone is asked to split one. sherd's own default is 2000
+# and is nothing to do with this repo; a ceiling nobody chose is a ceiling
+# that reports on the wrong thing.
+
+SPEC.md   8500
+src       10000
 README.md  5700
 CLAUDE.md   600

@@ -162,6 +162,26 @@ local fast = new Mapping<String, Step> {
       """
   }
 
+  /// THE FEDERATION'S RUNNER. `mth` is intra-file BY DESIGN and has no `Â§F`
+  /// verb at all, so an edge table checked by nothing would be the
+  /// declaration V22 forbids -- and this spec now carries twenty-two of
+  /// them.
+  ///
+  /// `validate` is the whole verdict in one call: the DAG, the ids, every
+  /// node's chain against its ceiling, and whether a `Â§N` drifted from the
+  /// `Â§F` it is generated from. `sync --check` is separate because it
+  /// answers a question `validate` cannot -- whether the nav WOULD be
+  /// rewritten -- and a generated file nobody regenerates is stale by
+  /// definition.
+  ["federation"] {
+    glob = List("SPEC.md", "src/**/SPEC.md", ".context-limits")
+    check = """
+      command -v sherd >/dev/null 2>&1 || { echo "hk: SKIPPED federation -- sherd is not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a valid federation. Enter the dev shell to run it." >&2; exit 0; }
+      sherd validate || { echo 'hk: the federation is not valid. A structural or edge failure is a node that cannot be read on its own; over a ceiling means a chain nobody can load in one window, and the fix is to move rows DOWN, not to raise the number.' >&2; exit 1; }
+      sherd sync --check || { echo 'hk: a `Â§N` NAV drifted from the `Â§F` it is generated from. Run `sherd sync .` -- the nav is derived, so editing it by hand is the drift rather than the fix.' >&2; exit 1; }
+      """
+  }
+
   /// THE FORMAT OWNER. `mth` owns SPEC.md's format (§C) and arrives as a
   /// pinned flake input rather than off PATH, because the last time it was
   /// merely expected on PATH the check was silently deferred and nothing

@@ -42,5 +42,9 @@
 # path = []
 # word = []
 # ```
-hits=$(LC_ALL=C grep -rn '[^ -~]' src/ || true)
+# `--include='*.rs'` and not all of `src/`: the rule says RUST SOURCE, and
+# it says SPEC.md symbols are FORMAT that does not apply. Scanning the whole
+# directory was only ever accidentally right -- it held nothing but .rs
+# until this spec federated and put a SPEC.md in every module.
+hits=$(LC_ALL=C grep -rn --include='*.rs' '[^ -~]' src/ || true)
 [ -z "$hits" ] || { echo 'rekall: non-ASCII or control character in Rust source:' >&2; echo "$hits" >&2; echo 'SPEC.md symbols are FORMAT, not source -- spell it in ASCII here.' >&2; exit 1; }

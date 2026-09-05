@@ -42,6 +42,16 @@
     # stays with T16.
     itok.url = "github:pr0d1r2/itok";
     itok.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
+    # `sherd` OWNS the CROSS-FILE half of the spec format. `microlith` is
+    # intra-file by design -- it has no `§F` verb at all -- so a federation
+    # table here would be a declaration no runner reads (V22). `sherd
+    # check` walks every node, `sherd validate` proves the DAG and the
+    # ceilings, and `sherd sync --check` catches a `§N` that drifted from
+    # its `§F`. Taking it as a PINNED input rather than a path dependency:
+    # a path dep shares a working tree, and a gate that goes green against
+    # an uncommitted sibling expires silently.
+    sherd.url = "github:pr0d1r2/sherd";
+    sherd.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
   };
 
   outputs =
@@ -50,6 +60,7 @@
       nix-hk,
       microlith,
       itok,
+      sherd,
       ...
     }:
     let
@@ -174,6 +185,10 @@
             # Token counts are DELEGATED, never reimplemented here (V8).
             # `itok check` is the runner for `.context-limits` (T2, V22).
             itok.packages.${pkgs.stdenv.hostPlatform.system}.default
+            # `sherd check` and `sherd validate` are the runners for the
+            # federation this spec declares -- the cross-file half microlith
+            # does not do.
+            sherd.packages.${pkgs.stdenv.hostPlatform.system}.default
             pkgs.rustc
             pkgs.cargo
             pkgs.clippy
