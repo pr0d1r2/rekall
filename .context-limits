@@ -264,6 +264,24 @@
 # residue per node in a sibling, against ~121 tok per invariant here, so it
 # pays only once the root outgrows a window. Per-VERB federation was costed
 # and REJECTED: 11 nodes of residue to relocate 11 rows, a 3.3x loss.
-SPEC.md   13400
+# 13400 -> 13500, 2026-09-05, the THIRD move today and the smallest: +100
+# for V50 and B9, a defect the gate itself could not see (a size step that
+# measured a different quantity than its message named) plus the invariant
+# that now catches it.
+#
+# It argued for itself, which is what the line above asked of it: a SB row
+# is not optional here, and the two trims that preceded this raise cut ~120
+# tokens of genuine duplication first -- V50 was restating B9's measurement
+# and V27's payability argument.
+#
+# THE PATTERN IS THE FINDING, and it is recorded rather than repeated: three
+# moves in one day, each argued, each smaller than the last, on a spec that
+# is genuinely growing new law. The next one should not be a raise. The
+# standing answer is federation by SUBSYSTEM, whose residue is measured
+# (~400 tok/node) and whose trigger is the root outgrowing a window -- and
+# at 13500 of a 131072 window that trigger is still far off, so the honest
+# read is that this file is not yet big, only tightly capped.
+
+SPEC.md   13500
 README.md  5700
 CLAUDE.md   600

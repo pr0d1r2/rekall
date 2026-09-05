@@ -135,6 +135,8 @@ V48: an `S` ARTIFACT is REKALL'S & DELIVERY is `hook`'s. `.claude/skills/` is ON
 
 V49: a DIALECT that cannot DELIVER at an event FAILS or SAYS SO, ⊥ emits a key the host ignores. MEASURED 2026-09-05: Codex `PreToolUse` accepts `permissionDecision` · `updatedInput` · `systemMessage` & ⊥ `additionalContext`, which is legal only at `SessionStart` · `SubagentStart` · `PostToolUse` ∴ rekall's CURRENT reply is a silent no-op on Codex -- exit 0, nothing loaded, nothing said. V26 one level out: the rule there is that a SKIP ! BE SAID, & this is a skip wearing a successful exit. ∀ (agent, event) pair either RENDERS the injection or NAMES its refusal on stderr.
 
+V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: the module-size step SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute happens to come first: an attribute is ⊥ a section boundary. & a CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ a SECOND cap on TOTAL lines, ∵ an agent LOADING the file pays every line, tests included -- §G's arithmetic on this crate's own source. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
+
 ## §T TASKS
 
 id|status|task|cites
@@ -160,6 +162,8 @@ T60|.|`--agent <name>` on `hook` & `catch`; an UNKNOWN name is exit 2, ⊥ a fal
 T61|.|CODEX adapter: a human turn is `payload.role` = `developer`, & `PreToolUse` takes `systemMessage`, ⊥ `additionalContext`|V46,V47,V49
 T62|.|artifacts move to `.rekall/`; ledger, `check` & `revert` follow the move, ⊥ a second store|V48,V1,V9
 
+T63|x|module-size: stop at the TEST MODULE, not any `#[cfg(test)]`, & add a TOTAL-line cap that starts payable|V50,V22
+
 ## §B BUGS
 
 id|date|cause|fix
@@ -171,3 +175,4 @@ B5|2026-08-24|`runner::LIMIT` bounds a rule by WALL-CLOCK ∴ under contention a
 B6|2026-08-24|`apply` prefixed only the FIRST line of a quoted statement ∴ every WRAPPED bullet put prose into a shell script as CODE. MEASURED at this crate's first real extraction (consumer #0, Apple M4 10-core 16GB): the generated ASCII-rule runner printed `line 6: here.: command not found` -- `here.` being the second line of a 2-line bullet. Every test used a ONE-LINE fixture ∴ 509 green tests, & the defect appeared on the first statement a human actually wrote|V42
 B7|2026-08-24|`hook` built the situation TEXT from `prompt` ALONE ∴ a `word` trigger could ⊥ EVER match a TOOL CALL -- the only event it runs on. MEASURED on this crate's FIRST `S` extraction: `recall "cargo test" --tool Bash` said `load`, the same payload through `hook` said `{}`. V18's named failure, VERBATIM: "each looks correct alone, & the divergence only shows where a skill fails to load in production but `recall` swears it would". ⊥ two matchers -- ONE matcher fed two different SITUATIONS, which V18 ⊥ say out loud|V18,T57
 B8|2026-09-05|V44 scoped a transcript VIOLATION to MOOD & the verb found almost nothing. MEASURED on the three forms a correction takes: "Never commit a `.env` file" = `M1` on `never` & "Always run the gate before pushing" = `M2` on `always` -- both DIRECTIVE, both with no mood signal, both INVISIBLE, while "Use the helper, not the macro" was caught on `contrast`. Mood is HALF a directive (V40) therefore the scope DROPPED the whole-weight vocabulary that states a rule outright -- the strongest evidence, excluded for not needing a mood word|V44
+B9|2026-09-05|the module-size runner stopped at the FIRST top-level `#[cfg(test)]` whatever it was attached to ∴ a test-only `mod testing;` declared near the top of `cli.rs` made a 468-line file MEASURE 32. SILENT & DOWNWARD -- a smaller number is ⊥ red -- & found by printing sizes for another reason, ⊥ by the gate. The SAME shape one level out had already let a 3001-line `cli.rs` pass at 464, which is how T41's debt accumulated unseen|V50

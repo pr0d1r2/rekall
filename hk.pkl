@@ -137,10 +137,16 @@ local fast = new Mapping<String, Step> {
     glob = List("**/*.rs")
     check = """
       over=$(for f in $(find src -name '*.rs'); do
-        n=$(awk 'index($0, "#[cfg(test)]") == 1 {print NR-1; found=1; exit} END{if (!found) print NR}' "$f")
-        if [ "$n" -gt 500 ]; then echo "  $n  $f"; fi
+        n=$(awk '
+          index($0, "#[cfg(test)]") == 1 { pending = NR; next }
+          pending && index($0, "mod tests") == 1 { print pending - 1; found = 1; exit }
+          { pending = 0 }
+          END { if (!found) print NR }' "$f")
+        t=$(wc -l < "$f" | tr -d ' ')
+        if [ "$n" -gt 500 ]; then echo "  code $n  $f"; fi
+        if [ "$t" -gt 1000 ]; then echo "  total $t  $f"; fi
       done)
-      [ -z "$over" ] || { echo 'hk: module over 500 CODE lines (lines before `#[cfg(test)]`):' >&2; echo "$over" >&2; echo 'Split it by responsibility -- clippy caps functions but nothing caps a file, which is how cli.rs reached 1,878. Do NOT raise this to make it pass.' >&2; exit 1; }
+      [ -z "$over" ] || { echo 'hk: module over a size cap -- 500 CODE lines (before `mod tests`), or 1000 TOTAL:' >&2; echo "$over" >&2; echo 'Split it by responsibility -- clippy caps functions but nothing caps a file, which is how cli.rs reached 1,878 code lines and later 3,001 total. Do NOT raise either number to make it pass.' >&2; exit 1; }
       """
   }
 
