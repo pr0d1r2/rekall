@@ -36,6 +36,13 @@ pub const NO_PAYLOAD: &str = "no-payload";
 pub const NO_HEAD: &str = "no-head";
 pub const NO_GUARD: &str = "no-guard";
 pub const UNDELIVERED: &str = "undelivered";
+/// `src/apply:V48` calls a dangling published link an ORPHAN, and it is
+/// one -- but it gets its own KIND rather than reusing `orphan-artifact`.
+/// That one means a file no row claims; this means a POINTER to a file that
+/// is not there, and the fixes differ: delete the link, versus account for
+/// the artifact. A consumer switching on `kind` should not have to read the
+/// sentence to tell them apart.
+pub const DANGLING_LINK: &str = "dangling-link";
 
 /// The one NOTE kind: an issued extraction whose local copy still
 /// stands. `src/issue:V54` says that overlap is INTENDED.
@@ -85,7 +92,7 @@ pub struct Seen<'a> {
 mod delivery;
 mod head;
 mod notes;
-pub use delivery::undelivered;
+pub use delivery::{dangling, undelivered};
 pub use notes::{Note, notes, render_notes};
 
 /// Every way the corpus has drifted from what the ledger claims.

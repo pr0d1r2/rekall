@@ -42,9 +42,10 @@ V56: a GUARDED `S` artifact with ⊥ DELIVERER is DRIFT. `src/apply:V52` switche
 id|status|task|cites
 T71|x|`check` reports `undelivered`: a guarded `S` row whose project harness config wires ⊥ `rekall hook`|V56,`src/apply:V52`
 T72|x|WIRE `rekall hook` in this repo & gate it: consumer #0 ! run the delivery path it ships, ∵ the guard's premise was ASSUMED here & measured false|V56
-T74|.|VERIFY the published link: a `.claude/skills/<slug>` symlink that resolves to nothing is an ORPHAN the gate refuses, which `src/apply:V48` has claimed since T62 landed|`src/apply:V48`,`.:V22`
+T74|x|VERIFY the published link: a `.claude/skills/<slug>` symlink that resolves to nothing is an ORPHAN the gate refuses, which `src/apply:V48` has claimed since T62 landed|`src/apply:V48`,`.:V22`
 
 ## §B BUGS
 
 id|date|cause|fix
 B12|2026-09-05|the guard landed on the only `S` artifact in a repo where `hook` is wired NOWHERE ∴ host loading OFF & ⊥ deliverer ON: the skill became reachable by nothing, in the commit meant to make it safe. `check` passed it|V56
+B15|2026-09-05|the `dangling-link` finding's FIRST advice named `rekall issue --all` as the repair. MEASURED: it republished the live row's link & left the stale one untouched -- `issue` relinks rows the LEDGER holds, & this finding only ever fires for a link ⊥ row names. A gate line naming a fix that cannot work is worse than one naming none, ∵ the reader runs it, sees green output & still has the fault|`.:V28`

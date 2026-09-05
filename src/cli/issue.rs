@@ -206,6 +206,10 @@ fn repair_needed(row: &ledger::Extracted, base: &Path) -> String {
 }
 
 /// The host link this row is missing, or nothing.
+///
+/// Reported PROJECT-RELATIVE, like every other path this crate prints. An
+/// absolute one leaks the machine's layout into `--format json`, which is
+/// written into CI artifacts.
 fn link_needed(row: &ledger::Extracted, base: &Path) -> String {
     let hosts = base.join(".claude").join("skills");
     let Some(slug) = apply::skill_slug(&row.artifact) else {
@@ -214,7 +218,7 @@ fn link_needed(row: &ledger::Extracted, base: &Path) -> String {
     if !hosts.is_dir() || hosts.join(&slug).symlink_metadata().is_ok() {
         return String::new();
     }
-    named(&hosts.join(&slug))
+    format!(".claude/skills/{slug}")
 }
 
 /// Where a portable copy of this artifact lands under a destination.
@@ -681,6 +685,18 @@ mod tests {
         assert!(hosts.join(&slug).symlink_metadata().is_ok(), "link made");
         let again = issue_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
         assert!(again.contains("nothing to issue"), "{again}");
+    }
+
+    /// Paths this crate PRINTS are project-relative. MEASURED otherwise:
+    /// the link line reported an absolute host path, the only absolute
+    /// path in any report, and `--format json` goes into CI artifacts.
+    #[test]
+    fn the_link_line_is_project_relative() {
+        let (dir, id) = issue_project("relative-link");
+        let _ = std::fs::create_dir_all(dir.join(".claude").join("skills"));
+        let text = issue_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
+        assert!(text.contains(".claude/skills/"), "{text}");
+        assert!(!text.contains("/target/cli-issue"), "{text}");
     }
 
     /// And retiring takes the link with the file, for the reason `revert`

@@ -59,6 +59,7 @@ pub fn check_command(flags: &[String], env: &Env) -> Result<Checked, String> {
     let on_disk = artifacts_on_disk(&base, env)?;
     let mut found = check::audit(&seen, &on_disk);
     found.extend(check::undelivered(&seen, hook::wired(&base)));
+    found.extend(check::dangling(&base, &seen));
     render_check(&found, &check::notes(&seen), args.json)
 }
 
