@@ -35,7 +35,15 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V6: `check` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
+V56: a GUARDED `S` artifact with ⊥ DELIVERER is DRIFT. `src/apply:V52` switches the host's own loading OFF & hands delivery to `hook` ∴ the guard is correct ONLY WHERE `hook` IS WIRED -- & where it is ⊥, the artifact is indexed by nothing, loaded by nothing & fired by nothing, while `check` says green. `check` READS the project harness config whose shape `docs/INTEGRATION.md` already NAMES, & reports `undelivered` where a guarded `S` row has ⊥ wiring. PROJECT scope only: a HOME path is ⊥ this crate's to read (`.:V6` reads what the ledger names) ∴ ⊥ wiring found is a FINDING & ⊥ an assumption that there is none elsewhere -- the line SAYS that. MEASURED 2026-09-05: this repo, 1 `S` row, guard written the same day, `hook` wired in ⊥ project & ⊥ user settings ∴ delivered by NOTHING, gate exit 0.
 
 ## §T TASKS
 
 id|status|task|cites
+T71|.|`check` reports `undelivered`: a guarded `S` row whose project harness config wires ⊥ `rekall hook`|V56,`src/apply:V52`
+T72|.|WIRE `rekall hook` in this repo & gate it: consumer #0 ! run the delivery path it ships, ∵ the guard's premise was ASSUMED here & measured false|V56
+
+## §B BUGS
+
+id|date|cause|fix
+B12|2026-09-05|the guard landed on the only `S` artifact in a repo where `hook` is wired NOWHERE ∴ host loading OFF & ⊥ deliverer ON: the skill became reachable by nothing, in the commit meant to make it safe. `check` passed it|V56
