@@ -199,6 +199,9 @@
             # it: that builtin does exactly what its name says and nothing
             # else, so an `AWS_SECRET_ACCESS_KEY=...` line walks past it.
             pkgs.ripsecrets
+            # The release, driven by config rather than a shell script that
+            # re-implements what this already does.
+            pkgs.cargo-release
             # The supply chain. This crate has FIVE direct dependencies and
             # 26 in the tree, so "there is nothing to scan" is not available
             # as an answer here the way it is in a zero-dependency sibling.

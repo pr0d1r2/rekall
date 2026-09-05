@@ -1,0 +1,82 @@
+# The release, configured rather than scripted.
+#
+# The mechanics of a release are a rule, and a rule stated in prose is a rule
+# with no runner -- which is the defect this whole crate exists to remove. The
+# runner is `cargo-release`, which already does the entire list: clean tree,
+# allowed branch, tag scheme, dry-run first, confirm, publish, push. A shell
+# script re-implementing that would be a second implementation of one rule set,
+# so the right amount of code here is a config file.
+#
+# HOW IT IS RUN. Dry-run is `cargo-release`'s DEFAULT, and it reports every
+# problem in one pass rather than the first one it hits:
+#
+#     cargo release minor                 # verify everything, change nothing
+#     cargo release minor --execute       # act
+#
+# The FULL flow is available here, unlike in siblings whose `main` requires a
+# pull request. This repo commits straight to `main` and the gate is the
+# review, so cargo-release may bump, commit, tag, publish and push in one go.
+# Nothing has to be split into a tail that runs after a merge.
+#
+# WHICH LEVEL. A minor here is a level of GUARANTEE, not a feature count --
+# CHANGELOG.md carries the ladder and what each rung promised. So `minor` is
+# the usual verb and `patch` is for a fix that changes nothing about what a
+# consumer may rely on.
+
+# The branch a release may happen from. The `.crate` records the commit it was
+# built from, so publishing off anything that later disappears leaves the
+# artifact naming a commit nobody can resolve.
+allow-branch = ["main"]
+
+# THE GATE, called rather than re-checked. A non-zero return here ABORTS the
+# release, which makes the gate a precondition of publishing instead of
+# something a releaser is trusted to have run first.
+#
+# `--check` and not `--fix`: the fix commands would rewrite a tree
+# cargo-release has just asserted is clean, and a release that silently
+# reformats its own source is a release nobody can reproduce.
+#
+# `--no-fail-fast` inverts the local default deliberately. A release round trip
+# is expensive, so whoever is holding it should get every problem at once.
+pre-release-hook = ["hk", "check", "--all", "--check", "--no-fail-fast"]
+
+# `v<x.y.z>`, the fleet's tag shape. Worth stating rather than inheriting: a
+# future `cargo semver-checks` step diffs the public API against the last `v*`
+# tag, and publishing under any other shape leaves that step green against the
+# wrong baseline or against nothing at all.
+tag-name = "v{{version}}"
+
+# `verify` builds the packaged tarball before upload. It is the default; it is
+# written down because it is the check that catches a `.crate` which cannot
+# compile from what it actually ships, and a default nobody wrote down is a
+# default somebody eventually turns off.
+#
+# It pairs with the `package` gate step, which is the other half: that one
+# checks WHICH files ship, this one checks that what shipped builds.
+publish = true
+verify = true
+
+# NOT PUBLISHED YET, and the first number spent is permanent -- crates.io is
+# immutable, and yanking hides a version rather than deleting it. So the first
+# upload should be an `-rc` that cargo does not select by default, proving the
+# pipeline before a real number is spent:
+#
+#     cargo release 0.2.1-rc.1 --execute
+#
+# That is a recommendation and not a setting, because cargo-release has no
+# knob for "be careful the first time" and inventing one in config would hide
+# the decision rather than record it.
+
+# THE REMOTE A RELEASE PUSHES TO, stated because the default is a trap here.
+#
+# `origin` today is the GitLab mirror, which is a BACKUP -- the home is
+# GitHub, and `Cargo.toml`'s `repository` field already says so. A dry run
+# reports `Pushing main, v0.3.0 to origin`, and taken at face value that
+# would put the release tag on the backup and nowhere else, leaving the
+# published crate pointing at a repository with no tag for its own version.
+#
+# Left as `origin` rather than hardcoded to a name that does not exist yet:
+# the fix is to make GitHub `origin` when that repo is created, not to teach
+# this file a second opinion about which remote is which. Verify with
+# `git remote -v` before the first release.
+push-remote = "origin"
