@@ -344,3 +344,105 @@ const README_CORPUS: &str = "\
   backup first and say in the PR how long the restore took.
 - Prefer `anyhow` at the binary edge and `thiserror` in libraries.
 ";
+
+/// The rest of the worked example, walked in the order the README walks it.
+///
+/// `scan` alone was not enough. Three more blocks had drifted and each was a
+/// LATER state: `recall` said an `M` rule's trigger "did not match" when the
+/// rule has no trigger at all and gates at commit only, and `log` showed that
+/// same rule with `fires=2`, which the documented workflow cannot produce --
+/// nothing without a trigger is ever delivered by `hook`.
+///
+/// So the test fills the trigger the README says to fill, fires the hook the
+/// number of times the README fires it, and holds the later blocks to what
+/// comes back.
+#[test]
+fn the_readme_worked_example_is_real_output() {
+    let at = walked("readme-walk");
+    let recall = run(&at, &RECALL_ARGS).1;
+    for _ in 0..2 {
+        let _ = hook(&at, EDIT_PAYLOAD);
+    }
+    let log = run(&at, &["log"]).1;
+    cleanup(&at);
+    assert!(
+        recall.contains("load"),
+        "the trigger did not take: {recall}"
+    );
+    readme_contains(recall.lines().chain(log.lines()));
+}
+
+/// The README's corpus, extracted and with the trigger it says to fill.
+fn walked(tag: &str) -> PathBuf {
+    let at = fixture(tag);
+    let _ = std::fs::write(at.join("CLAUDE.md"), README_CORPUS);
+    let _ = run(&at, &["init"]);
+    let rows = run(&at, &["scan"]).1;
+    let _ = run(
+        &at,
+        &[
+            "apply",
+            &nth_id(&rows, 1),
+            &nth_id(&rows, 2),
+            "--auto-approve",
+        ],
+    );
+    fill_trigger(&at);
+    at
+}
+
+/// Every line came out of the binary a moment ago, so the README has to
+/// carry it verbatim.
+fn readme_contains<'a>(lines: impl Iterator<Item = &'a str>) {
+    let readme = std::fs::read_to_string("README.md").unwrap_or_default();
+    for line in lines {
+        assert!(
+            readme.contains(line.trim_end()),
+            "the README has drifted from real output:\n  {line}"
+        );
+    }
+}
+
+/// The situation the README asks `recall` about.
+const RECALL_ARGS: [&str; 6] = [
+    "recall",
+    "ALTER TABLE orders ADD COLUMN region text",
+    "--tool",
+    "Edit",
+    "--path",
+    "db/migrate/003_orders.sql",
+];
+
+/// The nth whitespace-delimited id in a `scan` report, or `""`.
+fn nth_id(rows: &str, n: usize) -> String {
+    rows.lines()
+        .filter(|line| !line.starts_with(' '))
+        .nth(n)
+        .and_then(|line| line.split_whitespace().next())
+        .unwrap_or("")
+        .to_owned()
+}
+
+/// The trigger and refusal clause the README tells you to write.
+fn fill_trigger(at: &Path) {
+    let Some(skill) = std::fs::read_dir(at.join(".rekall").join("skills"))
+        .ok()
+        .and_then(|mut d| d.next().and_then(Result::ok))
+    else {
+        return;
+    };
+    let path = skill.path().join("SKILL.md");
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let filled = text.replacen(EMPTY_BLOCK, FIRES_BLOCK, 1).replacen(
+        EMPTY_BLOCK,
+        REFUSES_BLOCK,
+        1,
+    );
+    let _ = std::fs::write(&path, filled);
+}
+
+const EMPTY_BLOCK: &str = "tool = []\npath = []\nword = []";
+const FIRES_BLOCK: &str =
+    "tool = [\"Edit\", \"Write\"]\npath = [\"db/migrate/**\"]";
+const REFUSES_BLOCK: &str = "path = [\"db/migrate/**_test.sql\"]";
+const EDIT_PAYLOAD: &[u8] = br#"{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"db/migrate/003_orders.sql"}}"#;

@@ -265,7 +265,7 @@ Silent and zero. The gate says nothing when there is nothing to say.
 ```console
 $ rekall recall "ALTER TABLE orders ADD COLUMN region text" \
     --tool Edit --path db/migrate/003_orders.sql
-skip    c931906  M1  .rekall/rules/never-commit-a-env-file.sh  (trigger did not match)
+skip    c931906  M1  .rekall/rules/never-commit-a-env-file.sh  (no trigger, so it gates at commit only (V37))
 load    8bd8468  S2  .rekall/skills/when-a-migration-touches-a-table/SKILL.md  (trigger matched)
 ```
 
@@ -316,9 +316,9 @@ bug, not a footnote.
 
 ```console
 $ rekall log
-c931906  CLAUDE.md:7-7  M1  fires=2  net=+2  .rekall/rules/never-commit-a-env-file.sh
+c931906  CLAUDE.md:7-7  M1  fires=0  net=+2  .rekall/rules/never-commit-a-env-file.sh
   - Never commit a `.env` file.
-8bd8468  CLAUDE.md:8-9  S2  fires=1  net=+22  .rekall/skills/when-a-migration-touches-a-table/SKILL.md
+8bd8468  CLAUDE.md:8-9  S2  fires=2  net=+22  .rekall/skills/when-a-migration-touches-a-table/SKILL.md
   - When a migration touches a table with more than a million rows, take the
     backup first and say in the PR how long the restore took.
 ```
