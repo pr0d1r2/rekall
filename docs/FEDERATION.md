@@ -140,3 +140,23 @@ relocate 11 rows, a 3.3x loss, and the rules that would have justified it
 (`src:V41`, `src:V42`, `src:V43`) are precisely the ones spanning three verbs
 each. The boundary that exists is the module, and `sherd split` proposed it
 before anyone argued for it.
+
+### `mth derive` cannot see across an edge
+
+Run it on a single node and every uncited-here invariant is reported as an
+orphan, because the citation lives in another file:
+
+```console
+$ mth derive src/revert/SPEC.md
+orphan V9: declared, cited by nothing -- dead rule, or a missing citation?
+```
+
+`V9` is cited from three other nodes. All 23 nodes report at least one of
+these, and every one checked was a false positive. `mth` owns the intra-file
+format and knows nothing about `sherd`'s edges; that is the seam working as
+designed, not a defect in either tool.
+
+It matters for one reason: `mth derive`'s orphan report **cannot be gated
+as-is**. A gate step that failed on 23 false orphans would be a step people
+learn to bypass, which is worse than not having it. Federated orphan
+detection needs a checker that reads the whole tree.
