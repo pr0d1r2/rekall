@@ -8,3 +8,15 @@
 # `precendence` is a word.
 [files]
 extend-exclude = ["pkl/"]
+
+# PROPER NOUNS the dictionary reads as misspellings. `typos` splits an
+# identifier into words, so `HashiCorp` becomes `Hashi` + `Corp` and `Hashi`
+# looks like a slip for `Hash`.
+#
+# This is not a preference. The `fix` half of the gate runs
+# `typos --write-changes`, so an unlisted proper noun is not reported and
+# left alone -- it is silently REWRITTEN, and a trademark notice that
+# misspells the trademark is worse than no notice. MEASURED: it renamed
+# HashiCorp to "HashCorp" inside the third-party notices and committed it.
+[default.extend-words]
+Hashi = "Hashi"

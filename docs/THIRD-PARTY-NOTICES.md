@@ -87,7 +87,7 @@ Nominative use only; no affiliation or endorsement is implied.
 - **GitHub** is a trademark of GitHub, Inc.
 - **GitLab** is a trademark of GitLab B.V.
 - **Claude** and **Anthropic** are trademarks of Anthropic PBC.
-- **Terraform** is a trademark of HashCorp, Inc. `plan` and `apply` borrow its
+- **Terraform** is a trademark of HashiCorp, Inc. `plan` and `apply` borrow its
   split, and say so.
 - **Total Recall** and **Rekall** are referenced as the source of this
   project's name; no connection to the rights holders is claimed.
