@@ -316,7 +316,10 @@ mod tests {
     fn a_directory_root_is_walked_and_filtered() {
         let found = walked(&["src"], &["**/*.rs"]).files;
         assert!(
-            found.contains(&PathBuf::from("./src/corpus.rs")),
+            // `lib.rs` rather than any module: it is the crate root, so a
+            // module restructure cannot move it and this assertion stays
+            // about the WALK rather than about today's file layout.
+            found.contains(&PathBuf::from("./src/lib.rs")),
             "found {found:?}"
         );
         assert!(
