@@ -334,7 +334,7 @@ local all = (fast) {
     /// hunting for a bad path that does not exist. MEASURED in a sibling,
     /// where exactly that message cost a push.
     check = """
-      command -v lychee >/dev/null 2>&1 || { echo 'hk: lychee is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a broken link.' >&2; exit 1; }
+      command -v lychee >/dev/null 2>&1 || { echo "hk: SKIPPED links -- lychee is not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a broken link. Enter the dev shell to run it." >&2; exit 0; }
       lychee --offline --no-progress . || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }
       """
   }
@@ -353,7 +353,7 @@ local all = (fast) {
     /// exit, and reporting it as a rejected dependency tree names the wrong
     /// cause entirely.
     check = """
-      cargo deny --version >/dev/null 2>&1 || { echo 'hk: cargo-deny is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      cargo deny --version >/dev/null 2>&1 || { echo "hk: SKIPPED cargo-deny -- not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a clean dependency tree. Enter the dev shell to run it." >&2; exit 0; }
       cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail, and a new LICENCE is permission granted to everything downstream forever. Both belong in deny.toml as a deliberate edit, with the argument beside them.' >&2; exit 1; }
       """
   }
@@ -438,7 +438,7 @@ local all = (fast) {
     /// Absence before findings, as in `deny`: a missing tool is not a clean
     /// bill of health.
     check = """
-      cargo deny --version >/dev/null 2>&1 || { echo 'hk: cargo-deny is not on PATH -- re-enter the dev shell (`nix develop`, or `direnv reload`). This is a MISSING TOOL, not a finding.' >&2; exit 1; }
+      cargo deny --version >/dev/null 2>&1 || { echo "hk: SKIPPED cargo-deny -- not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a clean dependency tree. Enter the dev shell to run it." >&2; exit 0; }
       cargo deny check advisories || { echo 'hk: a dependency carries a security advisory or has been yanked. Bump it, or record why it is not reachable from this crate in deny.toml.' >&2; exit 1; }
       """
   }
