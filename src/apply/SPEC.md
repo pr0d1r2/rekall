@@ -45,6 +45,8 @@ T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|
 T50|.|slug ⊥ truncates mid-phrase|§I
 T62|x|artifacts move to `.rekall/`, PUBLISHED by symlink where a host indexes one; `check` verifies the link resolves & `revert` removes both|V48,V1,`src:V43`,`src/revert:V9`
 
+T65|.|a fresh checkout gets ⊥ published links: `publish` runs at `apply` ONLY. Republish the ledger's `S` rows where a host dir exists|V48,`.:V22`
+
 ## §B BUGS
 
 id|date|cause|fix
