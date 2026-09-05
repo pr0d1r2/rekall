@@ -18,6 +18,7 @@ sib|src/config|`rekall.toml`: the two scopes, the per-key merge, and the union t
 sib|src/corpus|REACHING the files: roots x globs, the walk, symlink loops, and what could not be read.
 sib|src/hook|the HARNESS ADAPTER: a payload read tolerantly, a decision written, the fire counter, and the runner fired at the trigger point.
 sib|src/init|THE COLD START: detecting roots and writing a project config without clobbering one.
+sib|src/issue|ISSUING a proven extraction to the loop that tends it: the portable copy written out, the local copy left standing, and the ledger row that says which stage it is in.
 sib|src/ledger|THE STORE: extracted rows, candidate rows, fire counts, and prefix lookup.
 sib|src/log|READING the ledger back: fire counts, net reclaim, and what never fired.
 sib|src/plan|the extraction DIFF: which span goes, which artifact arrives, what wiring is named, and the corpus fingerprint that makes it stale.
@@ -48,6 +49,7 @@ T50|.|slug ⊥ truncates mid-phrase|§I
 T62|x|artifacts move to `.rekall/`, PUBLISHED by symlink where a host indexes one; `check` verifies the link resolves & `revert` removes both|V48,V1,`src:V43`,`src/revert:V9`
 
 T66|x|`apply` writes `disable-model-invocation: true` into every `S` head; `check` VERIFIES it; the artifacts already written are REISSUED|V52,`src/trigger:V4`
+
 ## §B BUGS
 
 id|date|cause|fix

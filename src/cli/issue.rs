@@ -443,7 +443,7 @@ fn one_rendered(row: &issue::Outcome) -> String {
 mod tests {
     use super::*;
     use crate::cli::testing::*;
-    use crate::cli::{Action, decide};
+    use crate::cli::{Action, decide, perform};
 
     /// A project with one extracted SKILL, its head left in the state the
     /// old template wrote -- no guard. That is `B10` on disk.
@@ -451,8 +451,7 @@ mod tests {
         let dir = scaffold(name);
         let (id, _) = extracted(&dir);
         let path = dir.join(artifact_of(&dir, &id));
-        let _ =
-            std::fs::write(&path, skill_with("tool = [\"Edit\"]", "word = []"));
+        let _ = std::fs::write(&path, unguarded());
         (dir, id)
     }
 
@@ -471,6 +470,14 @@ mod tests {
         dir
     }
 
+    /// A skill in the state every artifact this crate wrote before V52
+    /// was in: filled triggers, and a head that does NOT disable the
+    /// host's own loading. That is B10 on disk.
+    fn unguarded() -> String {
+        skill_with("tool = [\"Edit\"]", "word = []")
+            .replace("disable-model-invocation: true\n", "")
+    }
+
     fn issue_in(dir: &Path, extra: &[&str]) -> Result<Output, String> {
         let mut flags = args(&["-C", &dir.to_string_lossy()]);
         flags.extend(args(extra));
@@ -484,6 +491,18 @@ mod tests {
             .find(id)
             .cloned()
             .unwrap_or_default()
+    }
+
+    /// Dispatch is not the same as REACHING the verb: `perform` is the
+    /// arm that actually calls it, and a table row nothing routes through
+    /// is a verb the binary knows about and cannot run.
+    #[test]
+    fn issue_runs_through_perform() {
+        let dir = scaffold("perform");
+        let mut flags = dash_c(&dir);
+        flags.push("--all".to_string());
+        flags.push("--auto-approve".to_string());
+        assert_eq!(perform(Action::Issue(flags), &env()), 0);
     }
 
     #[test]
@@ -614,5 +633,105 @@ mod tests {
             .map(|o| o.text)
             .unwrap_or_default();
         assert!(text.contains("the registry decides"), "{text}");
+    }
+
+    /// `--all` takes every extracted SKILL, so a corpus that has proved
+    /// several does not need the ids typed out one at a time.
+    #[test]
+    fn all_takes_every_skill() {
+        let (dir, id) = issue_project("all");
+        let text = issue_in(&dir, &["--all"])
+            .map(|o| o.text)
+            .unwrap_or_default();
+        assert!(text.contains(&artifact_of(&dir, &id)), "{text}");
+    }
+
+    /// V17: the JSON says the same thing the prose does, and an unknown
+    /// format is a usage error rather than a silent fall back.
+    #[test]
+    fn issue_speaks_json_too() {
+        let (dir, id) = issue_project("json");
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.extend(args(&[&id, "--format", "json", "--auto-approve"]));
+        let text = issue_command(&flags, &env())
+            .map(|o| o.text)
+            .unwrap_or_default();
+        assert!(text.contains("\"repairs\""), "{text}");
+        flags.pop();
+        assert!(parse_issue(&args(&["--format", "yaml"])).is_err());
+    }
+
+    #[test]
+    fn an_unknown_issue_flag_is_an_error() {
+        assert!(parse_issue(&args(&["--nope"])).is_err());
+    }
+
+    /// The link half of a reissue: a checkout whose host directory exists
+    /// but whose link was never made gets one, and a second run does not
+    /// report it again.
+    #[test]
+    fn a_missing_host_link_is_republished_once() {
+        let (dir, id) = issue_project("relink");
+        let hosts = dir.join(".claude").join("skills");
+        let _ = std::fs::create_dir_all(&hosts);
+        let text = issue_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
+        assert!(text.contains("linked"), "{text}");
+        let slug =
+            apply::skill_slug(&artifact_of(&dir, &id)).unwrap_or_default();
+        assert!(hosts.join(&slug).symlink_metadata().is_ok(), "link made");
+        let again = issue_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
+        assert!(again.contains("nothing to issue"), "{again}");
+    }
+
+    /// And retiring takes the link with the file, for the reason `revert`
+    /// states: a dangling link is a leftover nothing reports.
+    #[test]
+    fn retiring_removes_the_host_link_too() {
+        let (dir, id) = issue_project("unlink");
+        let hosts = dir.join(".claude").join("skills");
+        let _ = std::fs::create_dir_all(&hosts);
+        let out = dir.join("registry");
+        let _ = issue_in(&dir, &[&id, "--to", &out.to_string_lossy()]);
+        let slug =
+            apply::skill_slug(&artifact_of(&dir, &id)).unwrap_or_default();
+        let _ = issue_in(&dir, &[&id, "--retire"]);
+        assert!(hosts.join(&slug).symlink_metadata().is_err(), "link gone");
+    }
+
+    /// An artifact that is not there needs no repair and cannot be
+    /// issued. The first is silence; the second names the file.
+    #[test]
+    fn an_absent_artifact_is_not_repaired_and_will_not_copy() {
+        let (dir, id) = issue_project("absent");
+        let artifact = artifact_of(&dir, &id);
+        let _ = std::fs::remove_file(dir.join(&artifact));
+        let row = row_of(&dir, &id);
+        assert_eq!(repair_needed(&row, &dir), "");
+        let why = issue_in(&dir, &[&id, "--to", "target/nowhere"])
+            .err()
+            .unwrap_or_default();
+        assert!(why.contains("cannot read"), "{why}");
+    }
+
+    /// An artifact path with no directory of its own has no slug, so
+    /// there is nothing to link and nothing to unlink -- and neither
+    /// path may panic reaching for one.
+    #[test]
+    fn an_artifact_with_no_directory_has_no_link() {
+        let dir = scaffold("slugless");
+        let mut row = row_of(&dir, "nothing");
+        row.artifact = "SKILL.md".to_string();
+        assert_eq!(link_needed(&row, &dir), "");
+        unlink(&dir, &row.artifact);
+    }
+
+    /// Retiring an artifact somebody already deleted is not an error:
+    /// the row ends in the state the retirement promised.
+    #[test]
+    fn retiring_a_file_that_is_already_gone_is_quiet() {
+        let mut done = Vec::new();
+        let path = PathBuf::from("target").join("cli-issue").join("no-such");
+        assert!(drop_artifact(&path, "x", &mut done).is_ok());
+        assert!(done.is_empty());
     }
 }

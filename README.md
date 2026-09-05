@@ -11,9 +11,9 @@
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)](hk.pkl)
 [![gate steps 21 commit / 27 push](https://img.shields.io/badge/gate_steps-21_commit_%2F_27_push-6E4AFF)](hk.pkl)
 [![coverage floor 99.26%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.26%25-brightgreen)](.coverage)
-[![invariants 51](https://img.shields.io/badge/invariants-51-6E4AFF)](SPEC.md)
-[![bugs logged 9](https://img.shields.io/badge/bugs_logged-9-6E4AFF)](SPEC.md)
-[![federated nodes 22](https://img.shields.io/badge/federated_nodes-22-6E4AFF)](docs/FEDERATION.md)
+[![invariants 54](https://img.shields.io/badge/invariants-54-6E4AFF)](SPEC.md)
+[![bugs logged 10](https://img.shields.io/badge/bugs_logged-10-6E4AFF)](SPEC.md)
+[![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)](flake.nix)
 [![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)](flake.nix)
@@ -341,6 +341,31 @@ The ledger keeps the source path, the line span and the original text, so
 `revert` is mechanical replay rather than a rewrite. The statement returns
 exactly as it was.
 
+### `issue` -- hand it over without a gap
+
+```console
+$ rekall issue 8bd8468 --to ../set-and-setting/skills --auto-approve
+issue   ../set-and-setting/skills/when-a-migration-touches-a-table/SKILL.md
+done    issued 8bd8468 to ../set-and-setting/skills/when-a-migration-touches-a-table/SKILL.md
+note    the copy keeps `disable-model-invocation: true`. That is right where `rekall hook` delivers the skill and wrong where nothing does -- the registry decides, because this end cannot see which it is.
+```
+
+The local artifact **stays**. Removing it here would leave the rule enforced
+by nothing until the registry materialized it back -- the exact gap the
+extraction existed to close, reopened by the step meant to finish it. So both
+copies stand, the ledger row records where it went, and `check` reports the
+open handover on every run as a `note`, which fails nothing.
+
+`rekall issue <id> --retire` ends it, and it is yours to trigger: this crate
+cannot see a materialization it did not perform. It drops the local copy and
+keeps the row, so what was extracted, from where, and which registry tends it
+now all stay readable.
+
+`rekall issue --all` repairs rows that already exist -- a missing
+`disable-model-invocation` back in every head, host links a fresh checkout
+never had. It never regenerates an artifact: the triggers you filled in are
+the only part of that file rekall did not write.
+
 ## Verbs
 
 ```
@@ -355,6 +380,7 @@ rekall hook     harness hook JSON on stdin, decision JSON out
 rekall log      read the ledger
 rekall catch    mine a transcript for candidate statements
 rekall revert   reverse one extraction, verbatim
+rekall issue    hand a proven skill to the loop that tends it
 ```
 
 `plan` and `apply` are terraform's split, borrowed with its obligations: a
@@ -374,8 +400,8 @@ skill earns each one:
 |---|---|---|
 | **extracted** | `.rekall/`, tracked | nothing yet -- it is a hypothesis |
 | **in trial** | same | `hook` fires it; the counter climbs |
-| **issued** | a registry you name | fires, and a human agreeing |
-| **consumed** | back through the registry's own materializer | it is curated now |
+| **issued** | a registry you name, AND still here | fires, and a human agreeing |
+| **retired** | the registry alone | its materializer brought it back |
 
 It is **tracked from the moment it exists**, not hidden until it proves
 itself. The audit trail is the point: this repository's history says what
@@ -383,10 +409,12 @@ was extracted and when, and the registry's says what was adopted and when.
 A trial nobody can see has no history to show, and it would be hidden from
 `rekall log --dead` -- the very measurement meant to end it.
 
-Issuing is a **move**, not a copy. Prose leaves the corpus and a pointer
-stays; the artifact leaves the repository and the ledger row stays. What a
-registry adopts is not a second copy of anything, which is the same rule
-that governs the first step, one level out.
+Issuing is a **move**, not a copy -- but a staged one, and the stage between
+is the point. Prose leaves the corpus and a pointer stays; the artifact
+leaves the repository in its own time and the ledger row stays. In between,
+both copies stand and the row says where the other one went. That record is
+what makes the overlap a transition rather than the duplication this whole
+tool exists to remove.
 
 Nothing here reaches the network. `issue` writes to a path you name and
 git does the travelling -- the corpus is private, and no verb in this
@@ -440,14 +468,14 @@ human states once mid-session outlives the session as a ledger candidate
 instead of dying with it. There is no longer a verb that reports itself
 unimplemented.
 
-The spec is FEDERATED -- 22 nodes, one per module, each owning the rules for
+The spec is FEDERATED -- 23 nodes, one per module, each owning the rules for
 its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
 and why the root is a route rather than a reading.
 
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
-truth — 51 invariants, each carrying the reasoning it stands on; 9 recorded
+truth — 54 invariants, each carrying the reasoning it stands on; 10 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
-what is decided and what is still open, at 12 landed and 10 remaining.
+what is decided and what is still open, at 16 landed and 10 remaining.
 
 ## Development
 

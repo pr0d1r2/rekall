@@ -29,6 +29,54 @@ Nothing has been published to crates.io yet.
 
 ## [Unreleased]
 
+### Added
+
+- `rekall issue <id>... --to <dir>` — hands a proven extraction to the loop
+  that tends it. The portable `SKILL.md` goes out and **the local artifact
+  stays**: removing it here would leave the rule enforced by nothing until
+  the registry materialized it back, which is the gap extraction exists to
+  close. The ledger row records where it went, and that record is what makes
+  two copies a transition rather than a duplication.
+- `rekall issue <id> --retire` — ends the handover. Drops the local artifact
+  and its host link, keeps the row and its destination. Refused on a row that
+  was never issued. It is human-triggered because this crate cannot observe a
+  materialization it did not perform.
+- `rekall issue --all` — repairs rows that already exist: a missing
+  `disable-model-invocation` back in every head, and host links a fresh
+  checkout never had. It never regenerates an artifact, so triggers survive.
+- `check` reports an **open handover** as a `note` rather than drift, in both
+  formats. Notes travel beside the drift the exit code counts, never inside
+  it. The JSON envelope gains a `notes` key.
+- `check` reports an `S` artifact whose head does not disable the host's own
+  loading (`no-guard`). Without that line the host loads the skill on its own
+  judgement and the do-not-fire clause is bypassed.
+- Agent-agnostic intake. `catch` iterates every known transcript root, so a
+  Codex rollout under `~/.codex/sessions` is read by location rather than by
+  a flag, and its deeper `payload` shape and `developer` role are understood.
+- The spec is FEDERATED, 23 nodes, one per module.
+  [`FEDERATION.md`](docs/FEDERATION.md) explains the shape.
+- `docs/LLM-DISCLAIMER.md`, `AGENTS.md`, `deny.toml`, `release.toml`, and gate
+  steps for links, advisories, licences and the published file set.
+
+### Changed
+
+- `apply` writes `S` artifacts under `.rekall/skills/` and **links** them into
+  a host's own skills directory where one already exists, rather than writing
+  into the host's tree. One file, two paths, no drift — and the link is only
+  ever made where the directory is already there.
+- The generated skill head carries `disable-model-invocation: true`.
+- A ledger row carries `issued_to`. It defaults, and serialises only when set,
+  so old ledgers load and unissued rows write no column.
+
+### Fixed
+
+- Every `S` artifact this crate had ever written was model-invocable, which
+  bypassed its own do-not-fire clause on the host's path. `check` now catches
+  it and `rekall issue` repairs it in place.
+- `check`'s `no-head` advice used to say to revert and re-apply. That
+  regenerates the artifact and discards the triggers a human filled in, which
+  the ledger does not keep.
+
 ## [0.3.0] — 2026-09-05
 
 **The second-intake rung.** Every verb the spec names now does its job; there

@@ -26,7 +26,10 @@ src/apply/mod.rs
 src/catch/SPEC.md
 src/catch/mod.rs
 src/check/SPEC.md
+src/check/head.rs
 src/check/mod.rs
+src/check/notes.rs
+src/check/testing.rs
 src/classify/SPEC.md
 src/classify/mod.rs
 src/classify/signals.rs
@@ -36,6 +39,7 @@ src/cli/catch.rs
 src/cli/check.rs
 src/cli/hook.rs
 src/cli/init.rs
+src/cli/issue.rs
 src/cli/log.rs
 src/cli/mod.rs
 src/cli/plan.rs
@@ -53,6 +57,8 @@ src/hook/SPEC.md
 src/hook/mod.rs
 src/init/SPEC.md
 src/init/mod.rs
+src/issue/SPEC.md
+src/issue/mod.rs
 src/ledger/SPEC.md
 src/ledger/mod.rs
 src/lib.rs

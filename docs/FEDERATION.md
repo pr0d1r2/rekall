@@ -28,6 +28,7 @@ it.
     |-- corpus          reaching the files
     |-- hook            the harness adapter
     |-- init            the cold start
+    |-- issue           handing an extraction to a registry
     |-- ledger          the store
     |-- log             reading the ledger back
     |-- plan            the extraction diff
