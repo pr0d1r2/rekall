@@ -51,3 +51,4 @@ src/show.rs
 src/statement.rs
 src/tokens.rs
 src/trigger.rs
+tests/cli.rs
