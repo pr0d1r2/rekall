@@ -337,7 +337,26 @@
 # than learning.
 
 
-SPEC.md   8900
+# SPEC.md 8900 -> 9000, and the COMPACTION WAS DONE FIRST this time.
+#
+# B19 records that the git hook runs whatever `hk` is on PATH, so a commit
+# made outside the dev shell gates with unpinned tools -- and one unpinned
+# `mth` joins the §F header to its first row, which sherd cannot read. Three
+# commits claimed a repair they did not contain before that was found.
+#
+# FORMAT.md's one sanctioned move, §B compaction, was performed rather than
+# costed and dismissed: B2, B9, B17 and B18 were each rewritten tighter, for
+# about 130 tokens. It left the file 19 over. So the raise is 100 for a row
+# that cost 150, after the cheaper answer was actually tried and measured --
+# which is the order the earlier entries kept promising and skipping.
+#
+# THE STANDING ANSWER IS NOW COMPACTION AGAIN, not a raise: three crate-wide
+# bug rows landed in one session and §B is the section that grew. The next
+# addition compacts B1-B9 as a block, or argues why a fifth ceiling
+# conversation in one day is the better use of anyone's attention.
+
+
+SPEC.md   9000
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.
