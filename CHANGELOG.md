@@ -30,10 +30,21 @@ Nothing has been published to crates.io yet.
 
 ## [Unreleased]
 
-## [0.4.0-rc.2] — 2026-09-05
+## [0.4.0-rc.1] — 2026-09-05
 
-**rc.1 could not be installed by the path the documentation names.** Testing
-it is what found that, which is what a candidate is for.
+**A release candidate, for testing before the rung is claimed.** Nothing is
+published to crates.io from an rc: `Cargo.toml`'s `repository` still points at
+a repository that does not exist yet, and crates.io versions can be yanked but
+never deleted. This is a tag to install from and run against real corpora.
+
+Numbered `0.4.0-rc.1` and not `0.3.0-rc.1`, because `0.3.0` is already an
+earned rung above and SemVer sorts a pre-release BEFORE its own version — an
+rc named for `0.3.0` would ship as older than the thing it was testing.
+
+**The tag was cut once, tested, and re-cut.** The first attempt could not be
+built by `nix build .#default` — the install path the README and CI both name
+— so it was not a candidate anyone could install. Two defects, both found by
+testing the candidate rather than by reading it, and both fixed here:
 
 ### Fixed
 
@@ -51,85 +62,13 @@ it is what found that, which is what a candidate is for.
   ordinary test parallelism; they now use a generous one and say why.
 
 Verified end to end: `./result/bin/rekall` from the nix build reports
-`0.4.0-rc.2` and runs `init`, `scan`, `plan`, `apply`, `check` and
+`0.4.0-rc.1` and runs `init`, `scan`, `plan`, `apply`, `check` and
 `log --dead` against a fresh corpus.
-
-## [0.4.0-rc.1] — 2026-09-05
-
-**Superseded by rc.2, which is the first one that installs.** A release
-candidate, for testing before the rung is claimed. Nothing is
-published to crates.io from an rc: `Cargo.toml`'s `repository` still points at
-a repository that does not exist yet, and crates.io versions can be yanked but
-never deleted. This is a tag to install from and run against real corpora.
-
-Numbered `0.4.0-rc.1` and not `0.3.0-rc.1`, because `0.3.0` is already an
-earned rung above and SemVer sorts a pre-release BEFORE its own version — an
-rc named for `0.3.0` would ship as older than the thing it was testing.
 
 What to exercise, in the order the defects were found: point it at a corpus
 that already has extractions and run `rekall log --dead`, then `rekall check`
 on a checkout where `rekall hook` is not wired, then `rekall issue --to` a
 scratch directory and see whether the local copy stays live.
-
-### Added
-
-- `rekall issue <id>... --to <dir>` — hands a proven extraction to the loop
-  that tends it. The portable `SKILL.md` goes out and **the local artifact
-  stays**: removing it here would leave the rule enforced by nothing until
-  the registry materialized it back, which is the gap extraction exists to
-  close. The ledger row records where it went, and that record is what makes
-  two copies a transition rather than a duplication.
-- `rekall issue <id> --retire` — ends the handover. Drops the local artifact
-  and its host link, keeps the row and its destination. Refused on a row that
-  was never issued. It is human-triggered because this crate cannot observe a
-  materialization it did not perform.
-- `rekall issue --all` — repairs rows that already exist: a missing
-  `disable-model-invocation` back in every head, and host links a fresh
-  checkout never had. It never regenerates an artifact, so triggers survive.
-- `rekall hook --agent codex` — the Codex dialect. Codex `PreToolUse` accepts
-  `systemMessage` and ignores `additionalContext`, so before this rekall
-  emitted the Claude Code envelope at a Codex hook and delivered nothing,
-  silently, at exit 0. The agent is **named, never sniffed**; omitting the
-  flag means `claude`; an unknown name is exit 2. Only measured (agent, event)
-  pairs render — any other refuses on stderr, naming the skills it did not
-  deliver, and still prints a valid empty decision at exit 0 so it cannot
-  break every tool call.
-- `check` reports a **dangling published link** — a `.claude/skills/<slug>`
-  symlink pointing at nothing, which the host still indexes and cannot read.
-  Only links into `.rekall/skills`, and silent where a ledger row already
-  explains the missing file.
-- `check` reports an **open handover** as a `note` rather than drift, in both
-  formats. Notes travel beside the drift the exit code counts, never inside
-  it. The JSON envelope gains a `notes` key.
-- `check` reports an `S` artifact whose head does not disable the host's own
-  loading (`no-guard`). Without that line the host loads the skill on its own
-  judgement and the do-not-fire clause is bypassed.
-- Agent-agnostic intake. `catch` iterates every known transcript root, so a
-  Codex rollout under `~/.codex/sessions` is read by location rather than by
-  a flag, and its deeper `payload` shape and `developer` role are understood.
-- The spec is FEDERATED, 23 nodes, one per module.
-  [`FEDERATION.md`](docs/FEDERATION.md) explains the shape.
-- `docs/LLM-DISCLAIMER.md`, `AGENTS.md`, `deny.toml`, `release.toml`, and gate
-  steps for links, advisories, licences and the published file set.
-
-### Changed
-
-- `apply` writes `S` artifacts under `.rekall/skills/` and **links** them into
-  a host's own skills directory where one already exists, rather than writing
-  into the host's tree. One file, two paths, no drift — and the link is only
-  ever made where the directory is already there.
-- The generated skill head carries `disable-model-invocation: true`.
-- A ledger row carries `issued_to`. It defaults, and serialises only when set,
-  so old ledgers load and unissued rows write no column.
-
-### Fixed
-
-- Every `S` artifact this crate had ever written was model-invocable, which
-  bypassed its own do-not-fire clause on the host's path. `check` now catches
-  it and `rekall issue` repairs it in place.
-- `check`'s `no-head` advice used to say to revert and re-apply. That
-  regenerates the artifact and discards the triggers a human filled in, which
-  the ledger does not keep.
 
 ## [0.3.0] — 2026-09-05
 
@@ -265,7 +204,6 @@ unknown.
 - A clippy deny list with no allow-list and no lint-debt file — affordable
   exactly once, at zero lines of code.
 
-[0.4.0-rc.2]: #040-rc2--2026-09-05
 [0.4.0-rc.1]: #040-rc1--2026-09-05
 [0.3.0]: #030--2026-09-05
 [0.2.0]: #020--2026-09-05

@@ -121,9 +121,9 @@ verify = true
 # exists only on the backup is a release nobody but its author can fetch.
 #
 # WHERE THINGS STAND TODAY, so the next session does not have to guess:
-# `v0.4.0-rc.1` and `v0.4.0-rc.2` were pushed to `gitlab` and exist
-# NOWHERE ELSE, because GitHub has no repository yet. They are pre-history,
-# not releases. When that repository exists:
+# `v0.4.0-rc.1` was pushed to `gitlab` and exists
+# NOWHERE ELSE, because GitHub has no repository yet. It is pre-history,
+# not a release. When that repository exists:
 #
 #     git remote add origin git@github.com:pr0d1r2/rekall.git
 #     git push origin main

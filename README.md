@@ -464,7 +464,7 @@ and how to report something.
 
 ## Status
 
-**0.4.0-rc.2 is a candidate, not a rung.** 0.1.0 guaranteed a reproducible
+**0.4.0-rc.1 is a candidate, not a rung.** 0.1.0 guaranteed a reproducible
 build and a running gate; 0.2.0, that every verb does its job; 0.3.0, the
 second way in, `catch` reading a transcript.
 
