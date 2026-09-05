@@ -417,9 +417,9 @@ pub fn render_issue_human(report: &issue::Report, done: &[String]) -> String {
 /// cannot see which kind the destination is, so it says so instead of
 /// picking (`src/issue:V54`).
 pub const ADOPTION_NOTE: &str = "\
-note    the copy keeps `disable-model-invocation: true`. That is right \
-where `rekall hook` delivers the skill and wrong where nothing does -- \
-the registry decides, because this end cannot see which it is.\n";
+note    the copy keeps `disable-model-invocation: true` -- right where \
+`rekall hook` delivers the skill, wrong where nothing does. The registry \
+decides; this end cannot see which it is.\n";
 
 fn one_rendered(row: &issue::Outcome) -> String {
     if row.already {
@@ -632,7 +632,7 @@ mod tests {
         let text = issue_in(&dir, &[&id, "--to", &out.to_string_lossy()])
             .map(|o| o.text)
             .unwrap_or_default();
-        assert!(text.contains("the registry decides"), "{text}");
+        assert!(text.contains("The registry decides"), "{text}");
     }
 
     /// `--all` takes every extracted SKILL, so a corpus that has proved

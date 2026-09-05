@@ -59,6 +59,12 @@ pub struct Report {
     /// EMPTY ledger stay silent instead of carrying a warning about a
     /// counter no row needed.
     pub withheld: usize,
+    /// Whether this report ANSWERS the deadness question at all.
+    ///
+    /// Carried because the answer needs a caveat the plain log does not:
+    /// what `--dead` names is never-DELIVERED, and a rule the gate runs by
+    /// path is enforced without ever touching this counter.
+    pub dead: bool,
 }
 
 /// What to leave out.
@@ -87,6 +93,7 @@ pub fn report(
         entries: entries(held, filter, instrumented),
         instrumented,
         withheld: withheld(held, filter, instrumented),
+        dead: filter.dead,
     }
 }
 
@@ -199,6 +206,19 @@ here, so nothing has been MEASURED as never firing and no row is named. \
 Note that an hk step running a rule's runner does NOT count: this column is \
 DELIVERED-TO-AN-AGENT, not enforced.\n";
 
+/// The caveat every ANSWERED `--dead` carries.
+///
+/// The uninstrumented banner was the loud half of B11; this is the quiet
+/// half. Once a journal exists the rows are real, and a reader still sees
+/// a list of rules headed "never fired" -- including the ones their gate
+/// executes on every commit, which are enforced without ever reaching this
+/// counter. Naming the scope is the difference between a measurement and
+/// an invitation to delete something load-bearing.
+pub const DELIVERY_SCOPE: &str = "\
+scope       `--dead` means never DELIVERED TO AN AGENT by `rekall hook`. A rule \
+your gate runs by path is ENFORCED without touching this counter, so check your \
+gate before deleting anything below.\n";
+
 /// Is there anything for the note to be ABOUT?
 ///
 /// An empty ledger needs no warning about a counter no row asked for, and
@@ -208,12 +228,24 @@ fn says_unmeasured(report: &Report) -> bool {
     !report.entries.is_empty() || report.withheld > 0
 }
 
+/// What is said before the rows, if anything.
+///
+/// At most ONE line. Two stacked banners over a short list is the shape
+/// people stop reading, and the unmeasured case already implies the scope.
+fn preamble(report: &Report) -> &'static str {
+    if !report.instrumented && says_unmeasured(report) {
+        return UNMEASURED;
+    }
+    if report.dead && !report.entries.is_empty() {
+        return DELIVERY_SCOPE;
+    }
+    ""
+}
+
 #[must_use]
 pub fn render_human(report: &Report) -> String {
     let mut out = String::new();
-    if !report.instrumented && says_unmeasured(report) {
-        out.push_str(UNMEASURED);
-    }
+    out.push_str(preamble(report));
     for entry in &report.entries {
         out.push_str(&format!("{}\n", render_row(entry)));
         for line in entry.text.lines() {
@@ -285,6 +317,45 @@ mod tests {
 
     /// V11: a never-fired artifact is DETECTABLE. That is what makes
     /// deletion arithmetic instead of nerve.
+    /// The quiet half of B11: once a journal exists the rows are real,
+    /// and a reader still sees rules their GATE runs listed under "never
+    /// fired". The answer carries its scope or it is an invitation to
+    /// delete something load-bearing.
+    #[test]
+    fn an_answered_dead_report_names_the_path_it_speaks_for() {
+        let ledger = held(vec![row("aaa", 0, 100)]);
+        let filter = Filter {
+            dead: true,
+            ..Filter::default()
+        };
+        let said = render_human(&report(&ledger, filter, true));
+        assert!(said.starts_with("scope"), "{said}");
+        assert!(said.contains("ENFORCED"), "{said}");
+    }
+
+    /// One line, never two. The unmeasured banner already implies the
+    /// scope, and stacked banners are what people learn to scroll past.
+    #[test]
+    fn the_two_preambles_never_stack() {
+        let ledger = held(vec![row("aaa", 0, 100)]);
+        let filter = Filter {
+            dead: true,
+            ..Filter::default()
+        };
+        let said = render_human(&report(&ledger, filter, false));
+        assert!(said.contains("unmeasured"), "{said}");
+        assert!(!said.contains("scope  "), "{said}");
+    }
+
+    /// A plain log answers no deadness question, so it carries no caveat
+    /// about one.
+    #[test]
+    fn the_plain_log_carries_no_scope_line() {
+        let ledger = held(vec![row("aaa", 1, 100)]);
+        let said = render_human(&report(&ledger, Filter::default(), true));
+        assert!(!said.starts_with("scope"), "{said}");
+    }
+
     /// B11: every row reads `fires = 0` when NOTHING has been counting, so
     /// the unfiltered `--dead` returned the whole ledger and called it
     /// droppable -- seven of those rows being runners this repo's gate

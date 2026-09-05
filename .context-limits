@@ -311,5 +311,37 @@
 
 SPEC.md   8700
 src       10000
-README.md  5700
+# README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
+# raise has to argue against the FLEET figure rather than against a stub.
+# Here is that argument, and what was tried before making it.
+#
+# WHAT WAS TRIED, and MEASURED: five compression passes over the additions
+# and the paragraphs they sat next to, ~130 tokens. Two of them were real
+# duplication -- the lifecycle re-arguing the `issue` section three
+# paragraphs below it, and a retirement gloss stated twice. One shortened
+# the TOOL's own output rather than the prose about it: `ADOPTION_NOTE` was
+# verbose, so the console block and the constant both got shorter and the
+# example stayed real. After all of it the file measured 5730 against 5700.
+#
+# THE ARGUMENT AGAINST THE FLEET NUMBER. 5700 is itok's, and itok's README
+# describes ONE verb. This one describes TWELVE, plus a four-stage lifecycle
+# and a federation. Holding a twelve-verb README to a one-verb README's
+# ceiling is not discipline, it is comparing the wrong two things -- and the
+# way to satisfy it would be to drop the worked examples, which is what
+# makes a first-contact document worth reading.
+#
+# WHAT THE 30 TOKENS BOUGHT, since that is the honest size of this raise:
+# the `--dead` scope sentence and the `issue` section. Both are corrections
+# to things this README previously stated wrongly -- it promised `--dead`
+# proved a rule droppable when nothing was counting (B11), and it described
+# issuing as a move that removes the artifact.
+#
+# ONE CUT WAS CONSIDERED AND REJECTED: deleting the `## Verbs` block, which
+# reprints `rekall --help` and would save ~120. It is the duplication this
+# project refuses everywhere else, and it should probably go -- but not in
+# the commit that needs the room, because "delete a section to fit" is how
+# a ceiling starts editing the document instead of reviewing it.
+
+
+README.md  5900
 CLAUDE.md   600

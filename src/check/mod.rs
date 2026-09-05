@@ -35,6 +35,7 @@ pub const LOOSE_QUOTE: &str = "loose-quote";
 pub const NO_PAYLOAD: &str = "no-payload";
 pub const NO_HEAD: &str = "no-head";
 pub const NO_GUARD: &str = "no-guard";
+pub const UNDELIVERED: &str = "undelivered";
 
 /// The one NOTE kind: an issued extraction whose local copy still
 /// stands. `src/issue:V54` says that overlap is INTENDED.
@@ -56,7 +57,12 @@ pub struct Drift {
     pub said: String,
 }
 
-fn drift(kind: &'static str, id: &str, path: &str, said: String) -> Drift {
+pub(super) fn drift(
+    kind: &'static str,
+    id: &str,
+    path: &str,
+    said: String,
+) -> Drift {
     Drift {
         kind,
         id: id.to_string(),
@@ -76,8 +82,10 @@ pub struct Seen<'a> {
     pub artifact: Option<&'a str>,
 }
 
+mod delivery;
 mod head;
 mod notes;
+pub use delivery::{undelivered, wired};
 pub use notes::{Note, notes, render_notes};
 
 /// Every way the corpus has drifted from what the ledger claims.

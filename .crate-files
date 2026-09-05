@@ -26,6 +26,7 @@ src/apply/mod.rs
 src/catch/SPEC.md
 src/catch/mod.rs
 src/check/SPEC.md
+src/check/delivery.rs
 src/check/head.rs
 src/check/mod.rs
 src/check/notes.rs

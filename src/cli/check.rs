@@ -57,11 +57,9 @@ pub fn check_command(flags: &[String], env: &Env) -> Result<Checked, String> {
     let bytes = read_rows(&base, &held);
     let seen = zip_rows(&held, &bytes);
     let on_disk = artifacts_on_disk(&base, env)?;
-    render_check(
-        &check::audit(&seen, &on_disk),
-        &check::notes(&seen),
-        args.json,
-    )
+    let mut found = check::audit(&seen, &on_disk);
+    found.extend(check::undelivered(&seen, check::wired(&base)));
+    render_check(&found, &check::notes(&seen), args.json)
 }
 
 /// The bytes each row is judged against, read once.

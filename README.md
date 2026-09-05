@@ -326,6 +326,11 @@ that only grows: rationale decays, so nobody dares delete a rule, and the
 document accretes forever. A rule that never fired is one you can drop and
 *prove* you could.
 
+It says what it measured. `fires` counts delivery by `rekall hook`; a rule
+your gate runs by path is enforced without touching it. So `--dead` prints
+its scope, and names nothing when nothing has been counting -- an empty
+counter and an unused rule look identical in that column.
+
 ### `revert` — put it back, verbatim
 
 ```console
@@ -347,7 +352,7 @@ exactly as it was.
 $ rekall issue 8bd8468 --to ../set-and-setting/skills --auto-approve
 issue   ../set-and-setting/skills/when-a-migration-touches-a-table/SKILL.md
 done    issued 8bd8468 to ../set-and-setting/skills/when-a-migration-touches-a-table/SKILL.md
-note    the copy keeps `disable-model-invocation: true`. That is right where `rekall hook` delivers the skill and wrong where nothing does -- the registry decides, because this end cannot see which it is.
+note    the copy keeps `disable-model-invocation: true` -- right where `rekall hook` delivers the skill, wrong where nothing does. The registry decides; this end cannot see which it is.
 ```
 
 The local artifact **stays**. Removing it here would leave the rule enforced
@@ -358,8 +363,7 @@ open handover on every run as a `note`, which fails nothing.
 
 `rekall issue <id> --retire` ends it, and it is yours to trigger: this crate
 cannot see a materialization it did not perform. It drops the local copy and
-keeps the row, so what was extracted, from where, and which registry tends it
-now all stay readable.
+keeps the row, so the record of what went where stays readable.
 
 `rekall issue --all` repairs rows that already exist -- a missing
 `disable-model-invocation` back in every head, host links a fresh checkout
@@ -409,11 +413,10 @@ was extracted and when, and the registry's says what was adopted and when.
 A trial nobody can see has no history to show, and it would be hidden from
 `rekall log --dead` -- the very measurement meant to end it.
 
-Issuing is a **move**, not a copy -- but a staged one, and the stage between
-is the point. Prose leaves the corpus and a pointer stays; the artifact
-leaves the repository in its own time and the ledger row stays. In between,
-both copies stand and the row says where the other one went. That record is
-what makes the overlap a transition rather than the duplication this whole
+Issuing is a **move**, and a staged one. Prose leaves the corpus and a
+pointer stays; the artifact leaves the repository in its own time and the
+ledger row stays. In between both copies stand, and the row saying where the
+other went is what makes that a transition rather than the duplication this
 tool exists to remove.
 
 Nothing here reaches the network. `issue` writes to a path you name and

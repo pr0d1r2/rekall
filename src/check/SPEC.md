@@ -40,8 +40,8 @@ V56: a GUARDED `S` artifact with ⊥ DELIVERER is DRIFT. `src/apply:V52` switche
 ## §T TASKS
 
 id|status|task|cites
-T71|.|`check` reports `undelivered`: a guarded `S` row whose project harness config wires ⊥ `rekall hook`|V56,`src/apply:V52`
-T72|.|WIRE `rekall hook` in this repo & gate it: consumer #0 ! run the delivery path it ships, ∵ the guard's premise was ASSUMED here & measured false|V56
+T71|x|`check` reports `undelivered`: a guarded `S` row whose project harness config wires ⊥ `rekall hook`|V56,`src/apply:V52`
+T72|x|WIRE `rekall hook` in this repo & gate it: consumer #0 ! run the delivery path it ships, ∵ the guard's premise was ASSUMED here & measured false|V56
 
 ## §B BUGS
 
