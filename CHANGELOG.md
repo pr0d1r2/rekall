@@ -14,8 +14,9 @@ answers one question: *what can you rely on at this tag?*
 |---------|----------------------|--------|
 | `0.1` | it builds reproducibly on every supported platform, and the gate runs | reached |
 | `0.2` | every verb but `catch` does its job end to end, and the tool runs against its own corpus | reached |
-| `0.3` | second intake: `catch` mines a transcript, so a rule stated once outlives the session | **current** |
-| `0.4` | the diagnostic half — `init` names the first cut, `--dead` answers across a team rather than one checkout | planned |
+| `0.3` | second intake: `catch` mines a transcript, so a rule stated once outlives the session | reached |
+| `0.4` | the HANDOVER: an extraction leaves this repo for a registry with no window where the rule is enforced by nothing, and the gate proves a skill can actually be loaded | **rc** |
+| `0.5` | the diagnostic half — `init` names the first cut, `--dead` answers across a team rather than one checkout | planned |
 | `1.0` | the contract frozen: the CLI surface, the JSON anatomy, the trigger format and the ledger schema | planned |
 
 Pre-1.0 SemVer permits a minor to break, and here each rung *is* a behaviour
@@ -28,6 +29,22 @@ through `/spec`.
 Nothing has been published to crates.io yet.
 
 ## [Unreleased]
+
+## [0.4.0-rc.1] — 2026-09-05
+
+**A release candidate, for testing before the rung is claimed.** Nothing is
+published to crates.io from an rc: `Cargo.toml`'s `repository` still points at
+a repository that does not exist yet, and crates.io versions can be yanked but
+never deleted. This is a tag to install from and run against real corpora.
+
+Numbered `0.4.0-rc.1` and not `0.3.0-rc.1`, because `0.3.0` is already an
+earned rung above and SemVer sorts a pre-release BEFORE its own version — an
+rc named for `0.3.0` would ship as older than the thing it was testing.
+
+What to exercise, in the order the defects were found: point it at a corpus
+that already has extractions and run `rekall log --dead`, then `rekall check`
+on a checkout where `rekall hook` is not wired, then `rekall issue --to` a
+scratch directory and see whether the local copy stays live.
 
 ### Added
 
@@ -223,6 +240,7 @@ unknown.
 - A clippy deny list with no allow-list and no lint-debt file — affordable
   exactly once, at zero lines of code.
 
+[0.4.0-rc.1]: #040-rc1--2026-09-05
 [0.3.0]: #030--2026-09-05
 [0.2.0]: #020--2026-09-05
 [0.1.0]: #010--2026-08-21

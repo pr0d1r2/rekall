@@ -464,14 +464,14 @@ and how to report something.
 
 ## Status
 
-**0.3.0 is the second-intake rung.** The crate builds reproducibly on every
-supported platform and the gate runs — that was 0.1.0's whole guarantee — and
-every verb the spec names now does its job end to end, which was 0.2.0's.
+**0.4.0-rc.1 is a candidate, not a rung.** 0.1.0 guaranteed a reproducible
+build and a running gate; 0.2.0, that every verb does its job; 0.3.0, the
+second way in, `catch` reading a transcript.
 
-What 0.3.0 adds is the other way in. `catch` reads a transcript, so a rule a
-human states once mid-session outlives the session as a ledger candidate
-instead of dying with it. There is no longer a verb that reports itself
-unimplemented.
+0.4 is the **handover**, and the rc exists to test it before it is claimed.
+`rekall issue` moves a proven extraction to the registry that tends it with no
+window where the rule is enforced by nothing, and `check` refuses a skill
+nothing can load. An rc publishes nothing to crates.io.
 
 The spec is FEDERATED -- 23 nodes, one per module, each owning the rules for
 its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,

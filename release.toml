@@ -26,6 +26,20 @@
 # The branch a release may happen from. The `.crate` records the commit it was
 # built from, so publishing off anything that later disappears leaves the
 # artifact naming a commit nobody can resolve.
+# A RELEASE CANDIDATE DOES NOT PUBLISH, and `publish = true` below is about
+# the real thing. Run an rc with the flag that says so:
+#
+#     cargo release 0.4.0-rc.1 --no-publish --execute
+#
+# Two reasons, and both are one-way doors. `Cargo.toml`'s `repository` points
+# at a repository that does not exist yet, and that URL is baked into the
+# published metadata. And a crates.io version can be YANKED but never deleted,
+# so a candidate pushed there is a permanent row in the registry describing a
+# crate nobody could clone.
+#
+# The tag and the push are still worth doing: a tag is what someone installs
+# from to test, and rewriting one is cheap by comparison.
+
 allow-branch = ["main"]
 
 # THE GATE, called rather than re-checked. A non-zero return here ABORTS the
