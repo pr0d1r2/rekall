@@ -281,9 +281,59 @@ fn disambiguate(base: &str, seen: &mut Vec<(String, usize)>) -> String {
     base.to_string()
 }
 
+/// The file an INDEX ENTRY points at, if this line is one.
+///
+/// `- [a fact](a-fact.md) -- hook` is a POINTER to prose, not a statement of
+/// policy (V62). Splicing one replaces the entry with a rekall pointer and
+/// orphans the file it named -- measured, and silent, which is what makes it
+/// worse than a failure (`B21`).
+///
+/// SHAPE ONLY. Whether the file is really an index needs the DISK -- a
+/// bullet carrying a link is ordinary prose, and a directory of the files it
+/// names is not -- so the caller with the path decides that.
+#[must_use]
+pub fn index_target(line: &str) -> Option<&str> {
+    let rest = line
+        .trim_start()
+        .strip_prefix("- ")
+        .or_else(|| line.trim_start().strip_prefix("* "))?;
+    let rest = rest.trim_start().strip_prefix('[')?;
+    let (_, after) = rest.split_once("](")?;
+    let (target, _) = after.split_once(')')?;
+    (!target.is_empty()).then_some(target)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// V62: shape only, and it is the shape a memory index is written in.
+    #[test]
+    fn an_index_entry_yields_the_file_it_points_at() {
+        assert_eq!(
+            index_target("- [a fact](a-fact.md) -- always deploy"),
+            Some("a-fact.md")
+        );
+        assert_eq!(index_target("* [x](y/z.md)"), Some("y/z.md"));
+    }
+
+    /// Ordinary prose is not an entry, however much punctuation it carries.
+    #[test]
+    fn prose_is_not_an_index_entry() {
+        for line in [
+            "- never commit to `main`",
+            "- see [the docs](https://x) for why",
+            "just words",
+            "- [unclosed(a.md)",
+            "- []()",
+        ] {
+            let got = index_target(line);
+            assert!(
+                got.is_none() || got == Some("https://x"),
+                "{line} read as an entry: {got:?}"
+            );
+        }
+    }
 
     /// The published FNV-1a 64 vectors. These assert that the digest IS
     /// FNV-1a and not merely deterministic -- a subtly wrong hash would

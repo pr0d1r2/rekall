@@ -34,8 +34,15 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 ## §V INVARIANTS
 
 WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
+V62: an INDEX ENTRY is ⊥ a STATEMENT. `- [name](file.md) -- hook` POINTS at prose; it does ⊥ STATE policy ∴ it is ⊥ a candidate, & splicing one DESTROYS the index. MEASURED 2026-09-05: a `MEMORY.md` line scored `M2` on the `always` in its hook, `apply` replaced the whole entry with a pointer, & the memory file it named was ORPHANED -- reachable by nothing -- while the runner took its slug from markdown syntax (`a-factafactmd-...`). ⊥ `apply:B20`, which FAILED loudly: this SUCCEEDS. DETECTED ⊥ assumed: a file is an INDEX where ≥2 lines are entries & ≥1 target EXISTS beside it. The SIBLING is the evidence -- a bullet carrying a link is ordinary prose, & a directory of the files it names is ⊥.
 
 ## §T TASKS
 
 id|status|task|cites
 T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,`src:V13`
+T78|x|`scan` emits ⊥ statements from a DETECTED index: ≥2 entry lines & ≥1 linked target existing beside the file|V62,`apply:V60`
+
+## §B BUGS
+
+id|date|cause|fix
+B21|2026-09-05|`scan` offered a `MEMORY.md` INDEX LINE as an extraction & `apply` TOOK it: the entry became `<!-- rekall <id> -->` & the memory file it named was orphaned from its own index. SILENT, ⊥ `apply:B20` which at least failed ∴ rekall CORRUPTED a file it does ⊥ own, which is what `apply:V16` exists to stop|V62

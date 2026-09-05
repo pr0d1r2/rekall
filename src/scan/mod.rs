@@ -222,12 +222,40 @@ fn read_all(files: &[PathBuf], at: &Corpus<'_>, out: &mut Loaded) {
         let name = stable_name(path, at.base, at.home);
         match std::fs::read_to_string(path) {
             Ok(text) => {
-                out.statements.extend(statement::split(&text, &name));
+                if !is_index(path, &text) {
+                    out.statements.extend(statement::split(&text, &name));
+                }
                 out.sources.push((name, text));
             }
             Err(_) => out.unreadable.push(path.clone()),
         }
     }
+}
+
+/// Is this file an INDEX of other files, rather than prose of its own?
+///
+/// `statement:V62`: an entry POINTS at prose, it does not state policy, and
+/// splicing one orphans the file it named -- measured, and silently
+/// (`statement:B21`). So an index contributes no statements at all.
+///
+/// DETECTED, never assumed, and the DISK is the evidence. Two entry lines
+/// are a shape any bulleted list of links can have; a directory that
+/// actually contains one of the files those entries name is not. Requiring
+/// both is what keeps an ordinary `CLAUDE.md` full of markdown links out of
+/// this branch.
+///
+/// It stays in `sources` either way: the bytes are still corpus a reader may
+/// want, and `check` still reads the file. It is the STATEMENTS that stop.
+fn is_index(path: &Path, text: &str) -> bool {
+    let targets: Vec<&str> =
+        text.lines().filter_map(statement::index_target).collect();
+    if targets.len() < 2 {
+        return false;
+    }
+    let Some(dir) = path.parent() else {
+        return false;
+    };
+    targets.iter().any(|target| dir.join(target).is_file())
 }
 
 /// Run a scan over already-resolved roots.
@@ -333,6 +361,58 @@ fn render_row(row: &Row) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A memory directory: an index, and the files it names.
+    fn index_dir(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("scan-index").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(
+            dir.join("MEMORY.md"),
+            "- [a fact](a-fact.md) -- always deploy behind a flag\n\
+             - [other](other.md) -- never skip the hooks\n",
+        );
+        let _ = std::fs::write(dir.join("a-fact.md"), "- always deploy\n");
+        dir
+    }
+
+    /// `statement:V62` and `statement:B21`. Every line of that index scores
+    /// as a rule on the words in its hooks, and taking one orphans the file
+    /// it names.
+    #[test]
+    fn an_index_contributes_no_statements() {
+        let dir = index_dir("detected");
+        let text =
+            std::fs::read_to_string(dir.join("MEMORY.md")).unwrap_or_default();
+        assert!(is_index(&dir.join("MEMORY.md"), &text));
+        assert!(
+            !statement::split(&text, "MEMORY.md").is_empty(),
+            "the splitter still finds them; it is SCAN that must not offer them"
+        );
+    }
+
+    /// The DISK is the evidence. The same bytes with no such file beside
+    /// them are an ordinary bulleted list of links, and prose keeps its
+    /// statements.
+    #[test]
+    fn a_list_of_links_with_no_files_beside_it_is_prose() {
+        let dir = PathBuf::from("target").join("scan-index").join("prose");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let text = "- [a fact](a-fact.md) -- always deploy\n\
+                    - [other](other.md) -- never skip\n";
+        let _ = std::fs::write(dir.join("NOTES.md"), text);
+        assert!(!is_index(&dir.join("NOTES.md"), text));
+    }
+
+    /// One entry is not an index. A single link in a bullet is how prose
+    /// cites things.
+    #[test]
+    fn a_single_entry_is_not_an_index() {
+        let dir = index_dir("single");
+        let text = "- [a fact](a-fact.md) -- always deploy\n";
+        assert!(!is_index(&dir.join("MEMORY.md"), text));
+    }
 
     /// A fixture that produces no statement yields an EMPTY row, which
     /// fails every assertion here on content -- so the helper needs no
