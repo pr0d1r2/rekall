@@ -132,65 +132,23 @@ V46: a transcript is SOMEONE ELSE'S DOCUMENT on its own release cadence ∴ READ
 ## §T TASKS
 
 id|status|task|cites
-T1|x|scaffold: root `flake.nix`, `Cargo.toml`, `hk.pkl` (vendored schema), rustfmt/clippy, MIT, ASCII gate, `mth` in gate|§C,V23,V24,V25
-T2|x|`.context-limits` ceiling + its RUNNER, one commit, gate-wired|V12,V22
-T3|x|`rekall.toml` loader, `[sources]`, 2 scopes merged|§I,R6
-T4|x|corpus reader: roots (file or dir) × globs, sorted & deduped|I.scan,V13,V15,V16
-T5|x|statement splitter: prose -> statements, path-scoped hash ids, spans|V13,§I
-T6|x|deterministic classifier: signals -> `M`/`S`/`U` × sharpness 1-3|V10,V11,§I
-T7|x|`rekall scan` human + json, filters, `--sources`, `-C`|I.scan,V7,V13,V17
-T8|x|ledger store `.rekall/ledger.toml`: CANDIDATE & EXTRACTED rows, prefix lookup, fire count|V7,V9,V11,V13
-T9|x|`rekall apply` `M` -> script + runner wiring|V1,V2,V13
-T10|x|`rekall apply` `S` -> skill + trigger + ⊥-fire clause|V1,V3,V4
-T11|x|`rekall check` gate, wired into `hk.pkl`|V2,V3,V6
-T12|x|`rekall recall` matcher, reading the trigger BLOCK|I.recall,V3,V29
-T13|x|`rekall hook`: adapter + `S` injection + the FIRE COUNTER|I.hook,V5,V29,V34,R9
-T14|x|`rekall log` + `--dead`|V11
-T15|x|`rekall revert`|V9
-T16|x|`itok` delegation for token columns|V8
+T1|x|FOLDED, the 0.1.0 SCAFFOLD rung (was T1-T2): root `flake.nix`, `Cargo.toml`, `hk.pkl`, lint & ASCII gates, `mth` wired, `.context-limits` + its runner|V12,V22,V23,V24,V25,§C
+T3|x|FOLDED, the 0.2.0 WORKING rung (was T3-T17, T21-T28, T30-T37, T40, T42-T43, T45, T52-T55, T58-T59): config & corpus readers, splitter & ids, weighted classifier, and every verb but `catch` -- scan · show · plan · apply · check · recall · hook · log · revert -- with the ledger, `itok` delegation, the trigger block and the artifact head. Row-by-row detail is in `git log`; the CITES column is the UNION, so no invariant is orphaned by the fold|B3,B6,I.hook,I.recall,I.scan,R14,R15,R4,R6,R9,T19,T39,V1,V10,V11,V13,V15,V16,V17,V18,V19,V2,V20,V22,V23,V26,V28,V29,V3,V30,V31,V34,V36,V37,V39,V4,V40,V41,V42,V43,V5,V6,V7,V8,V9,§C,§I
 T18|x|`rekall catch` transcript intake|I.catch,V10,V44,V45,V46
-T19|.|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T35,T52
+T19|.|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T3
 T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
-T21|x|`rekall init`: detect roots, write `rekall.toml`, refuse to clobber|§I,V7,R6
-T22|x|`rekall show <id>`: verbatim text, class, signals, PREFIX ids|§I,V10
-T23|x|`rekall plan`: extraction DIFF, artifact + wiring named, `--out` anchored to `-C`|§I,V7
-T24|x|plan FINGERPRINT + `apply` REFUSES a stale plan|V19
-T25|x|confirm gate on `apply`: tty prompt, `--auto-approve` off-tty. `revert` waits on T15|V20
-T26|x|ONE matcher behind `recall` & `hook`, ⊥ two code paths|V18
-T27|x|config SCOPE decided: 2 files 1 parser, project wins per key, `[sources]` roots UNION|§I,R6
-T28|x|`id` shape DECIDED: path-scoped hash of normalized text, 7 hex, `.n` for repeats, prefix input|§I,T5,V13
-T29|x|CHOSEN: `catch` persists CANDIDATE rows to the LEDGER; report-only is about the CORPUS, ⊥ the disk|V7,V45,T8
-T30|x|gate step MESSAGES: ∀ failing step names the FIX, ⊥ only the breach|V28
-T31|x|gate runner PRESENCE: owned steps FAIL when absent, optional tools SKIP & SAY SO|V26
-T32|x|`doctest` step RETURNS once a lib target exists|§C,V22
-T33|x|`[signals]` WEIGHTS: config table + weighted CLASS + DEADBAND + weight in `show`; sharpness stays a LADDER|§C,§I,V10,V22,V30
-T34|x|trigger BLOCK: `apply` EMITS it, `check` PARSES it, `S3` empty, exclusion WINS|V29,V4,V22
-T35|x|this repo gets its own `CLAUDE.md` ∴ consumer #0 has a corpus & `rekall-check`'s glob stops being inert|T19,V26
-T36|x|RECORD in §R: re-measure R4 & T19's reclaim, each NAMING its box. A /spec write, ⊥ /build|V31,R4,R14,T19
-T37|x|`init`: PROJECT roots to the tracked file, USER roots named in OUTPUT only|V36,§I,T21
+T29|x|CHOSEN: `catch` persists CANDIDATE rows to the LEDGER; report-only is about the CORPUS, ⊥ the disk|V7,V45,T3
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
-T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; ADVISES ⊥ blocks, bounded time|V37,V38,V2,T13
-T40|x|split `cli.rs` per VERB; MODULE-SIZE limit + its RUNNER, one commit|V22,V23,§C
-T41|.|move each verb's TESTS to its cli module|T40
-
-T42|x|`log` reports NET reclaim; `plan` NAMES it before the move|V39,B3
-T43|x|SHRINK the pointer to `<!-- rekall <id> -->`; `revert` locates by ID, ⊥ by artifact path|V39,V9
+T39|x|`hook` FIRES an `M` rule that carries a trigger; empty block = gate-only; ADVISES ⊥ blocks, bounded time|V37,V38,V2,T3
+T41|.|move each verb's TESTS to its cli module|T3
 T44|x|`recall`/`hook`: a MISSING `M` block is GATE-ONLY, ⊥ unreadable|V37,B4
-T45|x|`apply`'s `M` template EMITS the empty commented block, as `S` does ∴ V37 is discoverable|V37,T39
 T46|.|`init` DIAGNOSES: corpus cost vs ceiling, `U` rate, monolithic spec ∴ names the first cut|§I,V39
 T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|V2
 T48|.|`plan` NAMES the host's own format gates before rewriting a file this crate ⊥ owns|V16
 T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,V13
 T50|.|slug ⊥ truncates mid-phrase|§I
-
 T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactures timeouts|V38,B5
-T52|x|MOOD signals: imperative · absolute quantifier · `, not ` contrast, HALF a directive & SCOPED to list items|V40,V30,R15
-T53|x|`plan` STEP carries `runner`; `apply` writes the MOVE wiring & the moved-from marker|V41,V19,V2
-T54|x|`apply` COMMENTS every line of a quoted statement; `check` VERIFIES it; a WRAPPED statement is the fixture|V42,B6
-T55|x|splitter SKIPS a rekall POINTER; fixture = TWO adjacent pointers|§I,V13
 T57|x|`hook`'s situation TEXT carries the TOOL INPUT, ⊥ `prompt` alone; `recall` & `hook` agree on ONE payload in a test|V18,B7
-T58|x|`apply` MARKS the payload; `hook` injects it ALONE; `check` refuses one unmarked|V43,V39
-T59|x|artifact HEAD = frontmatter: `name` + `description` from the STATEMENT, ⊥ the id|V43,§I
 
 ## §B BUGS
 

@@ -222,18 +222,29 @@
 # is now not SB compaction either. It is folding done ST rows ONCE `mth`
 # can carry their citations elsewhere, or extracting this file the way
 # CLAUDE.md is being extracted. A fourth raise needs one of those tried.
-# +50 AFTER THAT APPROVAL, 13400 -> 13450, & the reason is the process
-# working rather than the estimate slipping. V44 shipped WRONG: it scoped a
-# transcript violation to MOOD, the tests written against it FAILED, and B8
-# now records the measurement. A SB row is not optional here, and the
-# corrected V44 plus B8 cost ~200 more than the three invariants alone.
+# RETURNED 2026-09-05 to 12400, the figure before both raises.
 #
-# ~180 of that was paid by COMPACTION, not by a bigger number: V44 and B8
-# had come to state one measurement twice, SI restated V44, V46 REJECTED
-# repeated its own opening sentence, and EPHEMERALITY was argued in three
-# places. Cutting a duplicate is compaction; cutting the last 38 would have
-# been deleting the reasoning that makes B8 worth having, which is the
-# trade the paragraph above already refuses for B5 and B6.
-SPEC.md   13450
+# The standing answer above named folding done ST rows as the next move and
+# recorded it as BLOCKED, "once mth can carry their citations elsewhere".
+# That block was wrong about the mechanism. mth needs no change: the fold
+# row carries the UNION of the folded rows' citations, so every invariant
+# keeps a citer and `mth derive` still reports "orphan: none". The blocker
+# was a missing idea, not a missing feature.
+#
+# MEASURED: 58 ST rows -> 17. 13439 -> 12394 tokens, a saving of 1045,
+# which repays the 12400 -> 13400 raise and the +50 after it. Five done
+# rows are CITED from prose (T29, T39, T44, T51, T57) and stay addressable;
+# four citations pointing INTO the folded range were redirected to the fold
+# row that now answers for them.
+#
+# WHAT WAS LOST, said plainly: the row-by-row account of what was built and
+# in what order. That lives in `git log`, which is where a reader looking
+# for it should be sent, and ST's job is what is DECIDED and what is OPEN --
+# a done row is neither.
+#
+# The ceiling returns to 12400 rather than staying at 13450 with the slack
+# in hand, because a cap with a thousand tokens of room is not a cap. The
+# next addition argues for itself, which is the entire mechanism.
+SPEC.md   12400
 README.md  5700
 CLAUDE.md   600
