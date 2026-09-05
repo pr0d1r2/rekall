@@ -34,9 +34,9 @@
 #
 # The order that makes skipping it honest, and it is the order to follow:
 #
-#     git push origin main                  # the gate RUNS here
+#     git push gitlab main                  # the gate RUNS here
 #     git rev-parse v<tag>^{commit}         # confirm it is that commit
-#     git push --no-verify origin v<tag>
+#     git push --no-verify gitlab v<tag>
 #
 # The tag then points at content the gate has already passed. CHECK that
 # rather than assuming it: the skip is only safe because of the check.
@@ -99,14 +99,38 @@ verify = true
 
 # THE REMOTE A RELEASE PUSHES TO, stated because the default is a trap here.
 #
-# `origin` today is the GitLab mirror, which is a BACKUP -- the home is
-# GitHub, and `Cargo.toml`'s `repository` field already says so. A dry run
-# reports `Pushing main, v0.3.0 to origin`, and taken at face value that
-# would put the release tag on the backup and nowhere else, leaving the
-# published crate pointing at a repository with no tag for its own version.
+# THERE IS NO `origin` IN THIS CHECKOUT, and that is deliberate.
 #
-# Left as `origin` rather than hardcoded to a name that does not exist yet:
-# the fix is to make GitHub `origin` when that repo is created, not to teach
-# this file a second opinion about which remote is which. Verify with
-# `git remote -v` before the first release.
+# The GitLab remote is named `gitlab`, because it is a BACKUP for one
+# person. The home is GitHub, `Cargo.toml`'s `repository` already says so,
+# and `origin` is being kept vacant for it.
+#
+# So this setting names a remote that does not exist yet, and `cargo release`
+# will FAIL on it rather than push. That is the point. The remote was called
+# `origin` until 2026-09-05, and a dry run then reported `Pushing main,
+# v0.3.0 to origin` -- true, harmless-looking, and it meant the release tag
+# would land on the backup and nowhere else, leaving a published crate
+# pointing at a repository with no tag for its own version. A loud failure
+# beats a plausible one, and this file cannot be the thing that decides which
+# remote is the home.
+#
+# TAGS ARE THE POINT OF THIS, not just the branch. A tag is what a release
+# IS: what `Cargo.toml`'s `repository` points a reader at, what an installer
+# resolves `github:pr0d1r2/rekall/v0.4.0` against, and what a published crate
+# is expected to have. Every one of those looks for it on GitHub. A tag that
+# exists only on the backup is a release nobody but its author can fetch.
+#
+# WHERE THINGS STAND TODAY, so the next session does not have to guess:
+# `v0.4.0-rc.1` and `v0.4.0-rc.2` were pushed to `gitlab` and exist
+# NOWHERE ELSE, because GitHub has no repository yet. They are pre-history,
+# not releases. When that repository exists:
+#
+#     git remote add origin git@github.com:pr0d1r2/rekall.git
+#     git push origin main
+#     git push --no-verify origin --tags     # see `.:B18` for why
+#
+# The rename already happened, so that is one `git remote add` and no
+# decision left to make under pressure. Two remotes that both look plausible
+# is how a release goes to the wrong one silently; `gitlab` cannot be
+# mistaken for the home, and `origin` cannot be pushed to until it is one.
 push-remote = "origin"
