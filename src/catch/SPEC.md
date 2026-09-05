@@ -45,7 +45,7 @@ id|status|task|cites
 T18|x|`rekall catch` transcript intake|I.catch,`.:V10`,V44,V45,V46
 T29|x|CHOSEN: `catch` persists CANDIDATE rows to the LEDGER; report-only is about the CORPUS, ⊥ the disk|`.:V7`,V45,`.:T3`
 
-T64|x|`catch` ITERATES every known transcript root; the CODEX adapter reads `payload.role`, human is `user`, text at `payload.content[].text`, & `developer` is EXCLUDED|`..:V47`,V51,V46
+T64|x|`catch` ITERATES every known transcript root; the CODEX adapter reads `payload.role`, human is `user`, text at `payload.content[].text`, & `developer` is EXCLUDED|`src:V47`,V51,V46
 
 ## §B BUGS
 

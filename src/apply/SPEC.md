@@ -36,14 +36,14 @@ WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this
 V1: extraction is a MOVE, ⊥ a copy. Source span deleted (pointer left) in the SAME commit the artifact lands. A copy leaves two hand-maintained statements of one rule -- `microlith`'s founding defect -- and leaves the context cost UNPAID ∴ the whole purpose lost.
 V16: harness memory dirs are READ-ONLY unless `apply` NAMED that file. A tool that mines memory ! ⊥ corrupt it.
 V20: `apply` CONFIRMS before it mutates: PROMPTS on a tty, DEMANDS `--auto-approve` off-tty & exits 2 without it. ⊥ prompting into a pipe -- that hangs a CI job until someone kills it -- & ⊥ proceeding silently -- that makes the DESTRUCTIVE path the QUIET one. The corpus is the user's private memory ∴ the single verb that deletes from it ! be deliberate, & "deliberate" ! survive being run by a machine.
-V48: an `S` ARTIFACT is REKALL'S & DELIVERY is `hook`'s. `.claude/skills/` is ONE host's directory & Codex has NO skills directory at all ∴ a host-native location is ⊥ general, & choosing per host would fork the ledger, `check` & `revert` three ways. Artifacts live under `.rekall/` beside the rules the ledger already names: ONE store, ONE reversal. This costs nothing that was working -- `hook` INJECTS the payload (`.:V43`), so the host never indexed the file. `.:V43`'s HEAD is AMENDED by this: where the host has ⊥ a directory it has ⊥ an indexer, & the head is then for a HUMAN reading the artifact. PUBLISHING a copy into a host dir is SEPARATE & later; a copy is the duplication V1 removes.
+V48: an `S` ARTIFACT is REKALL'S, PUBLISHED by SYMLINK where a host indexes one. CANONICAL under `.rekall/` beside the rules the ledger already names: ONE store, ONE reversal, & `.claude/skills/` is ⊥ general ∵ Codex has NO skills directory at all. Where a host DOES have one, `apply` links rather than copies -- Claude Code FOLLOWS a `<skill-name>` symlink & loads the target ONCE however many paths reach it (`.:R17`) ∴ ONE file, two paths, ⊥ drift, & V1 holds ∵ a link is ⊥ a copy. CORRECTED: this rule first said the host never indexed the file. It DOES, & that is the point that was missed -- native discovery matches a FRONTMATTER DESCRIPTION & has never parsed the ```rekall block ∴ V4's ⊥-fire clause is ENFORCED on rekall's path & ADVISORY on the host's. Said out loud ∵ a reader who watches a skill load against its own refusal clause ! find the reason HERE & ⊥ in a commit message. `check` verifies the link RESOLVES -- a dangling one is an ORPHAN, which the gate refuses -- & `revert` removes the LINK & the TARGET. the artifact HEAD keeps its indexer where a host has a dir, & is for a HUMAN where ⊥.
 
 ## §T TASKS
 
 id|status|task|cites
 T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|`.:V2`
 T50|.|slug ⊥ truncates mid-phrase|§I
-T62|.|artifacts move to `.rekall/`; ledger, `check` & `revert` follow the move, ⊥ a second store|V48,V1,`revert:V9`
+T62|x|artifacts move to `.rekall/`, PUBLISHED by symlink where a host indexes one; `check` verifies the link resolves & `revert` removes both|V48,V1,`src:V43`,`src/revert:V9`
 
 ## §B BUGS
 

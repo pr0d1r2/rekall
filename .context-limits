@@ -298,7 +298,18 @@
 # and is nothing to do with this repo; a ceiling nobody chose is a ceiling
 # that reports on the wrong thing.
 
-SPEC.md   8500
+# 8500 -> 8700, and the number being corrected is MINE, set the same day.
+# 8500 was chosen when the root measured 8107 -- 393 of headroom, which two
+# research rows (R16 amended with its writer's version, R17 recording that
+# Claude Code follows a skills symlink) spent immediately.
+#
+# The lesson is about GRANULARITY, not about this row. A cap sitting 50
+# tokens above reality forces a ceiling conversation on every commit, and a
+# threshold argued that often stops being read. 8700 leaves room for about
+# one more research row, which is the size of edit this file actually
+# receives, so the next raise will mean something.
+
+SPEC.md   8700
 src       10000
 README.md  5700
 CLAUDE.md   600

@@ -93,6 +93,6 @@ text = """
   gap goes through `SPEC.md` before the fix, so the invariant that would
   have caught it exists first."""
 label = "S1"
-artifact = ".claude/skills/when-a-test-fails-decide-first/SKILL.md"
+artifact = ".rekall/skills/when-a-test-fails-decide-first/SKILL.md"
 fires = 0
 at = 1787591180

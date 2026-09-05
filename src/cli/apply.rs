@@ -346,7 +346,66 @@ fn write_artifact(base: &Path, step: &plan::Step) -> Result<(), String> {
     if step.label.starts_with('M') {
         make_runnable(&path)?;
     }
-    Ok(())
+    publish(base, step)
+}
+
+/// Link the artifact into a host's own skills directory where one exists.
+///
+/// A SYMLINK and not a copy: Claude Code follows a `<skill-name>` link,
+/// reads the target, and loads the skill once however many paths reach it
+/// (`.:R17`). So the canonical file stays single under `.rekall/` -- V1
+/// holds, because a link is not a copy and cannot drift from what it
+/// points at.
+///
+/// Only where the host directory ALREADY exists. Creating `.claude/` in a
+/// repo that has none would be this crate deciding which agent someone
+/// runs, which is exactly what V47 refuses to guess at.
+fn publish(base: &Path, step: &plan::Step) -> Result<(), String> {
+    if !step.label.starts_with('S') {
+        return Ok(());
+    }
+    let Some(slug) = artifact_slug(&step.artifact) else {
+        return Ok(());
+    };
+    let hosts = base.join(".claude").join("skills");
+    if !hosts.is_dir() {
+        return Ok(());
+    }
+    link_skill(
+        &hosts.join(&slug),
+        &base.join(".rekall").join("skills").join(&slug),
+    )
+}
+
+/// `.rekall/skills/<slug>/SKILL.md` -> `<slug>`.
+fn artifact_slug(artifact: &str) -> Option<String> {
+    Path::new(artifact)
+        .parent()
+        .and_then(Path::file_name)
+        .map(|s| s.to_string_lossy().into_owned())
+}
+
+fn link_skill(link: &Path, target: &Path) -> Result<(), String> {
+    if link.exists() || link.symlink_metadata().is_ok() {
+        return Ok(());
+    }
+    let rel = Path::new("..").join("..").join(".rekall").join("skills");
+    let _ = target;
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(rel.join(name_of(link)), link)
+            .map_err(|why| format!("cannot link `{}`: {why}", link.display()))
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(())
+    }
+}
+
+fn name_of(path: &Path) -> String {
+    path.file_name()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 /// An `M` artifact arrives EXECUTABLE. A runner nothing can execute is a
@@ -752,5 +811,82 @@ mod tests {
         let mut no = std::io::Cursor::new(b"\n".to_vec());
         assert!(read_answer(&mut yes).and_then(|c| approved(&c)).is_ok());
         assert!(read_answer(&mut no).and_then(|c| approved(&c)).is_err());
+    }
+    fn skill_step(slug: &str) -> plan::Step {
+        plan::Step {
+            id: "abc1234".to_string(),
+            src: "CLAUDE.md".to_string(),
+            line_start: 1,
+            line_end: 1,
+            text: "- when editing `.rs`, prefer modules".to_string(),
+            label: "S1".to_string(),
+            artifact: format!(".rekall/skills/{slug}/SKILL.md"),
+            runner: String::new(),
+            wiring: String::new(),
+            net: None,
+        }
+    }
+
+    fn host_dir(name: &str, make: bool) -> PathBuf {
+        let at = PathBuf::from("target").join("test-publish").join(name);
+        let _ = std::fs::remove_dir_all(&at);
+        let _ = std::fs::create_dir_all(at.join(".rekall").join("skills"));
+        if make {
+            let _ = std::fs::create_dir_all(at.join(".claude").join("skills"));
+        }
+        at
+    }
+
+    /// V48: a link, not a copy. One file under `.rekall/`, reachable from
+    /// the host's directory, so Claude Code indexes it and nothing drifts.
+    #[test]
+    fn a_skill_is_linked_into_a_host_directory_that_exists() {
+        let at = host_dir("linked", true);
+        let step = skill_step("some-rule");
+        assert!(publish(&at, &step).is_ok());
+        let link = at.join(".claude").join("skills").join("some-rule");
+        assert!(link.symlink_metadata().is_ok(), "no link at {link:?}");
+        assert!(
+            std::fs::read_link(&link)
+                .map(|p| p.ends_with("skills/some-rule"))
+                .unwrap_or_default(),
+            "link does not point at the canonical store"
+        );
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /// Creating `.claude/` in a repo that has none would be this crate
+    /// deciding which agent someone runs, which V47 refuses to guess.
+    #[test]
+    fn no_host_directory_means_no_link_and_no_error() {
+        let at = host_dir("nohost", false);
+        assert!(publish(&at, &skill_step("some-rule")).is_ok());
+        assert!(!at.join(".claude").exists(), "a host dir was invented");
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /// A mechanical rule has no host directory to be indexed by, so it is
+    /// never published -- only `S` artifacts are.
+    #[test]
+    fn a_mechanical_rule_is_not_published() {
+        let at = host_dir("mechanical", true);
+        let mut step = skill_step("a-rule");
+        step.label = "M1".to_string();
+        step.artifact = ".rekall/rules/a-rule.sh".to_string();
+        assert!(publish(&at, &step).is_ok());
+        assert!(!at.join(".claude").join("skills").join("a-rule").exists());
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    #[test]
+    fn publishing_twice_leaves_the_first_link_alone() {
+        let at = host_dir("twice", true);
+        let step = skill_step("some-rule");
+        assert!(publish(&at, &step).is_ok());
+        assert!(
+            publish(&at, &step).is_ok(),
+            "a second publish must not fail"
+        );
+        let _ = std::fs::remove_dir_all(&at);
     }
 }

@@ -146,11 +146,16 @@ fn clean_word(word: &str) -> String {
 }
 
 /// Where an artifact lands.
+///
+/// BOTH kinds under `.rekall/`: one store, one reversal. A host-native
+/// directory is not general -- Codex has no skills directory at all -- and
+/// publishing into one is a SYMLINK laid beside this, never a second file
+/// (V48).
 fn destination(label: &str, slug: &str) -> String {
     if label.starts_with('M') {
         return format!(".rekall/rules/{slug}.sh");
     }
-    format!(".claude/skills/{slug}/SKILL.md")
+    format!(".rekall/skills/{slug}/SKILL.md")
 }
 
 /// What has to be wired for the artifact to matter.
@@ -410,7 +415,7 @@ mod tests {
         let steps = steps_of("- when writing tests, prefer tables\n");
         let step = steps.first().cloned().unwrap_or_else(empty_step);
         assert!(
-            step.artifact.starts_with(".claude/skills/"),
+            step.artifact.starts_with(".rekall/skills/"),
             "{}",
             step.artifact
         );
@@ -689,8 +694,8 @@ mod tests {
     /// A skill has no gate step to move, so its obligation is unchanged.
     #[test]
     fn a_skill_wiring_ignores_a_runner() {
-        let named = wiring_for("S1", ".claude/skills/x/SKILL.md", "ascii");
-        let bare = wiring_for("S1", ".claude/skills/x/SKILL.md", "");
+        let named = wiring_for("S1", ".rekall/skills/x/SKILL.md", "ascii");
+        let bare = wiring_for("S1", ".rekall/skills/x/SKILL.md", "");
         assert_eq!(named, bare);
     }
 

@@ -37,4 +37,4 @@ WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this
 ## §T TASKS
 
 id|status|task|cites
-T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,`..:V13`
+T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,`src:V13`

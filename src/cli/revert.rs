@@ -199,24 +199,51 @@ fn perform_revert(
 /// delete IS an error, and the ledger row is left in place on purpose --
 /// the extraction is not fully undone, and a ledger that said it was would
 /// hide the leftover from `check` as well as from the user.
+/// Remove the host's symlink before the file it points at.
+///
+/// `apply` may publish a skill by linking it into `.claude/skills/` (V48).
+/// Deleting only the target would leave a DANGLING link that the host still
+/// indexes and that `revert` claimed to have undone -- a leftover reported
+/// by nothing, which is the state this verb exists to prevent.
+///
+/// Best effort and silent: a link nobody created is not an error, and a
+/// link that cannot be removed must not stop the corpus being restored.
+fn unpublish(base: &Path, artifact: &str) {
+    let Some(slug) = Path::new(artifact)
+        .parent()
+        .and_then(Path::file_name)
+        .map(|s| s.to_string_lossy().into_owned())
+    else {
+        return;
+    };
+    let link = base.join(".claude").join("skills").join(slug);
+    if link.symlink_metadata().is_ok() {
+        let _ = std::fs::remove_file(&link);
+    }
+}
+
 fn remove_artifact(
     row: &ledger::Extracted,
     source: &Path,
 ) -> Result<String, String> {
-    let path = base_of(source, &row.src).join(&row.artifact);
+    let base = base_of(source, &row.src);
+    let path = base.join(&row.artifact);
+    unpublish(&base, &row.artifact);
     if !path.exists() {
         return Ok(format!("{} was already gone", row.artifact));
     }
     std::fs::remove_file(&path)
         .map(|()| format!("removed {}", row.artifact))
-        .map_err(|cause| {
-            format!(
-                "{} is back in {}, but {} could not be removed: {cause}. \
-                 Delete it by hand -- the ledger row is kept so `rekall check` \
-                 still reports the leftover",
-                row.id, row.src, row.artifact
-            )
-        })
+        .map_err(|cause| stuck(row, &cause.to_string()))
+}
+
+fn stuck(row: &ledger::Extracted, cause: &str) -> String {
+    format!(
+        "{} is back in {}, but {} could not be removed: {cause}. \
+         Delete it by hand -- the ledger row is kept so `rekall check` \
+         still reports the leftover",
+        row.id, row.src, row.artifact
+    )
 }
 
 /// The project root, recovered from the source path that was just written.
