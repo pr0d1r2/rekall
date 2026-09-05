@@ -170,7 +170,7 @@ loads, on the same input, because the two were being handed different
 
 ## Runner timeout
 
-Mechanical runners are bounded by CPU time, not wall-clock, configurable in
+Mechanical runners are bounded by **wall-clock** time, configurable in
 `rekall.toml`:
 
 ```toml
@@ -178,10 +178,22 @@ Mechanical runners are bounded by CPU time, not wall-clock, configurable in
 runner_timeout_ms = 2000
 ```
 
-Wall-clock was the original bound and it was wrong: under contention a rule
-costing milliseconds of CPU exceeded it and was killed, so a busy machine
-manufactured timeouts that never happened. If you raise this number, raise it
-because a runner genuinely does more work, not because your machine is loaded.
+Wall-clock is a blunt instrument and the number exists because of it. Under
+contention a rule costing milliseconds of CPU can exceed the bound and be
+killed, so a loaded machine can manufacture a timeout that never really
+happened (`runner:B5`). The bound is configurable precisely so you can answer
+that, and a limit nobody can raise is one that lies about what happened.
+
+So raise it when your machine is loaded as readily as when a runner genuinely
+does more work — the two are indistinguishable from here. A CI box running
+the suite in parallel is the common case, and 2000 is chosen for a quiet
+laptop rather than that.
+
+An earlier version of this page claimed the bound was CPU time and that
+wall-clock "was the original bound". It was not true: the fix for `B5` made
+the bound configurable and never changed what it measures. It is recorded as
+`runner:B16` rather than quietly corrected, because a document that overstates
+a repair is how the repair stops being made.
 
 ## What `rekall` will not do to your repository
 

@@ -144,6 +144,19 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    /// The bound these tests run under, and it is DELIBERATELY generous.
+    ///
+    /// The bound is WALL-CLOCK (`B5`, `B16`), so a loaded box kills a rule that
+    /// cost milliseconds. Every test below asserts what a rule SAID, and under
+    /// `cargo test`'s own parallelism -- or a nix sandbox, where this was
+    /// MEASURED failing six ways -- the default 2000 turns those into timeouts
+    /// that never happened. `cli::testing::check_project` raises it for the same
+    /// reason and cites the same bug.
+    ///
+    /// The one test that asserts the bound WORKS sets its own tight limit, and
+    /// has to: that one is about the clock rather than about the rule.
+    const PATIENT: Duration = Duration::from_secs(60);
+
     fn script(name: &str, body: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
         let dir = PathBuf::from("target").join("runner");
@@ -160,7 +173,7 @@ mod tests {
     #[test]
     fn a_rule_that_passes_says_nothing() {
         let path = script("clean.sh", "#!/bin/sh\nexit 0\n");
-        let out = run(&path, LIMIT);
+        let out = run(&path, PATIENT);
         assert_eq!(out, Fired::Clean);
         assert_eq!(out.advice(), None);
     }
@@ -174,7 +187,7 @@ mod tests {
             "#!/bin/sh\necho 'do not commit to main' >&2\nexit 1\n",
         );
         assert_eq!(
-            run(&path, LIMIT),
+            run(&path, PATIENT),
             Fired::Violated("do not commit to main".to_string())
         );
     }
@@ -188,7 +201,7 @@ mod tests {
             "#!/bin/sh\necho noise\necho 'the real complaint' >&2\nexit 1\n",
         );
         assert_eq!(
-            run(&path, LIMIT),
+            run(&path, PATIENT),
             Fired::Violated("the real complaint".to_string())
         );
     }
@@ -200,7 +213,7 @@ mod tests {
         let path =
             script("out.sh", "#!/bin/sh\necho 'said on stdout'\nexit 1\n");
         assert_eq!(
-            run(&path, LIMIT),
+            run(&path, PATIENT),
             Fired::Violated("said on stdout".to_string())
         );
     }
@@ -208,7 +221,7 @@ mod tests {
     #[test]
     fn a_silent_violation_still_says_something() {
         let path = script("mute.sh", "#!/bin/sh\nexit 3\n");
-        let out = run(&path, LIMIT);
+        let out = run(&path, PATIENT);
         assert!(
             out.advice()
                 .is_some_and(|said| said.contains("without saying")),
@@ -260,7 +273,7 @@ mod tests {
 
     #[test]
     fn an_unrunnable_artifact_is_reported() {
-        let out = run(Path::new("/definitely/not/here"), LIMIT);
+        let out = run(Path::new("/definitely/not/here"), PATIENT);
         assert!(matches!(out, Fired::Unrunnable(_)), "{out:?}");
         assert!(
             out.advice()
@@ -276,6 +289,6 @@ mod tests {
             "shebang.sh",
             "#!/bin/sh\ntest \"$0\" != '' && echo ok >&2\nexit 1\n",
         );
-        assert_eq!(run(&path, LIMIT), Fired::Violated("ok".to_string()));
+        assert_eq!(run(&path, PATIENT), Fired::Violated("ok".to_string()));
     }
 }
