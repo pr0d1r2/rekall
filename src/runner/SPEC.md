@@ -44,3 +44,4 @@ T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactur
 
 id|date|cause|fix
 B5|2026-08-24|`runner::LIMIT` bounds a rule by WALL-CLOCK ∴ under contention a rule costing MILLISECONDS of CPU exceeds it & is KILLED. MEASURED: 2 of 3 full test runs failed, the same tests passing ALONE in 1-2s. `hook` runs per tool call ∴ a busy box injects a timeout that never happened -- & every gate-green since `hook:T39` rested on a suite failing 2 runs in 3|`.:V38`,T51
+B16|2026-09-05|`docs/INTEGRATION.md` states the runner is bounded by CPU TIME & that wall-clock "was the original bound". It is STILL wall-clock: `Instant::now()` at `runner/mod.rs`. `.:V38`'s fix for `B5` was to make the bound CONFIGURABLE, ⊥ to change what it measures ∴ the doc describes a repair nobody performed, & B5 RECURS wherever the box is loaded -- MEASURED in the nix sandbox, 6 runner tests `TimedOut(2000)` on scripts costing milliseconds|`.:V38`,B5

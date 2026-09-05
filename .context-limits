@@ -309,7 +309,35 @@
 # one more research row, which is the size of edit this file actually
 # receives, so the next raise will mean something.
 
-SPEC.md   8700
+# SPEC.md RAISED 2026-09-05, 8700 -> 8900, for ONE §B row.
+#
+# The last entry said 8700 "leaves room for about one more research row,
+# which is the size of edit this file actually receives, so the next raise
+# will mean something." This is that edit, and here is what it means.
+#
+# B17 records that `nix build .#default` fails and that `ci.yml` runs it, so
+# CI was going to be red on the first push of the public repository -- and
+# that nothing caught it because the repository does not exist, so the
+# workflow has never executed once. That is V22's exact subject at the scale
+# of the whole crate: a gate step that has never run is not a gate. If any
+# row belongs in the ROOT rather than a module node, it is that one.
+#
+# WHAT WAS TRIED FIRST, and measured: the row was written three times, at
+# ~140, ~100 and ~66 tokens over. The third is terse to the point of leaning
+# on `runner:B16` for every detail. §B compaction, FORMAT.md's one sanctioned
+# move, was costed and REJECTED: the root holds two other rows, B2 and B9,
+# both already single-clause, and compacting them buys ~20 against a 66-token
+# shortfall. An answer that cannot cover the gap is not an answer a raise has
+# to beat.
+#
+# The 200 is deliberately more than the 66 this needs. A cap sitting a hair
+# above reality forces a ceiling conversation on every commit, and a
+# threshold argued that often stops being read -- which is the lesson the
+# 8500 -> 8700 entry above already recorded and this one is repeating rather
+# than learning.
+
+
+SPEC.md   8900
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.

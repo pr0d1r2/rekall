@@ -12,14 +12,11 @@ CAPABILITY ⊥ MEMORY ∴ a stronger model is ⊥ the fix: the rule left the WIN
 
 ## §F FEDERATION
 
-dir|owns|⊥owns|tokens
-src|the CRATE, federated one node per module: what each verb & each subsystem ! hold true|the crate-wide law, which stays HERE ∵ it is what every node INHERITS|-
+dir|owns|⊥owns|tokens src|the CRATE, federated one node per module: what each verb & each subsystem ! hold true|the crate-wide law, which stays HERE ∵ it is what every node INHERITS|-
 
 ## §N NAV
 
-rel|path|lens
-up|-|-
-self|.|-
+rel|path|lens up|-|- self|.|-
 
 ## §C CONSTRAINTS
 
@@ -138,3 +135,4 @@ T63|x|module-size: stop at the TEST MODULE, not any `#[cfg(test)]`, & add a TOTA
 id|date|cause|fix
 B2|2026-08-22|gate message wrote its fix in backticks inside a double-quoted shell string ∴ the shell EXECUTED `direnv` & printed `command not found` WHERE THE ADVICE SHOULD HAVE BEEN|V33
 B9|2026-09-05|the module-size runner stopped at the FIRST top-level `#[cfg(test)]` whatever it was attached to ∴ a test-only `mod testing;` declared near the top of `cli.rs` made a 468-line file MEASURE 32. SILENT & DOWNWARD -- a smaller number is ⊥ red -- & found by printing sizes for another reason, ⊥ by the gate. The SAME shape one level out had already let a 3001-line `cli.rs` pass at 464, which is how `src:T41`'s debt accumulated unseen|V50
+B17|2026-09-05|`nix build .#default` fails (11 tests: 5 want `itok`, 6 are `runner:B16`) & `ci.yml` RUNS it ∴ CI was to be red on the public repo's first push. Unmeasured ∵ ⊥ repo ∴ the workflow has run ⊥ once: a gate step that never ran is ⊥ a gate|`.:V22`,`runner:B16`
