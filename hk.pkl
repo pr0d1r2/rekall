@@ -269,7 +269,7 @@ local fast = new Mapping<String, Step> {
   /// The renderer is `renderBadges` above, shared with `fix` so there is one
   /// definition and two callers rather than two renderers (V23).
   ["badges"] {
-    glob = List("README.md", "Cargo.toml", ".coverage", "hk.pkl", "SPEC.md", "src/**/SPEC.md")
+    glob = List("README.md", "Cargo.toml", ".coverage", "hk.pkl", "SPEC.md", "src/**/SPEC.md", "flake.lock")
     check = renderBadges + """
       mkdir -p target
       render_badges > target/badges.rendered
