@@ -30,6 +30,61 @@ Nothing has been published to crates.io yet.
 
 ## [Unreleased]
 
+**The rc did its job.** The 0.4.0-rc.1 entry below closes by naming what to
+exercise, in the order the defects were found: `log --dead` against a corpus
+that already has extractions, then `check` on a checkout where `rekall hook`
+is not wired. Both were run against a fresh corpus, and both were where the
+first two of these came from.
+
+### Fixed
+
+- `rekall log --dead` reported "the fire counter has never been written" in
+  the same output as a row reading `fires=1`. `ledger::save` folds the fire
+  journal into the rows and unlinks it, so the first `apply`, `revert`,
+  `issue` or `catch` after a fire erased the only witness the report was
+  reading — and the measurement that exists to end a rule went blind on a
+  ledger holding the counts it was denying. It now reads the folded rows as
+  well as the journal (B22, V65).
+- An unclaimed `SKILL.md` under `.rekall/skills/` passed the gate silent while
+  an unclaimed `.sh` one directory over was refused: the orphan sweep listed
+  the rules directory and the publish directory, and not the skills directory
+  `apply` actually writes. Every half-finished revert of a situational
+  extraction was invisible, and invisible always on a host with no
+  `.claude/skills/` at all (B23, V66).
+- `rekall show <id>` answered "no statement matches" and exited 2 for every
+  extracted id. Section I has promised "one statement OR ARTIFACT in full ...
+  artifact path and fire count if extracted" since commit one, and the module
+  only ever read the corpus. It now falls back to the ledger, printing the
+  artifact and the fire count beside the usual anatomy. The class is
+  re-derived from the kept text, and where that disagrees with the label the
+  extraction was made under, both are printed (B24, V67).
+
+### Changed
+
+- Section I named three flags the CLI has never accepted — `plan --to`,
+  `apply --to` and `catch --agent`, each `unknown flag` at exit 2. Two were
+  superseded by `issue` and one by dialect sniffing. The law now states the
+  decision and what it rejected, rather than a surface that moved without it
+  (B25).
+- `readme-counts` gates the README's gate-step sentence, not only its badge.
+  The prose said 21 and 27 against a real 25 and 31 while the generated badge
+  above it was correct. `hk.pkl` joined that step's glob, because adding a
+  step changes the number and the file stating it would otherwise never wake.
+
+### Documentation
+
+- The worked example's "Finishing the extraction" filled the trigger and the
+  runner and then showed `check` silent at 0. Run as written it exits 1 with
+  `undelivered`: the guard that turns the host's own loading off landed after
+  that section was written. Wiring `rekall hook` is now shown as the third
+  step it is, verified against the gate in the form printed.
+- The third `hook` example — the `.env` rule firing on a `git commit` — was
+  unreachable from the state the walkthrough builds, and the `recall` output
+  three blocks above says so in those words. It is a sentence stating the
+  condition now, rather than an example quietly assuming it.
+- Nineteen node specs lose the template line telling the reader to delete it.
+  The manifest ships `SPEC.md` deliberately, as records worth reading.
+
 ## [0.4.0-rc.1] — 2026-09-05
 
 **A release candidate, for testing before the rung is claimed.** Nothing is
