@@ -17,7 +17,6 @@
 # untested -- so this says it.
 #
 # PENDING, listed for the same reason:
-#   * build caching (nix store + cargo target)
 #   * release automation and publish
 
 name: ci
@@ -28,7 +27,16 @@ on:
   pull_request:
   workflow_dispatch:
 
+# One run per ref. A push landing while the previous run is still going
+# leaves that run answering about code nobody has any more.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # The gate, on every platform CI can reach. Nothing installs a linter:
+  # hk, typos, taplo, nixfmt, ripsecrets, mth, sherd and itok all arrive
+  # through the same pinned shell.
   gate:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -42,6 +50,10 @@ jobs:
       #   (x86_64-darwin   supported, no free runner -- see the note above)
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    # The coverage step compiles the suite with instrumentation, which is the
+    # slowest thing here by some way. Generous, but bounded: a hung job that
+    # burns an hour is worse than one that fails.
+    timeout-minutes: 30
     steps:
       # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
       # the action can move `v4` to different code, and every workflow that
@@ -49,7 +61,40 @@ jobs:
       # because a SHA alone tells a reader nothing about which version they
       # are on, or whether it is behind.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: gate steps read git, and a shallow clone makes them
+          # answer about a repository shape that does not exist.
+          fetch-depth: 0
+
+      # The substituter is declared in flake.nix too, but `nixConfig` only
+      # applies for a trusted user -- which a runner is not -- so a flake-only
+      # declaration is a cache that silently never gets used. Stated here as
+      # well, where it takes effect.
       - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+        with:
+          extra_nix_config: |
+            extra-substituters = https://pr0d1r2.cachix.org
+            extra-trusted-public-keys = pr0d1r2.cachix.org-1:NfWjbhgAj41byXhCKiaE+av3Vnphm1fTezHXEGsiQIM=
+
+      # Two caches, because they hold different things and expire on
+      # different inputs: the nix store keyed on the flake, and cargo's
+      # registry plus `target/` keyed on the lockfiles.
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
+          gc-max-store-size-linux: 4G
+          gc-max-store-size-macos: 4G
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'flake.lock') }}
+          restore-keys: cargo-${{ runner.os }}-${{ runner.arch }}-
 
       # --check, because `hk check` defaults to running FIX commands; CI must
       # report, never rewrite. --all, because CI has no staged set.
@@ -60,5 +105,45 @@ jobs:
       # every problem in one pass.
       - run: nix develop --command hk check --all --check --no-fail-fast
 
-      # The package must build reproducibly from the tracked lock alone.
+  # The package, built from the tracked lock alone and PUSHED to the cache
+  # that the gate job above reads from. Separate from the gate because it is
+  # what fills the cache: a build that only ever happens inside a job which
+  # also lints is a build nobody downstream can reuse.
+  #
+  # `nix build` runs on every platform for the same reason the gate does --
+  # a package that builds on linux and not on darwin is a package that is
+  # broken for half the people it is offered to.
+  nix-build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+        with:
+          extra_nix_config: |
+            extra-substituters = https://pr0d1r2.cachix.org
+            extra-trusted-public-keys = pr0d1r2.cachix.org-1:NfWjbhgAj41byXhCKiaE+av3Vnphm1fTezHXEGsiQIM=
+
+      - uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
+
+      # PUSHES what it builds. A fork's pull request has no secret, and the
+      # action treats an empty token as read-only rather than failing -- so
+      # the build still happens and only the push is skipped.
+      #
+      # What travels: this crate and its closure, all of it public source
+      # from nixpkgs and the fleet's own flakes. Nothing here reads a private
+      # file at eval time, which is the one thing that would put a secret in
+      # a public cache.
+      - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        with:
+          name: pr0d1r2
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       - run: nix build .#default
