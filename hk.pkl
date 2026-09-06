@@ -313,7 +313,7 @@ local fast = new Mapping<String, Step> {
     /// be woken for. That is exactly how it came to say 21 and 27 against a
     /// real 25 and 31 -- the badge was regenerated on every touch and the
     /// prose beside it was gated by nothing (V22).
-    glob = List("README.md", "SPEC.md", "src/**/SPEC.md", "hk.pkl")
+    glob = List("README.md", "docs/*.md", "SPEC.md", "src/**/SPEC.md", "hk.pkl")
     check = """
       # The file list comes from `find` with `target/` excluded, and nothing
       # is summed. An earlier draft added per-file counts with
@@ -339,6 +339,28 @@ local fast = new Mapping<String, Step> {
       plan() { hk run "$1" --plan --json -a < /dev/null 2>/dev/null | grep -c '"orderIndex"'; }
       same 'gate steps on commit' "$(grep -oE '[0-9]+ steps on commit' README.md | grep -oE '[0-9]+')" "$(plan pre-commit)"
       same 'gate steps on push' "$(grep -oE 'commit, [0-9]+ on push' README.md | grep -oE '[0-9]+')" "$(plan pre-push)"
+      # THE SAME NUMBERS, STATED ELSEWHERE. `docs/` repeats the step counts
+      # and the invariant total, and until this ran only README.md was
+      # checked -- so both files drifted to 21/27 and one advertised 51
+      # invariants against a real 67, in the document the README tells a
+      # reader to open FIRST. A number gated in one file and loose in the
+      # next is not gated (V22).
+      in_doc() { grep -oE "$2" "$1" | head -1 | grep -oE '[0-9]+' | head -1; }
+      where() {
+        [ "$3" = "$4" ] && return 0
+        echo "hk: $1 says $2 is $3; the sources hold $4. Fix the SENTENCE there." >&2
+        fail=1
+      }
+      for doc in docs/CONTRIBUTING.md docs/LLM-DISCLAIMER.md; do
+        [ -f "$doc" ] || continue
+        said=$(in_doc "$doc" '[0-9]+ steps on')
+        [ -z "$said" ] || where "$doc" 'gate steps on commit' "$said" "$(plan pre-commit)"
+        said=$(in_doc "$doc" 'on push')
+        said=$(grep -oE '[0-9]+ on push' "$doc" | head -1 | grep -oE '[0-9]+' | head -1)
+        [ -z "$said" ] || where "$doc" 'gate steps on push' "$said" "$(plan pre-push)"
+        said=$(grep -oE '[0-9]+ .{0,4}V. invariants' "$doc" | head -1 | grep -oE '[0-9]+' | head -1)
+        [ -z "$said" ] || where "$doc" 'invariants' "$said" "$v"
+      done
       exit $fail
       """
   }
