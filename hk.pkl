@@ -125,9 +125,10 @@ local fast = new Mapping<String, Step> {
   ///
   /// Every tool whose VERDICT this crate owns, checked in one place before
   /// anything else runs: `cargo` for the build and the tests, `mth` for
-  /// SPEC.md's format, `itok` for the ceiling, `rekall` for its own corpus.
-  /// If one is absent the gate goes RED, because a step that silently did
-  /// not happen reports the same green as a step that passed.
+  /// SPEC.md's format, `itok` for the ceiling, `sherd` for the federation,
+  /// and `rekall` for its own corpus. If one is absent the gate goes RED,
+  /// because a step that silently did not happen reports the same green as
+  /// a step that passed.
   ///
   /// ONE definition rather than a guard pasted into ten steps (V23). It
   /// carries no `glob`, so it always runs, and everything else chains from
@@ -382,10 +383,23 @@ local fast = new Mapping<String, Step> {
   /// answers a question `validate` cannot -- whether the nav WOULD be
   /// rewritten -- and a generated file nobody regenerates is stale by
   /// definition.
+  ///
+  /// SHERD IS OWNED, not optional (V26). It arrives as a pinned flake input
+  /// -- `github:pr0d1r2/sherd`, the same class as `mth` and `itok` -- so this
+  /// crate answers for whether it RAN, and its presence check belongs in
+  /// `runners` with the other owned tools rather than in a guard here.
+  ///
+  /// It used to guard itself with `command -v sherd || exit 0`, describing
+  /// itself in that message as an "optional third-party tool". THAT IS THE
+  /// HALF OF B19 NOBODY FIXED. B19 records a stale dev shell holding an `mth`
+  /// that joined the `§F` header onto its first row -- and, in the same
+  /// breath, that `federation`, the ONE step which catches exactly that,
+  /// SKIPPED for want of `sherd`. Corrupt and undetected in one run, three
+  /// times over. The stale half was repaired and the skip that hid it was
+  /// left standing, still exiting 0, still reading green.
   ["federation"] {
     glob = List("SPEC.md", "src/**/SPEC.md", ".context-limits")
     check = """
-      command -v sherd >/dev/null 2>&1 || { echo "hk: SKIPPED federation -- sherd is not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a valid federation. Enter the dev shell to run it." >&2; exit 0; }
       sherd validate || { echo 'hk: the federation is not valid. A structural or edge failure is a node that cannot be read on its own; over a ceiling means a chain nobody can load in one window, and the fix is to move rows DOWN, not to raise the number.' >&2; exit 1; }
       sherd sync --check || { echo 'hk: a `Â§N` NAV drifted from the `Â§F` it is generated from. Run `sherd sync .` -- the nav is derived, so editing it by hand is the drift rather than the fix.' >&2; exit 1; }
       """

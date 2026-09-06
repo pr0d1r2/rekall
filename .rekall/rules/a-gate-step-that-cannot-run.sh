@@ -42,7 +42,7 @@
 # word = []
 # ```
 missing=''
-for tool in cargo mth itok rekall; do
+for tool in cargo mth itok sherd rekall; do
   command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
 done
 [ -z "$missing" ] || { echo "rekall: MISSING owned runner(s):$missing -- a step that cannot run is a FAILURE, not a pass, so this gate is RED rather than quietly shorter. Enter the dev shell: 'direnv allow', or 'nix develop' from the repo root." >&2; exit 1; }
