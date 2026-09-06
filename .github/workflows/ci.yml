@@ -108,6 +108,21 @@ jobs:
           key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'flake.lock') }}
           restore-keys: cargo-${{ runner.os }}-${{ runner.arch }}-
 
+      # The gate REALISES the dev shell -- hk, mth, itok, sherd, zizmor and the
+      # toolchain -- and until now nothing published it. `nix-build` pushes the
+      # PACKAGE, which is not what a contributor waits for: their first `nix
+      # develop` builds the shell CI had already built and threw away. Pushing
+      # from here is what makes `cachix use pr0d1r2` in CONTRIBUTING.md worth
+      # the line it costs.
+      #
+      # It does NOT speed this job up. The nix store is already cached
+      # runner-side and `hk check` is dominated by compiling this crate, which
+      # no binary cache can serve.
+      - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        with:
+          name: pr0d1r2
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       # --check, because `hk check` defaults to running FIX commands; CI must
       # report, never rewrite. --all, because CI has no staged set.
       #
