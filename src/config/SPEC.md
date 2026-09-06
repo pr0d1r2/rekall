@@ -33,7 +33,6 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V36: a TRACKED config names only what the REPO owns. A USER-scope root in `./rekall.toml` hard-codes one developer's home into every checkout & drags private memory into a measurement meant to be reproducible by anyone who clones it. Nothing is lost: roots UNION across scopes (§I), which is the entire reason two scopes exist.
 
 ## §T TASKS

@@ -33,7 +33,6 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V17: ∀ verb -> BOTH `--format human` & `--format json`, SAME anatomy, ⊥ a verb exempt. An agent ⊥ parse prose, & an unknown format is a USAGE error, ⊥ a silent fall back. ⊥ a json-only verb (a human then reads a wire format to debug) & ⊥ a human-only verb (an agent then regex-scrapes it). ONE exception, & it is ⊥ a verb: `hook` speaks the harness's JSON on BOTH ends ∵ a harness is its only caller.
 V63: the corpus HOME is OVERRIDABLE & the override is read AT THE EDGE. `REKALL_HOME` stands in for `HOME` when the corpus resolves a `~` root, EMPTY = unset (`config`'s `XDG_CONFIG_HOME=""` trap, one file over), & `main` reads it beside `HOME` ∴ the library still takes both as ARGUMENTS & ⊥ test can reach a real one. WHY: this crate's corpus is agent MEMORY -- MEASURED 164 files across 30 projects on one machine -- & dogfooding a tool against the data it studies is the one experiment that can destroy its own subject. It does ⊥ make the REAL corpus safe: FORGETTING the variable gives today's behaviour ∴ the guard that matters stays `.:V7`, `plan` naming every file BEFORE the move. REJECTED: a `--home` flag alone -- every verb would need it, & the point is a whole SESSION pointed elsewhere.
 

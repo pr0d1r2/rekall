@@ -37,7 +37,6 @@ self|src|the CRATE, federated one node per module: what each verb & each subsyst
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V2: ∀ extracted `M` -> a RUNNER, same commit. Rule with no runner gates nothing.
 V3: ∀ extracted `S` -> a TRIGGER. A skill with no trigger is always-on prose, which is exactly what it was extracted FROM.
 V13: idempotent. `scan(scan(x))` identical; `apply` of an already-extracted id = no-op, exit 0; `plan` of one yields an EMPTY diff, ⊥ an error.

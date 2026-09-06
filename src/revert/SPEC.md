@@ -33,7 +33,6 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V9: ∀ extraction REVERSIBLE. Ledger holds source path · line span · ORIGINAL TEXT · artifact path ∴ `revert` is mechanical, ⊥ a rewrite.
 
 ## §T TASKS

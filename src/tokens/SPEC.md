@@ -33,7 +33,6 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V32: a SCRATCH path is unique PER CALL, ⊥ per process. A pid-named dir is shared by every thread in that process ∴ concurrent runs delete each other's files, & the symptom shows ONLY under load -- the kind that passes review & every hand-run.
 
 ## §T TASKS

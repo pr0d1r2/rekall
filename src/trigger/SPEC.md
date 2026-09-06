@@ -33,7 +33,6 @@ sib|src/tokens|DELEGATING every count to `itok`, and the per-call scratch that k
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V4: ∀ trigger -> an explicit ⊥-fire clause, ⊥ only a fire clause. Absence is ⊥ PROVABLE from a positive description: a list of what FIRES says nothing about what does ⊥, & a matcher ! decide both.
 V29: a TRIGGER is MACHINE-READABLE or it ⊥ FIRES. The fenced `rekall` block IS the trigger; prose beside it is for the human. EXCLUSION WINS -- a ⊥-fire match refuses the load even when the fire block matched, ∵ V4 makes absence a CLAUSE & a clause beaten by a positive match states NOTHING. An `S3` block is EMPTY ∴ ⊥ fires BY CONSTRUCTION: its trigger is SEMANTIC & `.:V5` forbids the model that would notice it. ⊥ a gap -- the LADDER being honest (`.:V10`), & `--dead` MEASURES it (`ledger:V11`). `check` REFUSES a block that ⊥ parses (`.:V22`).
 

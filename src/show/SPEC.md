@@ -33,7 +33,6 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V67: an ID OUTLIVES its statement ∴ `show` resolves against the CORPUS, then the LEDGER. `apply` DELETES the span & leaves a pointer (`src/apply:V1`) ∴ the id `scan` printed, the ledger recorded & `log` echoes stops resolving the moment it is ACTED ON -- & the verdict most worth arguing with (`.:V10`) is precisely the one already acted on. The ledger keeps the TEXT verbatim (`.:V9`) & ⊥ the heading it sat under ∴ the class is RE-DERIVED from marker form alone & `recorded` carries the ledger's own label WHERE THE TWO DIFFER: printing one verdict as if it were the other would be a claim about context this crate threw away. ONE anatomy across both halves (`.:V17`) -- `artifact` & `fires` are ABSENT for a live statement, ⊥ empty.
 
 ## §T TASKS
