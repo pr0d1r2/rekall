@@ -3,9 +3,17 @@
 ## The loop
 
 ```sh
-direnv allow      # or: nix develop
-hk check          # the whole gate, the same definition CI runs
+cachix use pr0d1r2   # once, and optional -- see below
+direnv allow         # or: nix develop
+hk check             # the whole gate, the same definition CI runs
 ```
+
+`flake.nix` already names that cache, but a flake's `nixConfig` only applies
+for a user nix trusts, and by default that is the machine's owner and nobody
+else. Without the `cachix use` line most people get a silent build of `hk`
+from source on the first entry into the shell -- minutes of compiling for a
+tool this repo did not write. It is optional in the sense that everything
+still works without it, and nothing here needs an account.
 
 Entering the dev shell installs `pre-commit` and `pre-push` and puts `rekall`,
 `mth`, `itok` and `hk` on PATH. There is no second install path and no list of
