@@ -1,3 +1,9 @@
+# Claude Code writes a LOCAL settings file beside the tracked one. The
+# tracked `.claude/settings.json` is this repo wiring `rekall hook` on
+# itself (T72); the `.local.json` beside it is one machine's overrides and
+# has no business following the repo to anyone else's checkout.
+/.claude/settings.local.json
+
 /target
 /.direnv
 # `nix build` drops this symlink into the store. Untracked by nature: it
