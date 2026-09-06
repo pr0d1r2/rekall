@@ -372,14 +372,14 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// THE FEDERATION'S RUNNER. `mth` is intra-file BY DESIGN and has no `Â§F`
+  /// THE FEDERATION'S RUNNER. `mth` is intra-file BY DESIGN and has no `§F`
   /// verb at all, so an edge table checked by nothing would be the
   /// declaration V22 forbids -- and this spec now carries twenty-two of
   /// them.
   ///
   /// `validate` is the whole verdict in one call: the DAG, the ids, every
-  /// node's chain against its ceiling, and whether a `Â§N` drifted from the
-  /// `Â§F` it is generated from. `sync --check` is separate because it
+  /// node's chain against its ceiling, and whether a `§N` drifted from the
+  /// `§F` it is generated from. `sync --check` is separate because it
   /// answers a question `validate` cannot -- whether the nav WOULD be
   /// rewritten -- and a generated file nobody regenerates is stale by
   /// definition.
@@ -401,7 +401,7 @@ local fast = new Mapping<String, Step> {
     glob = List("SPEC.md", "src/**/SPEC.md", ".context-limits")
     check = """
       sherd validate || { echo 'hk: the federation is not valid. A structural or edge failure is a node that cannot be read on its own; over a ceiling means a chain nobody can load in one window, and the fix is to move rows DOWN, not to raise the number.' >&2; exit 1; }
-      sherd sync --check || { echo 'hk: a `Â§N` NAV drifted from the `Â§F` it is generated from. Run `sherd sync .` -- the nav is derived, so editing it by hand is the drift rather than the fix.' >&2; exit 1; }
+      sherd sync --check || { echo 'hk: a `§N` NAV drifted from the `§F` it is generated from. Run `sherd sync .` -- the nav is derived, so editing it by hand is the drift rather than the fix.' >&2; exit 1; }
       """
   }
 

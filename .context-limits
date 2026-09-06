@@ -287,7 +287,7 @@
 # twenty module nodes, measured 13486 -> 8107.
 #
 # WHAT THE ROOT IS NOW: a ROUTE. It carries the crate-wide law every node
-# inherits and the Â§F edge that says where everything else lives, and it is
+# inherits and the §F edge that says where everything else lives, and it is
 # read to find the node rather than to learn the rule. 8k is the right size
 # for that job and the wrong size for a document anyone reads end to end.
 #
