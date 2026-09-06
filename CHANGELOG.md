@@ -15,7 +15,7 @@ answers one question: *what can you rely on at this tag?*
 | `0.1` | it builds reproducibly on every supported platform, and the gate runs | reached |
 | `0.2` | every verb but `catch` does its job end to end, and the tool runs against its own corpus | reached |
 | `0.3` | second intake: `catch` mines a transcript, so a rule stated once outlives the session | reached |
-| `0.4` | the HANDOVER: an extraction leaves this repo for a registry with no window where the rule is enforced by nothing, and the gate proves a skill can actually be loaded | **rc** |
+| `0.4` | the HANDOVER: an extraction leaves this repo for a registry with no window where the rule is enforced by nothing, and the gate proves a skill can actually be loaded | reached |
 | `0.5` | the diagnostic half — `init` names the first cut, `--dead` answers across a team rather than one checkout | planned |
 | `1.0` | the contract frozen: the CLI surface, the JSON anatomy, the trigger format and the ledger schema | planned |
 
@@ -26,9 +26,19 @@ This ladder is not yet `§V` law in [`SPEC.md`](SPEC.md); it records the rungs a
 they were actually earned. Promoting it to an invariant is spec work and goes
 through `/spec`.
 
-Nothing has been published to crates.io yet.
+`0.4.0` is the first version published to crates.io.
 
 ## [Unreleased]
+
+## [0.4.0] — 2026-09-06
+
+**The handover rung, and the first version on crates.io.** `rekall issue`
+moves a proven extraction to the registry that tends it with no window where
+the rule is enforced by nothing, and `check` refuses a skill nothing can load.
+The repository went public the same day, so the two reasons an rc published
+nothing -- a `repository` URL pointing nowhere, and a registry that cannot
+delete -- are down to one, and that one argues for spending the number on a
+rung rather than on a candidate.
 
 **The rc did its job.** The 0.4.0-rc.1 entry below closes by naming what to
 exercise, in the order the defects were found: `log --dead` against a corpus
@@ -72,6 +82,11 @@ first two of these came from.
   step changes the number and the file stating it would otherwise never wake.
 
 ### Documentation
+
+- The `Status` section and `Cargo.toml` claim the rung rather than a
+  candidate, and the install block names `cargo install rekall` -- true from
+  the moment this version is uploaded, which is the only moment anybody
+  reads the copy inside the tarball.
 
 - The worked example's "Finishing the extraction" filled the trigger and the
   runner and then showed `check` silent at 0. Run as written it exits 1 with
