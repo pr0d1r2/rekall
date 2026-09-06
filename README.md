@@ -9,9 +9,9 @@
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
-[![gate steps 21 commit / 27 push](https://img.shields.io/badge/gate_steps-21_commit_%2F_27_push-6E4AFF)][hk]
+[![gate steps 23 commit / 29 push](https://img.shields.io/badge/gate_steps-23_commit_%2F_29_push-6E4AFF)][hk]
 [![coverage floor 99.26%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.26%25-brightgreen)](.coverage)
-[![invariants 59](https://img.shields.io/badge/invariants-63-6E4AFF)](SPEC.md)
+[![invariants 63](https://img.shields.io/badge/invariants-63-6E4AFF)](SPEC.md)
 [![bugs logged 21](https://img.shields.io/badge/bugs_logged-21-6E4AFF)](SPEC.md)
 [![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
