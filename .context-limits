@@ -438,6 +438,27 @@ src       10000
 #
 # The fleet argument from the 5700 -> 5900 entry stands and is not repeated.
 
+# README.md 6000 -> 6100, for A WALKTHROUGH THAT RUNS AS WRITTEN.
+#
+# "Finishing the extraction" filled the trigger and the runner and then showed
+# `rekall check` silent at 0. Run as printed it exits 1 with `undelivered` --
+# the guard that turns the host's own loading off landed after that section was
+# written. A worked example whose last command does not do what it says is the
+# same failure as the placeholder clone URL two entries up.
+#
+# TWO TRIMS WERE MADE FIRST AND MEASURED, both of them corrections rather than
+# compressions: the wiring paragraph went from seven lines to four (-57), and
+# the third `hook` example -- the `.env` rule firing on a `git commit` -- became
+# one sentence (-40). That block was UNREACHABLE from the state the walkthrough
+# builds: the rule has no trigger there, and the `recall` output three blocks
+# above says so in those words. Cutting it removed a claim the document already
+# contradicted.
+#
+# 73 short after both. The remaining slack is in the `check` failure block,
+# which prints four drift lines verbatim -- that block IS the README's central
+# claim, that a failing gate names the fix, and trimming the evidence for the
+# claim to make room for a fix to another one is a bad trade.
 
-README.md  6000
+
+README.md  6100
 CLAUDE.md   600

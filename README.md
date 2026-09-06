@@ -252,6 +252,23 @@ echo "rekall: rename it to .env.example, or add it to .gitignore" >&2
 exit 1
 ```
 
+And the harness gets the hook, in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "rekall hook" } ] }
+    ]
+  }
+}
+```
+
+The third step is not optional, and `check` will not let it be skipped: the
+head disables the host's own loading, so until something delivers the skill it
+is loaded by nothing at all — the `undelivered` line above.
+[`INTEGRATION.md`](docs/INTEGRATION.md) has the same snippet at user scope.
+
 ```console
 $ rekall check
 $ echo $?
@@ -297,16 +314,12 @@ $ echo '{"hook_event_name":"PreToolUse","tool_name":"Read",
 {}
 ```
 
-Mechanical rules fire here too, and advise rather than block:
-
-```console
-$ echo '{"hook_event_name":"PreToolUse","tool_name":"Bash",
-         "tool_input":{"command":"git commit -m wip"}}' | rekall hook
-{"hookSpecificOutput":{"additionalContext":"rekall: refusing to commit a .env file: .env\nrekall: rename it to .env.example, or add it to .gitignore","hookEventName":"PreToolUse"}}
-```
-
-That is the `.env` rule catching a real staged file, at the tool call, before
-the commit — instead of in a paragraph the model read two hundred turns ago.
+A mechanical rule fires here too once its own `Fires when` block is filled in
+— give the `.env` rule `tool = ["Bash"]` and it runs at the tool call, before
+the commit, instead of in a paragraph the model read two hundred turns ago.
+Its runner's output arrives as context and never as a veto: a tool in the
+request path of every call that can block is a tool one bad rule turns into an
+outage.
 
 `recall` and `hook` are one matcher behind two front doors. What `recall`
 prints is what `hook` decides; when that stopped being true it was a logged
