@@ -107,10 +107,19 @@ fn zip_rows<'a>(
 /// Where `plan` materializes artifacts, and therefore the only places an
 /// ORPHAN can be found.
 ///
-/// Two named roots rather than a walk of the project: everything outside
-/// them is somebody else's file, and a gate that called every unclaimed
-/// file in the repo an orphan would be unusable on its first run.
-const ARTIFACT_ROOTS: [&str; 2] = [".rekall/rules", ".claude/skills"];
+/// Named roots rather than a walk of the project: everything outside them
+/// is somebody else's file, and a gate that called every unclaimed file in
+/// the repo an orphan would be unusable on its first run.
+///
+/// Both halves of what `apply` can write, and they are not the same place
+/// (B23). `.rekall/` is the CANONICAL store -- rules and skills side by
+/// side, the paths the ledger itself names -- and `.claude/skills` is where
+/// a skill is PUBLISHED by symlink, which only exists where the host has
+/// such a directory (`src/apply:V48`). Sweeping the published half alone
+/// left every orphan skill invisible, and invisible always on a host with
+/// no skills directory at all.
+const ARTIFACT_ROOTS: [&str; 3] =
+    [".rekall/rules", ".rekall/skills", ".claude/skills"];
 const ARTIFACT_GLOBS: [&str; 2] = ["**/*.sh", "**/SKILL.md"];
 
 fn artifacts_on_disk(base: &Path, env: &Env) -> Result<Vec<String>, String> {
@@ -274,6 +283,41 @@ mod tests {
             .unwrap_or_default();
         assert!(text.contains(check::ORPHAN_ARTIFACT), "{text}");
         assert!(text.contains("stray.sh"), "{text}");
+    }
+
+    /// V66, the half B23 found missing: the same fault as the test above,
+    /// one directory over, in the store the ledger names. A skill and a
+    /// rule are equally unrevertable when nothing records where they came
+    /// from, so the sweep has to reach both.
+    #[test]
+    fn an_unclaimed_skill_is_an_orphan_too() {
+        let dir = check_project("orphan-skill");
+        let slug = dir.join(".rekall").join("skills").join("stray");
+        let _ = std::fs::create_dir_all(&slug);
+        let _ = std::fs::write(
+            slug.join("SKILL.md"),
+            "---\nname: stray\n---\n\nno row claims this\n",
+        );
+        let text = check_in(&dir, &[])
+            .map(|c| c.output.text)
+            .unwrap_or_default();
+        assert!(text.contains(check::ORPHAN_ARTIFACT), "{text}");
+        assert!(text.contains("stray/SKILL.md"), "{text}");
+    }
+
+    /// The PUBLISHED link is not a second artifact. `apply` links
+    /// `.claude/skills/<slug>` at the canonical file, and both roots are
+    /// swept, so a walk that followed the link would report the live row's
+    /// own skill as an orphan under its other name.
+    #[test]
+    fn a_published_link_is_not_reported_twice() {
+        let dir = check_project("orphan-link");
+        let _ = std::fs::create_dir_all(dir.join(".claude").join("skills"));
+        let _ = extracted(&dir);
+        let text = check_in(&dir, &[])
+            .map(|c| c.output.text)
+            .unwrap_or_default();
+        assert!(!text.contains(check::ORPHAN_ARTIFACT), "{text}");
     }
 
     /// A `revert` leaves NOTHING for the gate to find. The two verbs agree

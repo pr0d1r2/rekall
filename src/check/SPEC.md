@@ -36,6 +36,7 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V6: `check` is the GATE ∴ CPU-only, no key, no network. A gate needing a model runs nowhere it is needed.
 V56: a GUARDED `S` artifact with ⊥ DELIVERER is DRIFT. `src/apply:V52` switches the host's own loading OFF & hands delivery to `hook` ∴ the guard is correct ONLY WHERE `hook` IS WIRED -- & where it is ⊥, the artifact is indexed by nothing, loaded by nothing & fired by nothing, while `check` says green. `check` READS the project harness config whose shape `docs/INTEGRATION.md` already NAMES, & reports `undelivered` where a guarded `S` row has ⊥ wiring. PROJECT scope only: a HOME path is ⊥ this crate's to read (`.:V6` reads what the ledger names) ∴ ⊥ wiring found is a FINDING & ⊥ an assumption that there is none elsewhere -- the line SAYS that. MEASURED 2026-09-05: this repo, 1 `S` row, guard written the same day, `hook` wired in ⊥ project & ⊥ user settings ∴ delivered by NOTHING, gate exit 0.
+V66: the ORPHAN sweep covers ∀ path `apply` can WRITE, ⊥ only the PUBLISHED one. `src/apply:V48` puts the CANONICAL `S` artifact at `.rekall/skills/<slug>/SKILL.md` -- the path the LEDGER names -- & LINKS `.claude/skills/<slug>` at it only where the host HAS such a dir ∴ a sweep of `.rekall/rules` + `.claude/skills` sees ∀ orphan RULE & ⊥ a single orphan SKILL, & sees nothing at all on a host with ⊥ skills dir (Codex). ∴ ROOTS = WRITTEN ∪ PUBLISHED. The walk does ⊥ FOLLOW the link ∴ ONE file stays ONE path & the published name is ⊥ a second, phantom orphan.
 
 ## §T TASKS
 
@@ -43,9 +44,11 @@ id|status|task|cites
 T71|x|`check` reports `undelivered`: a guarded `S` row whose project harness config wires ⊥ `rekall hook`|V56,`src/apply:V52`
 T72|x|WIRE `rekall hook` in this repo & gate it: consumer #0 ! run the delivery path it ships, ∵ the guard's premise was ASSUMED here & measured false|V56
 T74|x|VERIFY the published link: a `.claude/skills/<slug>` symlink that resolves to nothing is an ORPHAN the gate refuses, which `src/apply:V48` has claimed since T62 landed|`src/apply:V48`,`.:V22`
+T84|x|the orphan sweep reads `.rekall/skills` ∴ ∀ artifact `apply` writes is a path `check` can find|V66,`.:V22`
 
 ## §B BUGS
 
 id|date|cause|fix
 B12|2026-09-05|the guard landed on the only `S` artifact in a repo where `hook` is wired NOWHERE ∴ host loading OFF & ⊥ deliverer ON: the skill became reachable by nothing, in the commit meant to make it safe. `check` passed it|V56
 B15|2026-09-05|the `dangling-link` finding's FIRST advice named `rekall issue --all` as the repair. MEASURED: it republished the live row's link & left the stale one untouched -- `issue` relinks rows the LEDGER holds, & this finding only ever fires for a link ⊥ row names. A gate line naming a fix that cannot work is worse than one naming none, ∵ the reader runs it, sees green output & still has the fault|`.:V28`
+B23|2026-09-06|an orphan `SKILL.md` under `.rekall/skills/` passed the gate SILENT while an orphan `.sh` one directory over was refused. The sweep listed the RULES dir & the PUBLISH dir & ⊥ the SKILLS dir `apply` actually writes ∴ `.:V9`'s half-finished revert was caught for `M` & INVISIBLE for `S`. MEASURED 2026-09-06: hand-written `SKILL.md`, no ledger row, `rekall check` exit 0|V66
