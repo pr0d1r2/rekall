@@ -390,7 +390,26 @@
 # `sherd` supports and the federation step already gates -- and not a sixth
 # raise.
 
-SPEC.md   9200
+
+# SPEC.md 9200 -> 9350, for ONE OPEN TASK ROW.
+#
+# The file sat at 9199 against 9200 -- one token of headroom -- so ANY row
+# added to `§T` breaks it, and the next thing to be decided was always going
+# to pay for the raise. T86 is the markdown gate: 35 tracked `.md` files with
+# no linter, recorded as DECIDED and NOT BUILT because the tool choice is the
+# open half and this fleet has no Rust answer for it.
+#
+# MEASURED: the row costs 109 tokens at o200k, three drafts long. The first
+# spelled out what the gate already covers (lychee, typos, editorconfig,
+# readme-counts) and was cut, since a task row that re-argues the surrounding
+# gate is a task row nobody finishes reading.
+#
+# NOT TRIMMED to fit, and this is the reason: what is in this file is either
+# law, a recorded bug, or a decision, and cutting one of those to make room
+# for another is a spec that forgets in order to remember. 9350 leaves room
+# for the next few rows rather than making each one a ceiling debate.
+
+SPEC.md   9350
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.
