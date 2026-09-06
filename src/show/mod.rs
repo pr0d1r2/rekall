@@ -8,10 +8,14 @@
 //!
 //! Report-only (V7). Nothing here writes.
 
-use crate::{classify, corpus, scan, statement};
+use crate::{classify, corpus, ledger, scan, statement};
 
 /// One statement, in full.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+///
+/// `Default` so a test can state the ONE field it is about and leave the
+/// rest at nothing -- a fixture that spells out ten fields to assert on
+/// two hides which two mattered.
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Found {
     pub id: String,
     pub src: String,
@@ -28,6 +32,24 @@ pub struct Found {
     pub signals: Vec<classify::Signal>,
     /// The sum those weights came to, against the deadband.
     pub score: i32,
+    /// Where the extraction landed, and how often it has been delivered.
+    ///
+    /// `None` for a statement still sitting in the corpus, which is the
+    /// difference section I names as "if extracted". Both fields are on
+    /// the struct rather than in a second shape, so JSON and human keep
+    /// ONE anatomy across the two halves of the lookup (V17).
+    pub artifact: Option<String>,
+    pub fires: Option<u64>,
+    /// The label the extraction was actually MADE under, when it is not
+    /// the one re-derived above.
+    ///
+    /// `Some` is a disagreement and nothing else: the ledger keeps the
+    /// statement's text but not the section it sat in, so a row extracted
+    /// from under a heading can re-derive one class short of the one
+    /// recorded (V64). Printing both is the only honest answer -- the
+    /// verdict shown is the one this classifier reaches today, and the
+    /// verdict acted on is the one in the ledger.
+    pub recorded: Option<String>,
 }
 
 /// What a lookup produced.
@@ -73,21 +95,75 @@ fn resolve(mut hits: Vec<Found>) -> Lookup {
 }
 
 fn detail(found: &statement::Statement, weights: &classify::Weights) -> Found {
-    let verdict = classify::classify(
-        &statement::normalize(&found.text),
-        found.form(),
-        weights,
-    );
+    let mut out = judged(&found.text, found.form(), weights);
+    out.id = found.id.clone();
+    out.src = format!("{}:{}-{}", found.path, found.line_start, found.line_end);
+    out
+}
+
+/// The half both halves share: a text, a form, and the verdict they reach.
+///
+/// The id and the span are filled in by the caller, because that is the
+/// only thing the corpus and the ledger disagree about -- everything a
+/// class is argued from is right here.
+fn judged(
+    text: &str,
+    form: classify::Form,
+    weights: &classify::Weights,
+) -> Found {
+    let verdict =
+        classify::classify(&statement::normalize(text), form, weights);
     Found {
-        id: found.id.clone(),
-        src: format!("{}:{}-{}", found.path, found.line_start, found.line_end),
-        text: found.text.clone(),
+        id: String::new(),
+        src: String::new(),
+        text: text.to_string(),
         class: verdict.class.to_string(),
         sharpness: verdict.sharpness,
         label: verdict.label(),
-        signals: verdict.signals.clone(),
+        signals: verdict.signals,
         score: verdict.score,
+        artifact: None,
+        fires: None,
+        recorded: None,
     }
+}
+
+/// The same question, asked of the LEDGER (V67).
+///
+/// An id OUTLIVES the statement it names: `apply` deletes the span and
+/// leaves a pointer, so the corpus stops being able to answer for a row
+/// the ledger still holds -- and the verdict most worth arguing with is
+/// the one already acted on.
+///
+/// The text is the ledger's verbatim copy (V9). The heading it sat under
+/// is not kept, so the form here is the marker alone and the class is
+/// RE-DERIVED rather than repeated; `recorded` carries the ledger's own
+/// label wherever the two differ.
+#[must_use]
+pub fn lookup_extracted(
+    held: &ledger::Ledger,
+    prefix: &str,
+    weights: &classify::Weights,
+) -> Lookup {
+    let hits: Vec<Found> = held
+        .extracted
+        .iter()
+        .filter(|row| row.id.starts_with(prefix))
+        .map(|row| from_row(row, weights))
+        .collect();
+    resolve(hits)
+}
+
+fn from_row(row: &ledger::Extracted, weights: &classify::Weights) -> Found {
+    let form =
+        classify::Form::from_context(statement::is_list_item(&row.text), &None);
+    let mut out = judged(&row.text, form, weights);
+    out.id = row.id.clone();
+    out.src = format!("{}:{}-{}", row.src, row.line_start, row.line_end);
+    out.artifact = Some(row.artifact.clone());
+    out.fires = Some(row.fires);
+    out.recorded = (row.label != out.label).then(|| row.label.clone());
+    out
 }
 
 /// Human rendering. The JSON carries the SAME anatomy (V17).
@@ -101,9 +177,26 @@ pub fn render_human(found: &Found) -> String {
     for signal in &found.signals {
         out.push_str(&format!("  {:+}  {}\n", signal.weight, signal.name));
     }
+    out.push_str(&extracted_lines(found));
     out.push_str("text\n");
     for line in found.text.lines() {
         out.push_str(&format!("  {line}\n"));
+    }
+    out
+}
+
+/// The three lines only an extracted row has. Absent, not empty: a field
+/// printed blank reads as a value that is blank.
+fn extracted_lines(found: &Found) -> String {
+    let mut out = String::new();
+    if let Some(label) = &found.recorded {
+        out.push_str(&format!("recorded {label}  (class when extracted)\n"));
+    }
+    if let Some(path) = &found.artifact {
+        out.push_str(&format!("artifact {path}\n"));
+    }
+    if let Some(fires) = found.fires {
+        out.push_str(&format!("fires    {fires}\n"));
     }
     out
 }
@@ -277,6 +370,7 @@ mod tests {
                 weight: 2,
             }],
             score: 2,
+            ..Found::default()
         }
     }
 
@@ -296,11 +390,8 @@ mod tests {
             id: "a".to_string(),
             src: "x:1-2".to_string(),
             text: "- first\n  second".to_string(),
-            class: "U".to_string(),
-            sharpness: None,
             label: "U".to_string(),
-            signals: Vec::new(),
-            score: 0,
+            ..Found::default()
         };
         let text = render_human(&found);
         assert!(

@@ -1,7 +1,7 @@
 use super::{
     Env, Format, NO_SOURCES, Output, Resolved, need, parse_format, resolve,
 };
-use crate::{scan, show};
+use crate::{classify, ledger, scan, show};
 use std::path::{Path, PathBuf};
 /// `show` takes ONE id (or an unambiguous prefix of one) plus the usual
 /// format and directory flags.
@@ -64,6 +64,12 @@ pub fn show_command(flags: &[String], env: &Env) -> Result<Output, String> {
 
 pub const NO_ID: &str = "`show` needs an id -- copy one from `rekall scan`";
 
+/// The corpus first, then the ledger (V67).
+///
+/// In that order because a live statement is the common case and the
+/// ledger cannot hold an id the corpus still does -- `apply` deletes the
+/// span in the same breath as it writes the row. An id that no longer
+/// names anything in either place is the only `Missing` left.
 fn find(
     resolved: &Resolved,
     base: &Path,
@@ -77,7 +83,20 @@ fn find(
         base,
         weights: &resolved.weights,
     };
-    show::lookup(&at, id).map_err(|error| error.to_string())
+    match show::lookup(&at, id).map_err(|error| error.to_string())? {
+        show::Lookup::Missing => from_the_ledger(base, id, &resolved.weights),
+        live => Ok(live),
+    }
+}
+
+fn from_the_ledger(
+    base: &Path,
+    id: &str,
+    weights: &classify::Weights,
+) -> Result<show::Lookup, String> {
+    let held = ledger::load(&ledger::path_in(base))
+        .map_err(|error| error.to_string())?;
+    Ok(show::lookup_extracted(&held, id, weights))
 }
 
 fn render_lookup(
@@ -95,7 +114,9 @@ fn render_lookup(
             ids.len(),
             ids.join(", ")
         )),
-        show::Lookup::Missing => Err(format!("no statement matches `{id}`")),
+        show::Lookup::Missing => Err(format!(
+            "no statement matches `{id}`, and the ledger holds no extraction under it either"
+        )),
     }
 }
 
@@ -214,6 +235,61 @@ mod tests {
             message.contains("no statement matches"),
             "message was {message}"
         );
+    }
+
+    /// V67. `apply` takes the statement out of the corpus, so before this
+    /// the id printed by `scan`, recorded in the ledger and echoed by
+    /// `log` answered nothing -- the one id a user is most likely to
+    /// still have in their scrollback.
+    #[test]
+    fn an_extracted_id_is_still_shown() {
+        let dir = check_project("show-extracted");
+        let (id, _) = extracted(&dir);
+        let text = show_in(&dir, &[&id]);
+        assert!(text.contains(&id), "{text}");
+        assert!(text.contains("- never commit to `main`"), "{text}");
+        assert!(text.contains("artifact .rekall/rules/"), "{text}");
+        assert!(text.contains("fires    0"), "{text}");
+    }
+
+    /// The extracted half keeps the anatomy the live half has (V17), so
+    /// nothing downstream needs a second shape to parse.
+    #[test]
+    fn an_extracted_id_carries_the_same_json_anatomy() {
+        let dir = check_project("show-extracted-json");
+        let (id, _) = extracted(&dir);
+        let text = show_in(&dir, &[&id, "--format", "json"]);
+        let parsed = serde_json::from_str::<serde_json::Value>(&text)
+            .unwrap_or_default();
+        assert!(parsed.get("signals").is_some(), "{text}");
+        assert!(parsed.get("label").is_some(), "{text}");
+        assert_eq!(
+            parsed.get("fires").and_then(serde_json::Value::as_u64),
+            Some(0)
+        );
+    }
+
+    /// An id in neither place is still a usage error, and the message
+    /// names both places it looked.
+    #[test]
+    fn an_id_in_neither_place_names_both() {
+        let dir = check_project("show-neither");
+        let _ = extracted(&dir);
+        let message = show_command(
+            &args(&["-C", &dir.to_string_lossy(), "zzzzzzz"]),
+            &env(),
+        )
+        .err()
+        .unwrap_or_default();
+        assert!(message.contains("the ledger holds no"), "{message}");
+    }
+
+    fn show_in(dir: &Path, extra: &[&str]) -> String {
+        let mut flags = args(&["-C", &dir.to_string_lossy()]);
+        flags.extend(args(extra));
+        show_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default()
     }
 
     #[test]
