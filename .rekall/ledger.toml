@@ -73,17 +73,6 @@ fires = 0
 at = 1787590925
 
 [[extracted]]
-id = "551a009"
-src = "CLAUDE.md"
-line_start = 15
-line_end = 15
-text = "- Commit straight to `main`. No feature branches in this repo."
-label = "M1"
-artifact = ".rekall/rules/commit-straight-to-main-no-feature.sh"
-fires = 0
-at = 1787591127
-
-[[extracted]]
 id = "8fe6c04"
 src = "CLAUDE.md"
 line_start = 39
@@ -94,5 +83,16 @@ text = """
   have caught it exists first."""
 label = "S1"
 artifact = ".rekall/skills/when-a-test-fails-decide-first/SKILL.md"
-fires = 0
+fires = 190
 at = 1787591180
+
+[[extracted]]
+id = "6d3751c"
+src = "CLAUDE.md"
+line_start = 15
+line_end = 15
+text = "- Every change reaches `main` through a pull request. No direct pushes, and that includes yours."
+label = "M1"
+artifact = ".rekall/rules/every-change-reaches-main-through-a.sh"
+fires = 0
+at = 1788691793

@@ -379,8 +379,8 @@ local fast = new Mapping<String, Step> {
 
   /// EXTRACTED from CLAUDE.md by rekall (id 551a009). No glob: the branch
   /// you are on is not something a file change announces.
-  ["on-main"] {
-    check = "sh .rekall/rules/commit-straight-to-main-no-feature.sh"
+  ["branch-not-main"] {
+    check = "sh .rekall/rules/every-change-reaches-main-through-a.sh"
   }
 
   /// MODULE SIZE, the limit clippy does not have.

@@ -12,7 +12,7 @@ that stay are the ones that could not be made mechanical.
 
 ## Working agreement
 
-<!-- rekall 551a009 -->
+<!-- rekall 6d3751c -->
 - One decision per commit, and the reasoning goes in the message, not in a
   comment nobody will find.
 - Decide in the spec before building. A judgment records what it rejected
