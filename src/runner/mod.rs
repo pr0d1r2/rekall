@@ -157,6 +157,27 @@ mod tests {
     /// has to: that one is about the clock rather than about the rule.
     const PATIENT: Duration = Duration::from_secs(60);
 
+    /// WRITING A SCRIPT AND SPAWNING ONE ARE MUTUALLY EXCLUSIVE (V68).
+    ///
+    /// On Linux, `execve` refuses a file any process holds open for
+    /// writing -- ETXTBSY. Rust opens with CLOEXEC, so an exec'd child
+    /// does not keep the handle, but between another thread's fork and
+    /// its exec the child DOES hold it, and this thread's exec of the
+    /// file it just wrote lands in that window.
+    ///
+    /// MEASURED on this repo's first CI run: two of six jobs red, both
+    /// Linux, each on a different test, neither reproducible on darwin.
+    static SPAWNING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Write a rule and run it, with no fork in between.
+    fn fired(name: &str, body: &str, limit: Duration) -> Fired {
+        let guard = SPAWNING.lock().unwrap_or_else(|held| held.into_inner());
+        let path = script(name, body);
+        let out = run(&path, limit);
+        drop(guard);
+        out
+    }
+
     fn script(name: &str, body: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
         let dir = PathBuf::from("target").join("runner");
@@ -172,8 +193,7 @@ mod tests {
 
     #[test]
     fn a_rule_that_passes_says_nothing() {
-        let path = script("clean.sh", "#!/bin/sh\nexit 0\n");
-        let out = run(&path, PATIENT);
+        let out = fired("clean.sh", "#!/bin/sh\nexit 0\n", PATIENT);
         assert_eq!(out, Fired::Clean);
         assert_eq!(out.advice(), None);
     }
@@ -182,12 +202,12 @@ mod tests {
     /// tells it nothing about what to do differently.
     #[test]
     fn a_violation_carries_what_the_rule_said() {
-        let path = script(
-            "violate.sh",
-            "#!/bin/sh\necho 'do not commit to main' >&2\nexit 1\n",
-        );
         assert_eq!(
-            run(&path, PATIENT),
+            fired(
+                "violate.sh",
+                "#!/bin/sh\necho 'do not commit to main' >&2\nexit 1\n",
+                PATIENT
+            ),
             Fired::Violated("do not commit to main".to_string())
         );
     }
@@ -196,12 +216,12 @@ mod tests {
     /// to stdout.
     #[test]
     fn stderr_is_preferred_over_stdout() {
-        let path = script(
-            "both.sh",
-            "#!/bin/sh\necho noise\necho 'the real complaint' >&2\nexit 1\n",
-        );
         assert_eq!(
-            run(&path, PATIENT),
+            fired(
+                "both.sh",
+                "#!/bin/sh\necho noise\necho 'the real complaint' >&2\nexit 1\n",
+                PATIENT
+            ),
             Fired::Violated("the real complaint".to_string())
         );
     }
@@ -210,18 +230,19 @@ mod tests {
     /// gets its words to the model.
     #[test]
     fn stdout_is_used_when_stderr_is_silent() {
-        let path =
-            script("out.sh", "#!/bin/sh\necho 'said on stdout'\nexit 1\n");
         assert_eq!(
-            run(&path, PATIENT),
+            fired(
+                "out.sh",
+                "#!/bin/sh\necho 'said on stdout'\nexit 1\n",
+                PATIENT
+            ),
             Fired::Violated("said on stdout".to_string())
         );
     }
 
     #[test]
     fn a_silent_violation_still_says_something() {
-        let path = script("mute.sh", "#!/bin/sh\nexit 3\n");
-        let out = run(&path, PATIENT);
+        let out = fired("mute.sh", "#!/bin/sh\nexit 3\n", PATIENT);
         assert!(
             out.advice()
                 .is_some_and(|said| said.contains("without saying")),
@@ -234,20 +255,14 @@ mod tests {
     /// failure.
     #[test]
     fn a_hanging_rule_is_killed_and_reported() {
-        let path = script("hang.sh", "#!/bin/sh\nsleep 30\n");
         let started = Instant::now();
-        let out = run(&path, Duration::from_millis(80));
+        let hang = "#!/bin/sh\nsleep 30\n";
+        let out = fired("hang.sh", hang, Duration::from_millis(80));
         let took = started.elapsed();
         assert!(matches!(out, Fired::TimedOut(_)), "{out:?}");
-        assert!(
-            took < Duration::from_secs(5),
-            "the wait was not bounded: {took:?}"
-        );
-        assert!(
-            out.advice()
-                .is_some_and(|said| said.contains("did not finish")),
-            "{out:?}"
-        );
+        assert!(took < Duration::from_secs(5), "not bounded: {took:?}");
+        let said = out.advice().unwrap_or_default();
+        assert!(said.contains("did not finish"), "{said}");
     }
 
     /// An artifact that cannot be executed is reported, not silently
@@ -285,10 +300,11 @@ mod tests {
     /// first rule somebody writes in another language.
     #[test]
     fn the_shebang_chooses_the_interpreter() {
-        let path = script(
+        let out = fired(
             "shebang.sh",
             "#!/bin/sh\ntest \"$0\" != '' && echo ok >&2\nexit 1\n",
+            PATIENT,
         );
-        assert_eq!(run(&path, PATIENT), Fired::Violated("ok".to_string()));
+        assert_eq!(out, Fired::Violated("ok".to_string()));
     }
 }

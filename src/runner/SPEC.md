@@ -33,6 +33,7 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
+V68: a test that WRITES a script & then EXECUTES it holds ONE lock across BOTH. Linux `execve` refuses a file any process holds open for WRITING (ETXTBSY); Rust opens CLOEXEC ∴ an exec'd child ⊥ keeps the handle, but between ANOTHER thread's fork & its exec the child DOES hold it, & this thread's exec lands in that window. ∴ SERIALIZE write-and-spawn, ⊥ retry the exec: a retry in `run` would be PRODUCT code paying for a TEST's parallelism, & the product never writes a script it then runs -- `apply` writes, `hook` executes, different processes & no shared window.
 
 ## §T TASKS
 
@@ -44,3 +45,4 @@ T51|x|`[triggers].runner_timeout_ms`, default 2000 ∴ a busy box ⊥ manufactur
 id|date|cause|fix
 B5|2026-08-24|`runner::LIMIT` bounds a rule by WALL-CLOCK ∴ under contention a rule costing MILLISECONDS of CPU exceeds it & is KILLED. MEASURED: 2 of 3 full test runs failed, the same tests passing ALONE in 1-2s. `hook` runs per tool call ∴ a busy box injects a timeout that never happened -- & every gate-green since `hook:T39` rested on a suite failing 2 runs in 3|`.:V38`,T51
 B16|2026-09-05|`docs/INTEGRATION.md` states the runner is bounded by CPU TIME & that wall-clock "was the original bound". It is STILL wall-clock: `Instant::now()` at `runner/mod.rs`. `.:V38`'s fix for `B5` was to make the bound CONFIGURABLE, ⊥ to change what it measures ∴ the doc describes a repair nobody performed, & B5 RECURS wherever the box is loaded -- MEASURED in the nix sandbox, 6 runner tests `TimedOut(2000)` on scripts costing milliseconds|`.:V38`,B5
+B26|2026-09-06|`runner`'s tests write a script then exec it, & `cargo test`'s thread pool forks between the two ∴ ETXTBSY, `Unrunnable("Text file busy")` where `Clean` was asserted. MEASURED on this repo's FIRST CI run: 2 of 6 jobs red, `gate (ubuntu-24.04-arm)` & `nix-build (ubuntu-latest)`, a DIFFERENT test each & neither reproducible on darwin, where the whole suite had been green all day. `.:B17` said the workflow had never executed; this is what it was hiding|V68
