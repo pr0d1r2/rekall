@@ -1,6 +1,7 @@
 # rekall
 
 <!-- BEGIN badges -->
+[![CI](https://github.com/pr0d1r2/rekall/actions/workflows/ci.yml/badge.svg)](https://github.com/pr0d1r2/rekall/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![edition 2024](https://img.shields.io/badge/edition-2024-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![MSRV 1.95](https://img.shields.io/badge/MSRV-1.95-000000?logo=rust&logoColor=white)](Cargo.toml)
@@ -16,6 +17,7 @@
 [![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]
+[![nixpkgs 26.05 (2026-08-19 - b18a4b9)](https://img.shields.io/badge/nixpkgs-26.05_(2026--08--19_--_b18a4b9)-5277C3?logo=nixos&logoColor=white)](https://github.com/pr0d1r2/rekall/blob/main/flake.lock)
 [![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)][flake]
 [![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)][flake]
 [![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)][flake]

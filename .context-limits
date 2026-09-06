@@ -460,5 +460,22 @@ src       10000
 # claim to make room for a fix to another one is a bad trade.
 
 
-README.md  6100
+
+# README.md 6100 -> 6250, for TWO GENERATED BADGES.
+#
+# CI status and the pinned nixpkgs, both of which every sibling crate in the
+# fleet carries and this one did not. A shields.io URL is token-dense --
+# 93 for the nixpkgs badge alone, 114 for the pair -- because the label is
+# spelled twice, once as alt text and once inside the url.
+#
+# MEASURED, both ways: 6214 with both badges, 6121 with only CI. Dropping the
+# nixpkgs badge does not avoid a raise, it only makes it smaller, and the
+# badge it would drop is the one that says WHICH COMMIT of nixpkgs builds
+# this -- the fact the MSRV and platform badges both depend on and neither
+# states.
+#
+# 6250 rather than 6214, so the next badge-sized addition is a decision and
+# not a re-run of this one.
+
+README.md  6250
 CLAUDE.md   600

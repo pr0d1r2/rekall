@@ -84,13 +84,30 @@ render_badges() {
   nod=$(specs | wc -l | tr -d ' ')
   com=$(hk run pre-commit --plan --json -a < /dev/null 2>/dev/null | grep -c '"orderIndex"')
   pus=$(hk run pre-push --plan --json -a < /dev/null 2>/dev/null | grep -c '"orderIndex"')
-  for v in "$lic" "$ed" "$msrv" "$deps" "$cov" "$inv" "$bug" "$nod" "$com" "$pus"; do
+  # The nixpkgs the whole fleet is pinned to, read from the LOCK rather than
+  # from the branch name in flake.nix -- the branch says which series, the
+  # lock says which commit, and only the second is what anybody builds.
+  node=$(awk '/^    "nixpkgs": [{]/{f=1} f{print} f && /^    [}],?$/{exit}' flake.lock)
+  nixref=$(printf '%s' "$node" | grep -m1 '"ref"' | cut -d'"' -f4 | sed 's/^nixos-//')
+  nixrev=$(printf '%s' "$node" | grep -m1 '"rev"' | cut -d'"' -f4 | cut -c1-7)
+  when=$(printf '%s' "$node" | grep -m1 '"lastModified"' | tr -dc '0-9')
+  nixday=$(date -u -r "$when" +%Y-%m-%d 2>/dev/null || date -u -d "@$when" +%Y-%m-%d)
+  # shields.io reads a single dash as a separator, so a date has to double
+  # every one of its own to survive the trip.
+  nixurl=$(printf %s "$nixday" | sed "s/-/--/g")
+  # The CI badge points at the workflow in the repository Cargo.toml already
+  # names, so the owner and repo are stated ONCE for the whole file.
+  slug=$(grep -m1 '^repository = ' Cargo.toml | cut -d'"' -f2 | sed 's|https://github.com/||')
+
+  for v in "$lic" "$ed" "$msrv" "$deps" "$cov" "$inv" "$bug" "$nod" "$com" "$pus" "$slug" "$nixref" "$nixrev" "$nixday"; do
     case "$v" in
       ''|0) echo 'hk: a badge source read EMPTY or ZERO, so nothing was rendered. One of Cargo.toml, .coverage, the SPEC.md set, or hk own plan did not answer. Fix the source -- a badge is not worth a guessed number.' >&2; exit 1 ;;
     esac
   done
+
   cat <<BADGES
 <!-- BEGIN badges -->
+[![CI](https://github.com/$slug/actions/workflows/ci.yml/badge.svg)](https://github.com/$slug/actions/workflows/ci.yml)
 [![License: $lic](https://img.shields.io/badge/license-$lic-blue.svg)](LICENSE)
 [![edition $ed](https://img.shields.io/badge/edition-$ed-000000?logo=rust&logoColor=white)](Cargo.toml)
 [![MSRV $msrv](https://img.shields.io/badge/MSRV-$msrv-000000?logo=rust&logoColor=white)](Cargo.toml)
@@ -106,6 +123,7 @@ render_badges() {
 [![federated nodes $nod](https://img.shields.io/badge/federated_nodes-$nod-6E4AFF)](docs/FEDERATION.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]
+[![nixpkgs $nixref ($nixday - $nixrev)](https://img.shields.io/badge/nixpkgs-${nixref}_(${nixurl}_--_${nixrev})-5277C3?logo=nixos&logoColor=white)](https://github.com/${slug}/blob/main/flake.lock)
 [![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)][flake]
 [![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)][flake]
 [![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)][flake]
