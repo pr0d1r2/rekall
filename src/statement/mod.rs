@@ -22,6 +22,11 @@ pub struct Statement {
     pub line_start: usize,
     pub line_end: usize,
     pub text: String,
+    /// The last heading seen before this statement, if any. `None` means the
+    /// statement sits before the first heading in the file. Carried for the
+    /// classifier: a paragraph under a heading is in a SECTION, and a section
+    /// is where a corpus states rules rather than context (V64).
+    pub heading: Option<String>,
 }
 
 /// A stable digest.
@@ -96,6 +101,23 @@ fn starts_statement(line: &str) -> bool {
     strip_marker(trimmed) != trimmed
 }
 
+impl Statement {
+    /// The FORM this statement is classified under: its marker and its
+    /// heading, read together (V40, V64).
+    ///
+    /// One place rather than three. `scan`, `plan` and `show` each need
+    /// the same answer, and three copies of the pair is three chances to
+    /// pass one half and forget the other -- which would make `show`
+    /// argue a verdict `scan` never reached.
+    #[must_use]
+    pub fn form(&self) -> crate::classify::Form {
+        crate::classify::Form::from_context(
+            is_list_item(&self.text),
+            &self.heading,
+        )
+    }
+}
+
 /// A line that makes no claim of its own.
 ///
 /// A HEADING names a section, and a POINTER is this tool's own mark: a
@@ -111,6 +133,11 @@ fn is_heading(line: &str) -> bool {
     line.trim_start().starts_with('#')
 }
 
+/// The text of a heading, without the `#` markers or surrounding whitespace.
+fn heading_text(line: &str) -> String {
+    line.trim_start().trim_start_matches('#').trim().to_string()
+}
+
 fn is_fence(line: &str) -> bool {
     let trimmed = line.trim_start();
     trimmed.starts_with("```") || trimmed.starts_with("~~~")
@@ -120,6 +147,7 @@ fn is_fence(line: &str) -> bool {
 struct Block {
     start: usize,
     lines: Vec<String>,
+    heading: Option<String>,
 }
 
 impl Block {
@@ -158,6 +186,7 @@ struct Split {
     out: Vec<Block>,
     current: Option<Block>,
     in_fence: bool,
+    heading: Option<String>,
 }
 
 impl Split {
@@ -166,22 +195,40 @@ impl Split {
             out: Vec::new(),
             current: None,
             in_fence: false,
+            heading: None,
         }
     }
 
     fn feed(&mut self, index: usize, line: &str) {
         if is_fence(line) {
-            self.in_fence = !self.in_fence;
-            let pending = self.current.take();
-            push(&mut self.out, pending);
+            self.toggle_fence();
             return;
         }
+        self.note_heading(line);
         let at = Line {
             index,
             line,
             in_fence: self.in_fence,
+            heading: self.heading.clone(),
         };
         self.current = step(self.current.take(), &mut self.out, at);
+    }
+
+    /// A fence opens or closes, and ends whatever block was accumulating.
+    fn toggle_fence(&mut self) {
+        self.in_fence = !self.in_fence;
+        let pending = self.current.take();
+        push(&mut self.out, pending);
+    }
+
+    /// A heading outside a fence becomes the SECTION every following
+    /// statement is read under (V64). Inside a fence a `#` is a comment or
+    /// a shell prompt, not a heading -- taking one would hand the next
+    /// statement a section that exists only in an example.
+    fn note_heading(&mut self, line: &str) {
+        if !self.in_fence && is_heading(line) {
+            self.heading = Some(heading_text(line));
+        }
     }
 
     fn finish(mut self) -> Vec<Block> {
@@ -203,6 +250,7 @@ struct Line<'a> {
     index: usize,
     line: &'a str,
     in_fence: bool,
+    heading: Option<String>,
 }
 
 fn step(
@@ -219,6 +267,7 @@ fn step(
         return Some(Block {
             start: at.index.saturating_add(1),
             lines: vec![at.line.to_string()],
+            heading: at.heading,
         });
     }
     Some(extend(current, at))
@@ -233,6 +282,7 @@ fn extend(current: Option<Block>, at: Line<'_>) -> Block {
         None => Block {
             start: at.index.saturating_add(1),
             lines: vec![at.line.to_string()],
+            heading: at.heading,
         },
     }
 }
@@ -257,6 +307,7 @@ fn build(
         path: path.to_string(),
         line_start: block.start,
         line_end: block.end(),
+        heading: block.heading,
         text,
     }
 }
@@ -547,5 +598,69 @@ mod tests {
     fn an_indented_pointer_is_still_structure() {
         let found = split("  <!-- rekall abc1234 -->\n", "CLAUDE.md");
         assert!(found.is_empty(), "{found:?}");
+    }
+
+    /// V64. A statement before any heading carries `None`.
+    #[test]
+    fn a_statement_before_any_heading_has_no_heading() {
+        let found = split("- a rule\n", "CLAUDE.md");
+        assert_eq!(found.first().map(|s| s.heading.as_deref()), Some(None));
+    }
+
+    /// V64. A statement under a heading carries it.
+    #[test]
+    fn a_statement_under_a_heading_carries_it() {
+        let found = split("# Title\n\n## Rules\n\n- a rule\n", "CLAUDE.md");
+        assert_eq!(
+            found.first().and_then(|s| s.heading.as_deref()),
+            Some("Rules")
+        );
+    }
+
+    /// V64. Heading text drops the `#` markers.
+    #[test]
+    fn heading_text_drops_markers() {
+        assert_eq!(heading_text("## Applying POLA"), "Applying POLA");
+        assert_eq!(heading_text("# Title"), "Title");
+        assert_eq!(heading_text("### Deep"), "Deep");
+    }
+
+    /// V64. Each statement gets the LAST heading before it, not the first.
+    #[test]
+    fn each_statement_gets_its_own_heading() {
+        let text = "## Alpha\n\n- one\n\n## Beta\n\n- two\n";
+        let found = split(text, "f.md");
+        assert_eq!(
+            found
+                .iter()
+                .map(|s| s.heading.as_deref())
+                .collect::<Vec<_>>(),
+            vec![Some("Alpha"), Some("Beta")]
+        );
+    }
+
+    /// V64. A paragraph under a heading also carries it.
+    #[test]
+    fn a_paragraph_under_a_heading_carries_it() {
+        let text = "## Context\n\nThis is background.\n";
+        let found = split(text, "f.md");
+        assert_eq!(
+            found.first().and_then(|s| s.heading.as_deref()),
+            Some("Context")
+        );
+    }
+
+    /// V64. A `#` INSIDE a fence is a comment or a shell prompt, not a
+    /// heading. Taking one would hand the next statement a section that
+    /// exists only in an example -- and every skill file that shows a
+    /// shell snippet has one.
+    #[test]
+    fn a_hash_inside_a_fence_is_not_a_heading() {
+        let text = "## Real\n\n```sh\n# not a heading\n```\n\n- a rule\n";
+        let found = split(text, "f.md");
+        assert_eq!(
+            found.first().and_then(|s| s.heading.as_deref()),
+            Some("Real")
+        );
     }
 }

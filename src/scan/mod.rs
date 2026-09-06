@@ -69,7 +69,7 @@ fn to_row(found: &statement::Statement, weights: &classify::Weights) -> Row {
     // a plausible class from its other words.
     let verdict = classify::classify(
         &statement::normalize(&found.text),
-        classify::Form::from_list_item(statement::is_list_item(&found.text)),
+        found.form(),
         weights,
     );
     Row {

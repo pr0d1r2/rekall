@@ -229,7 +229,7 @@ fn step_for(
 ) -> Result<Step, Error> {
     let verdict = classify::classify(
         &statement::normalize(&found.text),
-        classify::Form::from_list_item(statement::is_list_item(&found.text)),
+        found.form(),
         weights,
     );
     let label = verdict.label();

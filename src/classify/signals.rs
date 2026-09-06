@@ -54,6 +54,14 @@ const MOOD_WEIGHT: i32 = 1;
 /// its context as paragraphs, so the same words argue differently in the
 /// two places -- and the caller has to supply this, because `normalize`
 /// drops the marker before the classifier ever sees the text.
+///
+/// V64 EXTENDS this: a paragraph under a heading is in a SECTION, and
+/// sections are where a corpus states rules. A file's opening prose
+/// (before any heading) remains a paragraph; once a heading has been
+/// seen, paragraphs are promoted to the same mood treatment as list
+/// items. This recovers declarative rules like "Public interfaces
+/// preserve names, types, shapes..." that carry no signal word but sit
+/// under `## Applying X` or `## Signals of violation`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Form {
     ListItem,
@@ -62,16 +70,18 @@ pub enum Form {
 
 impl Form {
     #[must_use]
-    pub fn from_list_item(is_list_item: bool) -> Self {
+    pub fn from_context(is_list_item: bool, heading: &Option<String>) -> Self {
         if is_list_item {
-            Self::ListItem
-        } else {
-            Self::Paragraph
+            return Self::ListItem;
         }
+        if heading.is_some() {
+            return Self::ListItem;
+        }
+        Self::Paragraph
     }
 
-    fn is_list_item(self) -> bool {
-        self == Self::ListItem
+    fn is_list_item(&self) -> bool {
+        *self == Self::ListItem
     }
 }
 

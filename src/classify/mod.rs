@@ -493,13 +493,18 @@ mod tests {
         assert_eq!(label("before each commit here"), "S2");
     }
 
-    /// V40. The FORM is what the caller reads off the raw text, and
-    /// `Paragraph` is the half that suppresses a signal -- so it is the
-    /// half worth pinning.
+    /// V40 + V64. The FORM is what the caller reads off the raw text
+    /// and the heading context. A list item is always a list item. A
+    /// paragraph under a heading is promoted (V64); one before any
+    /// heading stays a paragraph (V40).
     #[test]
-    fn the_form_follows_the_marker() {
-        assert_eq!(Form::from_list_item(true), Form::ListItem);
-        assert_eq!(Form::from_list_item(false), Form::Paragraph);
+    fn the_form_follows_the_marker_and_heading() {
+        let none: Option<String> = None;
+        let some = Some("Applying X".to_string());
+        assert_eq!(Form::from_context(true, &none), Form::ListItem);
+        assert_eq!(Form::from_context(true, &some), Form::ListItem);
+        assert_eq!(Form::from_context(false, &none), Form::Paragraph);
+        assert_eq!(Form::from_context(false, &some), Form::ListItem);
     }
 
     /// V40. A bare imperative carries no modal, and the corpus this crate
