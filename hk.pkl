@@ -638,6 +638,29 @@ local fast = new Mapping<String, Step> {
   ///
   /// NO `fix`. actionlint reports and does not rewrite, and a step claiming
   /// a fix it cannot perform is worse than one that admits it has none.
+
+  /// Whether the workflow is SAFE, next to `actionlint`'s whether it is
+  /// CORRECT. Rust, and the only tool in this gate that reads a workflow as
+  /// an attack surface rather than as a schema.
+  ///
+  /// IT FOUND FIVE THINGS ON ITS FIRST RUN, all medium and all real: two
+  /// checkouts leaving the job's token in `.git/config` where a later step
+  /// or a cached `target/` could carry it off, and three jobs holding the
+  /// default `GITHUB_TOKEN` scope when none of them writes anything. Both
+  /// are one line to fix and neither would have been noticed by reading.
+  ///
+  /// The alternative considered and REJECTED was `yamllint`: it is Python,
+  /// and the fleet's own config for it disables the two rules that would
+  /// fire on a workflow file, so it would have added a dependency to check
+  /// indentation on the one YAML file `actionlint` already reads.
+  ["zizmor"] {
+    glob = List(".github/workflows/*.yml")
+    check = """
+      command -v zizmor >/dev/null 2>&1 || { echo "hk: SKIPPED zizmor -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      zizmor --offline --quiet .github/workflows/ || { echo 'hk: the workflow has a security finding. Each one names its audit and links the rule; fix it, or suppress it in the workflow with a comment that says why.' >&2; exit 1; }
+      """
+  }
+
   ["actionlint"] {
     glob = List(".github/workflows/**")
     check = """

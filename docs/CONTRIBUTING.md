@@ -17,8 +17,8 @@ still works without it, and nothing here needs an account.
 
 Entering the dev shell installs `pre-commit` and `pre-push` and puts `rekall`,
 `mth`, `itok` and `hk` on PATH. There is no second install path and no list of
-linters to set up: [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl) is the one definition, 26 steps on
-commit and 32 on push, and [`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) calls the
+linters to set up: [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl) is the one definition, 27 steps on
+commit and 33 on push, and [`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) calls the
 same one. A laptop and a runner cannot disagree about what the gate is.
 
 If a step is red, read it. Every failing step names the fix, not only the

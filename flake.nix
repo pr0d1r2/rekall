@@ -227,6 +227,13 @@
             # every other step runs with, so drift here is drift everywhere.
             pkgs.nixfmt
             pkgs.actionlint
+            # `actionlint` checks whether the workflow is CORRECT; zizmor checks
+            # whether it is SAFE, and they disagree about nothing. Rust, and the
+            # only tool here that reads a workflow as an attack surface: a
+            # checkout that leaves its token in `.git/config`, a job handed
+            # more of the GITHUB_TOKEN than it uses, an expression that
+            # interpolates attacker-controlled text into a shell.
+            pkgs.zizmor
             # Secrets, BESIDE hk's `no-private-key` rather than instead of
             # it: that builtin does exactly what its name says and nothing
             # else, so an `AWS_SECRET_ACCESS_KEY=...` line walks past it.

@@ -27,6 +27,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The token this workflow gets. READ, and only the contents -- nothing here
+# writes to the repository, opens an issue or moves a ref, and a job handed
+# more than it uses is a job an injected step can spend (zizmor:
+# excessive-permissions).
+permissions:
+  contents: read
+
 # One run per ref. A push landing while the previous run is still going
 # leaves that run answering about code nobody has any more.
 concurrency:
@@ -62,6 +69,11 @@ jobs:
       # are on, or whether it is behind.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The token is NOT left behind in `.git/config`. Nothing here
+          # pushes, and a credential that outlives the step that needed it is
+          # one a later step -- or a cached `target/` -- can carry off
+          # (zizmor: artipacked).
+          persist-credentials: false
           # Full history: gate steps read git, and a shallow clone makes them
           # answer about a repository shape that does not exist.
           fetch-depth: 0
@@ -122,6 +134,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         with:
           extra_nix_config: |
