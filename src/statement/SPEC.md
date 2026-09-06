@@ -33,14 +33,16 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
-WHAT MUST STAY TRUE HERE, one line each, numbered from the first id. Delete this line.
 V62: an INDEX ENTRY is ⊥ a STATEMENT. `- [name](file.md) -- hook` POINTS at prose; it does ⊥ STATE policy ∴ it is ⊥ a candidate, & splicing one DESTROYS the index. MEASURED 2026-09-05: a `MEMORY.md` line scored `M2` on the `always` in its hook, `apply` replaced the whole entry with a pointer, & the memory file it named was ORPHANED -- reachable by nothing -- while the runner took its slug from markdown syntax (`a-factafactmd-...`). ⊥ `apply:B20`, which FAILED loudly: this SUCCEEDS. DETECTED ⊥ assumed: a file is an INDEX where ≥2 lines are entries & ≥1 target EXISTS beside it. The SIBLING is the evidence -- a bullet carrying a link is ordinary prose, & a directory of the files it names is ⊥.
+
+V64: a STATEMENT CARRIES its SECTION. The LAST heading before it, or `None` where it sits before the first -- read off the SPLIT, ∵ `split` is the ONE pass that sees a heading at all: `is_structure` DROPS heading lines ∴ by the time the classifier has the text, WHICH SECTION it came from is gone & ⊥ recoverable from the bytes. A `#` INSIDE a FENCE is ⊥ a heading -- it is a comment or a shell prompt, & taking one hands the NEXT statement a section that exists only in an EXAMPLE (∀ skill file showing a `sh` snippet has one). The heading is CARRIED, ⊥ JUDGED: what it is WORTH is `classify:V64`'s, ∵ this module OWNS the split & that one owns the verdict. `heading` does ⊥ enter the ID (`src:V13`): a statement RE-FILED under a renamed heading is the SAME claim & ! keep its id, ⊥ silently become a new row whose ledger entry points nowhere.
 
 ## §T TASKS
 
 id|status|task|cites
 T49|.|id PORTABILITY: same file via two root spellings = two ids. NAME the trap in §I|§I,`src:V13`
 T78|x|`scan` emits ⊥ statements from a DETECTED index: ≥2 entry lines & ≥1 linked target existing beside the file|V62,`apply:V60`
+T81|x|a `Statement` CARRIES the last heading before it; a fenced `#` is ⊥ one|V64,`classify:V64`
 
 ## §B BUGS
 
