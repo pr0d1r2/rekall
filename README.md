@@ -490,7 +490,7 @@ direnv allow      # or: nix develop
 hk check          # the whole gate, the same definition CI runs
 ```
 
-21 steps on commit, 27 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
+25 steps on commit, 31 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
 the loop; [`INTEGRATION.md`](docs/INTEGRATION.md) is how to put `rekall` in
 someone else's gate.
 
