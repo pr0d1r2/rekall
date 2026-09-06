@@ -638,6 +638,14 @@ local fast = new Mapping<String, Step> {
   ///
   /// NO `fix`. actionlint reports and does not rewrite, and a step claiming
   /// a fix it cannot perform is worse than one that admits it has none.
+  ["actionlint"] {
+    glob = List(".github/workflows/**")
+    check = """
+      command -v actionlint >/dev/null 2>&1 || { echo "hk: SKIPPED actionlint -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      actionlint
+      """
+  }
+
 
   /// Whether the workflow is SAFE, next to `actionlint`'s whether it is
   /// CORRECT. Rust, and the only tool in this gate that reads a workflow as
@@ -661,13 +669,6 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  ["actionlint"] {
-    glob = List(".github/workflows/**")
-    check = """
-      command -v actionlint >/dev/null 2>&1 || { echo "hk: SKIPPED actionlint -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
-      actionlint
-      """
-  }
 
   /// RELATIVE LINKS, across every tracked file rather than only markdown.
   /// README.md and the docs/ tree point at LICENSE, hk.pkl, flake.nix and
