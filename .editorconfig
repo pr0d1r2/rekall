@@ -1,0 +1,32 @@
+# What every editor should already do here, written down so it is not folk
+# knowledge. MEASURED before it was adopted, on all 111 tracked files: no
+# CRLF, no tabs, no trailing whitespace, and a final newline everywhere. A
+# rule adopted before anything violates it costs nothing; the same rule
+# adopted later ratifies whatever is already there (SPEC.md V12).
+#
+# The four universal rules below are the ones NO OTHER TOOL CLAIMS, and the
+# `editorconfig` gate step enforces exactly those four. Indentation is
+# claimed: rustfmt owns `.rs`, taplo owns `.toml`, nixfmt owns `.nix`. The
+# per-type sizes here only tell an editor what those formatters will do
+# anyway, so they are documentation rather than a second opinion.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# rustfmt's own defaults, restated so an editor does not fight it mid-file.
+# `max_width` in rustfmt.toml is the authority for the line length.
+[*.rs]
+indent_size = 4
+max_line_length = 80
+
+# Prose wraps by meaning, not by column, and the SPEC files are one long
+# line per row on purpose -- `mth` owns their shape.
+[*.md]
+max_line_length = off

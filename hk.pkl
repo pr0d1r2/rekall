@@ -525,6 +525,49 @@ local fast = new Mapping<String, Step> {
 
   /// Secrets. hk's `detect-private-key` builtin does exactly what its name
   /// says and nothing else, so a token-shaped secret walks straight past it.
+
+  /// The four formatting rules NOTHING ELSE OWNS.
+  ///
+  /// `.editorconfig` is a declaration, and a declaration no runner reads is
+  /// a wish (V22) -- editors honour it only if the person editing has the
+  /// plugin, which is exactly the enforcement-by-hope this repo refuses. So
+  /// the file lands with this step, in the same commit, and the step checks
+  /// the four rules that are genuinely unclaimed: line endings, tabs,
+  /// trailing whitespace, and the final newline.
+  ///
+  /// It does NOT check indentation width. rustfmt, taplo and nixfmt each own
+  /// that for their own files and are already in this gate; a second opinion
+  /// here would be a rule that can disagree with the formatter that runs
+  /// after it.
+  ///
+  /// No `editorconfig-checker` dependency: the whole check is four lines of
+  /// git and grep, and this repo does not add a dependency for what the
+  /// tools already present can do.
+  ///
+  /// EVERY LINE HERE MUST SUCCEED. hk runs a check under errexit, so a
+  /// bare failing test anywhere -- including inside a loop body, where it
+  /// reads as a condition and is not one -- kills the step with no message
+  /// at all. MEASURED: the first draft died on the first file that ended
+  /// correctly, reporting nothing, which is the silent failure the
+  /// `failure-says-something` runner exists to forbid and cannot see,
+  /// because it greps for a literal `exit 1`.
+  ["editorconfig"] {
+    glob = List("**/*")
+    check = """
+      fail=0
+      say() { echo "hk: $1" >&2; echo "$2" >&2; fail=1; }
+      eol=$(git ls-files --eol | grep -E '^i/(crlf|mixed)' || true)
+      [ -z "$eol" ] || say '.editorconfig says every file is LF, and these are not:' "$eol"
+      tabs=$(git ls-files -z | xargs -0 awk 'index($0, sprintf("%c", 9)) > 0 { print FILENAME }' 2>/dev/null | sort -u || true)
+      [ -z "$tabs" ] || say '.editorconfig says spaces, and these hold a tab:' "$tabs"
+      trail=$(git ls-files -z | xargs -0 grep -lIE '[[:blank:]]+$' 2>/dev/null || true)
+      [ -z "$trail" ] || say '.editorconfig trims trailing whitespace, and these keep some:' "$trail"
+      last=$(git ls-files | while read -r f; do [ -f "$f" ] && [ -s "$f" ] && [ -n "$(tail -c1 "$f")" ] && echo "$f" || true; done)
+      [ -z "$last" ] || say '.editorconfig ends every file with a newline, and these do not:' "$last"
+      exit $fail
+      """
+  }
+
   ["ripsecrets"] {
     glob = List("**/*")
     check = """
