@@ -20,6 +20,18 @@ branch=$(git branch --show-current 2>/dev/null) || {
 }
 [ -z "$branch" ] && exit 0
 [ "$branch" != main ] && exit 0
-echo 'rekall: committing on `main`, and main takes MERGES only -- every change reaches it through a pull request.' >&2
-echo 'Open a branch -- `git switch -c <name>` -- and put the work there; `gh pr create` when it is ready.' >&2
+#
+# BEING ON `main` IS NOT THE VIOLATION -- having work there is. This step
+# runs at PUSH as well as at COMMIT, and pushing a merged `main` to the
+# mirror is exactly what a mirror is for. What the rule forbids is local
+# `main` carrying commits `origin/main` has never seen, which is the state
+# a direct commit creates and a merge never does.
+upstream=$(git rev-parse --verify --quiet origin/main) || {
+  echo 'rekall: no `origin/main` to compare against, so this rule has nothing to judge. Fetch first if you meant to check.' >&2
+  exit 0
+}
+ahead=$(git rev-list --count "$upstream"..HEAD 2>/dev/null) || ahead=0
+[ "$ahead" -eq 0 ] && exit 0
+printf 'rekall: %s commit(s) on `main` that `origin/main` does not have, and main takes MERGES only.\n' "$ahead" >&2
+echo 'Move them -- `git switch -c <name>` then `git reset --hard origin/main` on main -- and open a pull request.' >&2
 exit 1
