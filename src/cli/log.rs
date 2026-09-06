@@ -45,7 +45,7 @@ pub fn log_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let path = ledger::path_in(&base);
     let held = ledger::load(&path).map_err(|e| e.to_string())?;
     let mut report =
-        log::report(&held, log_filter(&args)?, instrumented(&path));
+        log::report(&held, log_filter(&args)?, instrumented(&path, &held));
     let skipped = fill_log_tokens(&mut report);
     let mut out = render_log(&report, args.json)?;
     out.warnings = skipped;
@@ -54,12 +54,19 @@ pub fn log_command(flags: &[String], env: &Env) -> Result<Output, String> {
 
 /// Has anything ever counted a fire here?
 ///
-/// The JOURNAL's existence, not its contents. `hook` creates it on the
-/// first fire and only ever appends, so its absence is proof that nothing
-/// has been counting -- which is the one thing a column of zeroes cannot
-/// tell you apart from a corpus of rules nobody needed (V55).
-fn instrumented(path: &Path) -> bool {
+/// The one thing a column of zeroes cannot tell you on its own: a corpus
+/// of rules nobody needed, or a counter nobody ever wrote (V55).
+///
+/// TWO witnesses, because the journal is not durable (B22). `hook` creates
+/// it on the first fire and only appends, but `ledger::save` folds that
+/// tail into the rows and unlinks it -- so after the first `apply`,
+/// `revert`, `issue` or `catch` the journal is gone while the counts it
+/// carried are sitting in the ledger. A folded row with `fires > 0` is the
+/// same measurement with the tail already merged, so either witness alone
+/// means COUNTED and only both absent mean UNMEASURED (V65).
+fn instrumented(path: &Path, held: &ledger::Ledger) -> bool {
     ledger::fires_beside(path).exists()
+        || held.extracted.iter().any(|row| row.fires > 0)
 }
 
 /// The tokens RECLAIMED by each extraction, from the verbatim text the
@@ -158,17 +165,24 @@ mod tests {
     #[test]
     fn dead_lists_the_never_fired_and_drops_the_rest() {
         let dir = check_project("log-dead");
+        let (fired, quiet) = one_fired_one_quiet(&dir);
+        let said = dead_text(&dir);
+        assert!(!said.contains(&fired), "a fired artifact is not dead");
+        assert!(said.contains(&quiet), "and the quiet one is: {said}");
+    }
+
+    /// Two extractions and a fire against one of them -- the smallest
+    /// corpus where `--dead` has something to say in both directions.
+    fn one_fired_one_quiet(dir: &Path) -> (String, String) {
         let _ = std::fs::write(
             dir.join("CLAUDE.md"),
             "# Rules\n\n- never commit to `main`\n\n- always run the tests\n",
         );
-        let (fired, _) = extracted(&dir);
-        let quiet = rule_id(&dir);
-        let _ = apply_in(&dir, &[&quiet, "--auto-approve"]);
-        record_a_firing(&dir, &fired);
-        let said = dead_text(&dir);
-        assert!(!said.contains(&fired), "a fired artifact is not dead");
-        assert!(said.contains(&quiet), "and the quiet one is: {said}");
+        let (fired, _) = extracted(dir);
+        let quiet = rule_id(dir);
+        let _ = apply_in(dir, &[&quiet, "--auto-approve"]);
+        record_a_firing(dir, &fired);
+        (fired, quiet)
     }
 
     /// Through the JOURNAL, which is the path `hook` uses. Writing the
@@ -178,6 +192,34 @@ mod tests {
     fn record_a_firing(dir: &Path, id: &str) {
         let path = ledger::path_in(dir);
         let _ = ledger::record_fire(&ledger::fires_beside(&path), id);
+    }
+
+    /// What every mutating verb does after a fire: load, fold, save,
+    /// unlink the journal. B22 is what that costs when the report reads
+    /// only the journal.
+    fn fold_the_journal(dir: &Path) {
+        let path = ledger::path_in(dir);
+        let held = ledger::load(&path).unwrap_or_default();
+        let _ = ledger::save(&path, &held);
+    }
+
+    /// V65. The count outlives its journal, so the answer must too: after
+    /// the fold the fired row is still not dead, the quiet one still is,
+    /// and the banner that says nothing was ever counted stays away --
+    /// it was appearing over rows that carried the counts themselves.
+    #[test]
+    fn a_folded_count_still_answers_dead() {
+        let dir = check_project("log-dead-folded");
+        let (fired, quiet) = one_fired_one_quiet(&dir);
+        fold_the_journal(&dir);
+        assert!(
+            !ledger::fires_beside(&ledger::path_in(&dir)).exists(),
+            "the fold left the journal behind, so this proves nothing"
+        );
+        let said = dead_text(&dir);
+        assert!(!said.contains("unmeasured"), "the count survived: {said}");
+        assert!(!said.contains(&fired), "a fired artifact is not dead");
+        assert!(said.contains(&quiet), "and the quiet one is: {said}");
     }
 
     #[test]
