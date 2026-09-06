@@ -132,7 +132,7 @@ T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape i
 
 
 T63|x|module-size: stop at the TEST MODULE, not any `#[cfg(test)]`, & add a TOTAL-line cap that starts payable|V50,V22
-T80|.|README badge block GENERATED between its markers: `check` renders & diffs, `fix` writes ∴ ALL 8 numbers DERIVED, alt-vs-URL drift IMPOSSIBLE ⊥ detected. Step counts from `hk run <hook> --plan --json` -- hk's OWN plan, ∵ parsing `hk.pkl` is a 2nd reading of the gate definition (V23)|V22,V23
+T80|x|README badge block GENERATED between its markers: `check` renders & diffs, `fix` writes ∴ ALL 8 numbers DERIVED, alt-vs-URL drift IMPOSSIBLE ⊥ detected. Step counts from `hk run <hook> --plan --json` -- hk's OWN plan, ∵ parsing `hk.pkl` is a 2nd reading of the gate definition (V23)|V22,V23
 
 ## §B BUGS
 

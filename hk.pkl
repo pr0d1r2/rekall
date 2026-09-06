@@ -36,6 +36,90 @@ env {
 /// the target directory, so two cargo jobs launched in parallel do not run in
 /// parallel; the second blocks on "Blocking waiting for file lock on build
 /// directory", which READS AS A HANG.
+/// The BADGE BLOCK's renderer, defined ONCE and shared by both halves of the
+/// `badges` step below (V23). A generator whose check and fix render
+/// separately is two renderers, and the one that rots is whichever runs less.
+///
+/// EVERY NUMBER IS DERIVED, and that is the point rather than a convenience.
+/// A badge's alt text and its shields.io URL are filled from the SAME shell
+/// variable, so the drift that put `![invariants 59]` in front of an
+/// `invariants-63` URL is not merely detected -- it cannot be written.
+///
+/// STEP COUNTS COME FROM HK'S OWN PLAN, never from a line-range parse of this
+/// file. hk.pkl is the gate DEFINITION and a second reading of it is the
+/// second rule set V23 forbids. `--plan` evaluates without executing, and it
+/// lists every DEFINED step whatever its file-match status, so the count does
+/// not move with whatever happens to be staged.
+///
+/// `< /dev/null` IS LOAD-BEARING on the pre-push call. A real pre-push hook
+/// reads its refs from stdin, `hk run pre-push` honours that contract, and
+/// without the redirect it BLOCKS on an inherited terminal. The first draft
+/// hung for two minutes producing no output at all, which is the failure mode
+/// V28 cares about: silence that looks like work.
+///
+/// NO BACKSLASHES, for the reason `shipped-links` records: pkl does not
+/// collapse them in a triple-quoted string, so one written here reaches the
+/// shell doubled. Bracket classes do the same work and survive the trip.
+///
+/// The PLATFORM and `built with` badges stay LITERAL, deliberately. flake.nix
+/// declares four systems and the block shows four platform badges, but the
+/// correspondence is editorial: `intel linux` and `amd linux` are one system,
+/// and `x86_64-darwin` is supported with no badge at all -- the same gap
+/// ci.yml names out loud. Deriving them would invent a mapping that is not
+/// there, which is worse than writing the four lines down.
+///
+/// A source that reads EMPTY or ZERO aborts the render. A generator that
+/// silently emits `direct dependencies 0` writes a confident wrong number
+/// into the file it exists to keep true.
+local renderBadges = """
+render_badges() {
+  specs() { find . -name SPEC.md -not -path './target/*' -not -path './.git/*'; }
+  lic=$(grep -m1 '^license = ' Cargo.toml | cut -d'"' -f2)
+  ed=$(grep -m1 '^edition = ' Cargo.toml | cut -d'"' -f2)
+  msrv=$(grep -m1 '^rust-version = ' Cargo.toml | cut -d'"' -f2)
+  deps=$(awk 'f && /^[[]/ {exit} /^[[]dependencies[]]/ {f=1; next} f && /^[a-zA-Z0-9_.-]+ *=/ {n++} END {print n+0}' Cargo.toml)
+  cov=$(awk '/^lines /{print $2}' .coverage)
+  inv=$(specs | xargs grep -ho '^V[0-9]*' 2>/dev/null | sort -u | wc -l | tr -d ' ')
+  bug=$(specs | xargs grep -ho '^B[0-9]*' 2>/dev/null | sort -u | wc -l | tr -d ' ')
+  nod=$(specs | wc -l | tr -d ' ')
+  com=$(hk run pre-commit --plan --json -a < /dev/null 2>/dev/null | grep -c '"orderIndex"')
+  pus=$(hk run pre-push --plan --json -a < /dev/null 2>/dev/null | grep -c '"orderIndex"')
+  for v in "$lic" "$ed" "$msrv" "$deps" "$cov" "$inv" "$bug" "$nod" "$com" "$pus"; do
+    case "$v" in
+      ''|0) echo 'hk: a badge source read EMPTY or ZERO, so nothing was rendered. One of Cargo.toml, .coverage, the SPEC.md set, or hk own plan did not answer. Fix the source -- a badge is not worth a guessed number.' >&2; exit 1 ;;
+    esac
+  done
+  cat <<BADGES
+<!-- BEGIN badges -->
+[![License: $lic](https://img.shields.io/badge/license-$lic-blue.svg)](LICENSE)
+[![edition $ed](https://img.shields.io/badge/edition-$ed-000000?logo=rust&logoColor=white)](Cargo.toml)
+[![MSRV $msrv](https://img.shields.io/badge/MSRV-$msrv-000000?logo=rust&logoColor=white)](Cargo.toml)
+[![direct dependencies $deps](https://img.shields.io/badge/direct_dependencies-$deps-brightgreen)](docs/THIRD-PARTY-NOTICES.md)
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)
+[![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
+
+[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
+[![gate steps $com commit / $pus push](https://img.shields.io/badge/gate_steps-${com}_commit_%2F_${pus}_push-6E4AFF)][hk]
+[![coverage floor $cov%](https://img.shields.io/badge/coverage_floor-%E2%89%A5$cov%25-brightgreen)](.coverage)
+[![invariants $inv](https://img.shields.io/badge/invariants-$inv-6E4AFF)](SPEC.md)
+[![bugs logged $bug](https://img.shields.io/badge/bugs_logged-$bug-6E4AFF)](SPEC.md)
+[![federated nodes $nod](https://img.shields.io/badge/federated_nodes-$nod-6E4AFF)](docs/FEDERATION.md)
+
+[![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]
+[![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)][flake]
+[![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)][flake]
+[![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)][flake]
+[![arm macos](https://img.shields.io/badge/macos-5277C3?logo=arm&logoColor=white)][flake]
+
+[![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)
+[![built with Opus 5](https://img.shields.io/badge/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)
+[![built with SDD](https://img.shields.io/badge/built_with-spec--driven_development-D97757)](SPEC.md)
+<!-- END badges -->
+BADGES
+}
+
+"""
+
 local fast = new Mapping<String, Step> {
   /// THE PRESENCE GATE (V26). A missing runner is NOT a pass.
   ///
@@ -147,13 +231,56 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// The README's COUNTS, against the specs they claim to count.
+  /// The README BADGE BLOCK, generated between the markers it already carried
+  /// (T80). `check` renders and diffs; `fix` splices the render back in. hk
+  /// runs a step's `fix` only when its `check` FAILS, so the README is
+  /// rewritten on drift and never otherwise.
   ///
-  /// Five numbers -- invariants, bug rows, landed tasks, open tasks, nodes --
-  /// appear in badges and in prose, and every one of them drifted this
-  /// session while the gate stayed green: 54 against 58, 10 against 18, 16
-  /// against 23. They are exactly V22's subject, a figure DECLARED with
-  /// nothing reading it, and the fix is a runner rather than a habit.
+  /// WHY GENERATE rather than widen `readme-counts` to cover more numbers.
+  /// The block holds eight declared figures and each was written three times
+  /// -- alt text, shields.io URL, and the prose beside it. `readme-counts`
+  /// read three of them, and only the URL copy of those three, so two numbers
+  /// drifted green: `![invariants 59]` against a 63 URL, and `gate steps 21
+  /// commit / 27 push` against a real 23 and 29, wrong in BOTH copies with
+  /// nothing anywhere holding the right figure. That is V22's own defect
+  /// living inside the runner written to prevent it, and gating a third copy
+  /// would only have made the next one fail louder. Rendering removes the
+  /// copies instead.
+  ///
+  /// The renderer is `renderBadges` above, shared with `fix` so there is one
+  /// definition and two callers rather than two renderers (V23).
+  ["badges"] {
+    glob = List("README.md", "Cargo.toml", ".coverage", "hk.pkl", "SPEC.md", "src/**/SPEC.md")
+    check = renderBadges + """
+      mkdir -p target
+      render_badges > target/badges.rendered
+      awk '/BEGIN badges/,/END badges/' README.md > target/badges.current
+      diff -q target/badges.current target/badges.rendered >/dev/null || { echo 'hk: the README badge block DRIFTED from the sources it is rendered from. It is GENERATED -- run `hk fix -S badges` to re-render it, and do not hand-edit between the markers. The difference:' >&2; diff target/badges.current target/badges.rendered >&2; exit 1; }
+      """
+    /// Splices rather than rewrites the file: everything outside the markers
+    /// is a human's prose and this step has no business touching it.
+    fix = renderBadges + """
+      mkdir -p target
+      render_badges > target/badges.rendered
+      awk -v f=target/badges.rendered '/<!-- BEGIN badges -->/ { while ((getline l < f) > 0) print l; s=1; next } /<!-- END badges -->/ { s=0; next } !s { print }' README.md > target/README.new || { echo 'hk: the badge block could not be spliced back into README.md. Check that both markers are still present and on their own lines.' >&2; exit 1; }
+      mv target/README.new README.md
+      """
+  }
+
+  /// The README's PROSE counts, against the specs they claim to count.
+  ///
+  /// Four numbers -- invariants, bug rows, and the landed/open task split --
+  /// appear in SENTENCES in the README body, and every one of them drifted in
+  /// a single session while the gate stayed green: 54 against 58, 10 against
+  /// 18, 16 against 23. They are exactly V22's subject, a figure DECLARED
+  /// with nothing reading it, and the fix is a runner rather than a habit.
+  ///
+  /// THE BADGE COPIES USED TO BE CHECKED HERE and no longer are. `badges`
+  /// above GENERATES them (T80), which is strictly stronger than comparing
+  /// them: a figure rendered from its source cannot disagree with it, so
+  /// there is nothing left to compare. What stays is the prose, which is a
+  /// human's sentences -- generating those would mean authoring them, and a
+  /// generator that writes prose is a generator nobody trusts to run.
   ///
   /// INLINE, and not a script under `.rekall/rules/`. That directory belongs
   /// to EXTRACTED artifacts: every file in it is claimed by a ledger row that
@@ -175,14 +302,11 @@ local fast = new Mapping<String, Step> {
       fail=0
       same() {
         [ "$2" = "$3" ] && return 0
-        echo "hk: README says $1 is $2; the specs hold $3. Fix the badge AND the prose beside it -- both are hand-written and drift apart (V22)." >&2
+        echo "hk: README says $1 is $2; the specs hold $3. Fix the SENTENCE in README.md. The badge carrying this number is GENERATED by the badges step; the prose is not, which is why it is still checked here (V22)." >&2
         fail=1
       }
       v=$(specs | xargs grep -ho '^V[0-9]*' 2>/dev/null | sort -u | wc -l | tr -d ' ')
       b=$(specs | xargs grep -ho '^B[0-9]*' 2>/dev/null | sort -u | wc -l | tr -d ' ')
-      same invariants "$(num 'invariants-[0-9]+')" "$v"
-      same 'bug rows' "$(num 'bugs_logged-[0-9]+')" "$b"
-      same nodes "$(num 'federated_nodes-[0-9]+')" "$(specs | wc -l | tr -d ' ')"
       same 'tasks landed' "$(num 'at [0-9]+ landed')" "$(rows '^T[0-9]*|x|')"
       same 'tasks open' "$(num 'and [0-9]+ remaining')" "$(rows '^T[0-9]*|[.]|')"
       same 'invariants (prose)' "$(grep -oE 'truth . [0-9]+ invariants' README.md | grep -oE '[0-9]+')" "$v"
