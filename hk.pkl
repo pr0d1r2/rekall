@@ -454,7 +454,7 @@ local fast = new Mapping<String, Step> {
 
   /// `nixfmt --check` gates the flake itself: that file decides what every
   /// other step runs with, so drift there is drift everywhere.
-  /// The four steps below are OPTIONAL THIRD-PARTY tools, and V26 gives
+  /// The five steps below are OPTIONAL THIRD-PARTY tools, and V26 gives
   /// them the other treatment: absent means SKIP, and the skip is NAMED.
   ///
   /// The guard is a PRELUDE INSIDE the check, and it was hk's own
@@ -507,6 +507,36 @@ local fast = new Mapping<String, Step> {
     check = """
       command -v ripsecrets >/dev/null 2>&1 || { echo "hk: SKIPPED ripsecrets -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
       ripsecrets || { echo 'hk: a secret is in a tracked file. ROTATE it -- deleting the line does not help, because git history keeps every version of it.' >&2; exit 1; }
+      """
+  }
+
+
+  /// `actionlint` on the workflow, the ONE tracked file no other step reads
+  /// and the only one that runs on a machine nobody can attach to.
+  ///
+  /// THE TOOL WAS ALREADY PROVISIONED AND CALLED BY NOTHING. flake.nix put
+  /// actionlint in the dev shell and no step invoked it, which is V22's
+  /// defect wearing a tool's clothes rather than a number's: something
+  /// DECLARED, costing setup, exiting nonzero on nothing. Shipping a linter
+  /// nobody runs is the same green-for-nothing the rest of this file refuses.
+  ///
+  /// The failure it guards is specific and dated. ci.yml has NEVER EXECUTED
+  /// -- its own header says so, and `.:B17` records that the repository it
+  /// would run on does not exist yet -- so the first time this workflow is
+  /// read by GitHub is the first push of a repository that has just gone
+  /// public. A syntax error there is discovered by strangers.
+  ///
+  /// Bare `actionlint` rather than a path list: it discovers
+  /// `.github/workflows` itself, so a second workflow added later is linted
+  /// without anyone remembering to extend an argument here.
+  ///
+  /// NO `fix`. actionlint reports and does not rewrite, and a step claiming
+  /// a fix it cannot perform is worse than one that admits it has none.
+  ["actionlint"] {
+    glob = List(".github/workflows/**")
+    check = """
+      command -v actionlint >/dev/null 2>&1 || { echo "hk: SKIPPED actionlint -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
+      actionlint
       """
   }
 
