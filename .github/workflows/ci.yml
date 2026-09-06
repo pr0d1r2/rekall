@@ -119,6 +119,17 @@ jobs:
       # runner-side and `hk check` is dominated by compiling this crate, which
       # no binary cache can serve.
       - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        # A CACHE PUSH MAY NOT DECIDE A BUILD. The upload runs in a POST step,
+        # after the thing it is uploading has already succeeded or failed, so
+        # its verdict is about the network and the cache service rather than
+        # about this code. MEASURED on PR #4: the build passed, `rekall-0.4.0`
+        # was pushed, and then the daemon drain timed out on one stuck path --
+        # `cachix` exited 3, the job went red, and a release was blocked by a
+        # cache being slow.
+        #
+        # The step still REPORTS: a failure is annotated on the run, so a cache
+        # that has stopped accepting anything is visible rather than silent.
+        continue-on-error: true
         with:
           name: pr0d1r2
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -171,6 +182,17 @@ jobs:
       # file at eval time, which is the one thing that would put a secret in
       # a public cache.
       - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        # A CACHE PUSH MAY NOT DECIDE A BUILD. The upload runs in a POST step,
+        # after the thing it is uploading has already succeeded or failed, so
+        # its verdict is about the network and the cache service rather than
+        # about this code. MEASURED on PR #4: the build passed, `rekall-0.4.0`
+        # was pushed, and then the daemon drain timed out on one stuck path --
+        # `cachix` exited 3, the job went red, and a release was blocked by a
+        # cache being slow.
+        #
+        # The step still REPORTS: a failure is annotated on the run, so a cache
+        # that has stopped accepting anything is visible rather than silent.
+        continue-on-error: true
         with:
           name: pr0d1r2
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
