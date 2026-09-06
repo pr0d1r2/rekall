@@ -496,5 +496,23 @@ src       10000
 # 6250 rather than 6214, so the next badge-sized addition is a decision and
 # not a re-run of this one.
 
-README.md  6250
+
+# README.md 6250 -> 6300, for a LINK to the worked example.
+#
+# `docs/EXAMPLE.md` is the measured half of the pitch: the same verbs against
+# a real public corpus of 1388 statements, including one the classifier gets
+# wrong. The README carries one line pointing at it.
+#
+# FOUR TRIMS WERE MADE FIRST AND MEASURED, and that is the reason for the
+# raise rather than an argument against it: the install line lost its cachix
+# clause (which CONTRIBUTING.md states properly), the Status paragraph lost a
+# clause, and the pointer itself was rewritten twice, ending at eleven words.
+# 6254 against 6250 after all of it. Shaving a fifth passage would be the
+# ceiling making the document worse to protect a number, which is the
+# opposite of what it is for.
+#
+# The link earns it. Every other claim in this README is measured on a corpus
+# of four statements; this is the only route to one measured on 1388.
+
+README.md  6300
 CLAUDE.md   600

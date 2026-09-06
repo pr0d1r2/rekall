@@ -59,8 +59,7 @@ direnv allow          # or: nix develop
 cargo build --release
 ```
 
-Or `cargo install rekall`, or `nix build .#default` -- the package CI builds
-and pushes to cachix.
+Or `cargo install rekall`, or `nix build .#default`.
 
 The dev shell pins the toolchain and puts `rekall`, `mth` and `itok` on PATH,
 so the crate checks its own spec and its own corpus with no global install.
@@ -339,6 +338,8 @@ c931906  CLAUDE.md:7-7  M1  fires=0  net=+2  .rekall/rules/never-commit-a-env-fi
     backup first and say in the PR how long the restore took.
 ```
 
+1388 real statements, one of them misclassified: [`EXAMPLE.md`](docs/EXAMPLE.md).
+
 `rekall log --dead` lists what has never fired. This is the answer to the file
 that only grows: rationale decays, so nobody dares delete a rule, and the
 document accretes forever. A rule that never fired is one you can drop and
@@ -488,8 +489,8 @@ its job; 0.3.0, the second way in, `catch` reading a transcript.
 0.4 is the **handover**: `rekall issue` moves a proven extraction to the
 registry that tends it with no window where the rule is enforced by nothing,
 and `check` refuses a skill nothing can load. The candidate that came first
-earned its keep — `0.4.0-rc.1` was cut, run against a real corpus, and found
-three bugs before this number was spent.
+earned its keep: `0.4.0-rc.1` was run against a real corpus and found three
+bugs before this number was spent.
 
 The spec is FEDERATED -- 23 nodes, one per module, each owning the rules for
 its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
