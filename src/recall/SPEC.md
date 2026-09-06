@@ -33,7 +33,13 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
+V70: `recall` reports the MATCH & what the match BUYS, ⊥ the match alone. ONE matcher with `hook` stands (`.:V18`): both answer the same question about the same blocks. What DIFFERS is the delivery -- an `S` payload is INJECTED on a match, an `M` RUNNER is EXECUTED & speaks only where it finds a violation ∴ `hook` answers `{}` for a matched rule on a clean tree, which is CORRECT & reads as a contradiction against a row saying only "trigger matched". ∴ the reason line NAMES the delivery. REJECTED: running the rule from `recall` -- it is report-only (`.:V7`) & a report that executes arbitrary scripts to fill a column is ⊥ a report.
 
 ## §T TASKS
 
 id|status|task|cites
+
+## §B BUGS
+
+id|date|cause|fix
+B28|2026-09-06|`recall` printed `load ... (trigger matched)` for an `M` rule while `hook` answered `{}` on the same situation, against a README saying "what `recall` prints is what `hook` decides". BOTH were right -- the tree was clean, so the runner had nothing to say -- & the ROW overclaimed. MEASURED while dogfooding a real extraction in `set-and-setting`: `check` green, payload marked, trigger matched, nothing delivered|V70

@@ -12,8 +12,8 @@
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
 [![gate steps 27 commit / 33 push](https://img.shields.io/badge/gate_steps-27_commit_%2F_33_push-6E4AFF)][hk]
 [![coverage floor 99.33%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.33%25-brightgreen)](.coverage)
-[![invariants 69](https://img.shields.io/badge/invariants-69-6E4AFF)](SPEC.md)
-[![bugs logged 27](https://img.shields.io/badge/bugs_logged-27-6E4AFF)](SPEC.md)
+[![invariants 70](https://img.shields.io/badge/invariants-70-6E4AFF)](SPEC.md)
+[![bugs logged 28](https://img.shields.io/badge/bugs_logged-28-6E4AFF)](SPEC.md)
 [![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]
@@ -323,9 +323,10 @@ Its runner's output arrives as context and never as a veto: a tool in the
 request path of every call that can block is a tool one bad rule turns into an
 outage.
 
-`recall` and `hook` are one matcher behind two front doors. What `recall`
-prints is what `hook` decides; when that stopped being true it was a logged
-bug, not a footnote.
+`recall` and `hook` are one matcher behind two front doors, and `recall`
+says which door: a skill that matches is INJECTED, a rule that matches is
+RUN and speaks only if it fails. When the two stopped agreeing it was a
+logged bug, not a footnote.
 
 ### `log` — what fired, and what never did
 
@@ -497,7 +498,7 @@ its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
 and why the root is a route rather than a reading.
 
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
-truth — 69 invariants, each carrying the reasoning it stands on; 27 recorded
+truth — 70 invariants, each carrying the reasoning it stands on; 28 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
 what is decided and what is still open, at 32 landed and 11 remaining.
 
