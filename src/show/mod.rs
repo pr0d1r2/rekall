@@ -398,4 +398,39 @@ mod tests {
             text.contains("  - first\n  second") || text.contains("    second")
         );
     }
+
+    /// V67's disagreement half. The ledger keeps the text and not the
+    /// heading it sat under, so a row extracted under one class can
+    /// re-derive as another -- and printing only one of them would be a
+    /// claim about context this crate threw away.
+    #[test]
+    fn a_row_whose_class_moved_prints_both() {
+        let row = ledger::Extracted {
+            id: "abc1234".to_string(),
+            src: "CLAUDE.md".to_string(),
+            line_start: 1,
+            line_end: 1,
+            text: "- never commit to `main`".to_string(),
+            label: "S2".to_string(),
+            ..ledger::Extracted::default()
+        };
+        let found = from_row(&row, &classify::Weights::default());
+        assert_eq!(found.recorded.as_deref(), Some("S2"), "{found:?}");
+        assert_ne!(found.label, "S2", "the re-derived class is the fresh one");
+        assert!(render_human(&found).contains("recorded S2"));
+    }
+
+    /// The agreeing case says nothing: a line that always prints is a line
+    /// that stops meaning a disagreement.
+    #[test]
+    fn a_row_whose_class_held_prints_one() {
+        let row = ledger::Extracted {
+            text: "- never commit to `main`".to_string(),
+            label: "M1".to_string(),
+            ..ledger::Extracted::default()
+        };
+        let found = from_row(&row, &classify::Weights::default());
+        assert_eq!(found.recorded, None);
+        assert!(!render_human(&found).contains("recorded"));
+    }
 }
