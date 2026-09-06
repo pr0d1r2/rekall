@@ -10,15 +10,18 @@ name = "rekall"
 # scaffold rung (builds reproducibly, gate runs, no verb works); 0.2.0 was
 # the working rung (every verb but `catch`).
 #
-# 0.4.0-rc.1 is a CANDIDATE for the handover rung, not the rung itself. The
-# pre-release suffix is load-bearing: SemVer sorts it before 0.4.0, so nothing
-# that asks for the release picks up the candidate by accident.
+# 0.4.0 is the HANDOVER rung, CLAIMED rather than assumed: `issue` moves a
+# proven extraction to the registry that tends it with no window where the
+# rule is enforced by nothing, and `check` refuses a skill nothing can load.
+# The candidate that preceded it earned its keep -- rc.1 was cut, tested
+# against a real corpus, and found three bugs (B22, B23, B24) before this
+# number was spent. crates.io cannot delete a version, only yank it.
 #
 # 0.3.0 was the SECOND INTAKE: `catch` reads a transcript, so a rule stated
 # once in a session outlives it as a ledger candidate. Every verb section I
 # names now does its job, which is why the minor moves rather than the
 # patch -- what a consumer may rely on changed, not how much there is.
-version = "0.4.0-rc.1"
+version = "0.4.0"
 edition = "2024"
 # The FLEET PIN, not a local choice: `nixpkgs-lock` pins nixos-26.05 for
 # every repo in the fleet, and 1.95 is what it carries (SPEC.md R8). A crate

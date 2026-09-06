@@ -59,7 +59,8 @@ direnv allow          # or: nix develop
 cargo build --release
 ```
 
-Or `nix build .#default`, the pinned package CI builds. Not on crates.io.
+Or `cargo install rekall`, or `nix build .#default` -- the package CI builds
+and pushes to cachix.
 
 The dev shell pins the toolchain and puts `rekall`, `mth` and `itok` on PATH,
 so the crate checks its own spec and its own corpus with no global install.
@@ -480,14 +481,15 @@ and how to report something.
 
 ## Status
 
-**0.4.0-rc.1 is a candidate, not a rung.** 0.1.0 guaranteed a reproducible
-build and a running gate; 0.2.0, that every verb does its job; 0.3.0, the
-second way in, `catch` reading a transcript.
+**0.4.0 is the handover rung, and it is claimed rather than assumed.** 0.1.0
+guaranteed a reproducible build and a running gate; 0.2.0, that every verb does
+its job; 0.3.0, the second way in, `catch` reading a transcript.
 
-0.4 is the **handover**, and the rc exists to test it before it is claimed.
-`rekall issue` moves a proven extraction to the registry that tends it with no
-window where the rule is enforced by nothing, and `check` refuses a skill
-nothing can load. An rc publishes nothing to crates.io.
+0.4 is the **handover**: `rekall issue` moves a proven extraction to the
+registry that tends it with no window where the rule is enforced by nothing,
+and `check` refuses a skill nothing can load. The candidate that came first
+earned its keep — `0.4.0-rc.1` was cut, run against a real corpus, and found
+three bugs before this number was spent.
 
 The spec is FEDERATED -- 23 nodes, one per module, each owning the rules for
 its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
