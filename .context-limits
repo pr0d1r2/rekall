@@ -356,7 +356,41 @@
 # conversation in one day is the better use of anyone's attention.
 
 
-SPEC.md   9000
+# SPEC.md 9000 -> 9200, and the compaction was done FIRST and MEASURED.
+#
+# The entry above set the standing answer: the next addition compacts B1-B9 as
+# a block, or argues why another ceiling conversation is the better use of
+# anyone's attention. The compaction was performed -- all five root bug rows
+# rewritten tighter, no evidence dropped -- rather than costed and dismissed.
+#
+# IT BOUGHT 16 TOKENS. 8966 -> 8950. The prior pass over four of those same
+# rows bought about 130, so the second pass returned an eighth of the first.
+# That is the number three earlier entries kept promising and skipping, and it
+# settles the question instead of deferring it again: §B compaction is SPENT
+# as a lever, and no later argument may name it without a fresh measurement.
+#
+# WHAT THE RAISE BUYS: T80, the row that makes the README badge block
+# GENERATED rather than hand-written. 93 tokens, landing SPEC.md at 9043. The
+# row exists because `readme-counts` reads three of that block's eight
+# DECLARED numbers, and two of the other five had already drifted unseen --
+# V22's own defect, sitting inside the runner written to prevent it.
+#
+# The raise is 200 rather than the 43 the row needs, for the reason the
+# 8500 -> 8700 entry recorded and the 8900 -> 9000 entry repeated: a cap
+# sitting a hair above reality forces a ceiling conversation on every commit,
+# and a threshold argued that often stops being read. That leaves 157 of
+# slack, ~1.7% -- still far tighter than the ~7% this file once called
+# deliberate, and the tightness is the honest signal rather than a comfort.
+#
+# WHAT THE NEXT ADDITION HAS TO DO, since §B can no longer be the answer: the
+# remaining lever is §I, the largest section at 16 verb rows. Compacting it
+# trades CLI-contract precision for entry cost, which is a worse trade than
+# this raise. If that is the choice on the table, the answer is FEDERATING §I
+# down into the node specs that already own each verb -- moving rows, which
+# `sherd` supports and the federation step already gates -- and not a sixth
+# raise.
+
+SPEC.md   9200
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.
