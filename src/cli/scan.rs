@@ -43,9 +43,29 @@ fn apply_scan_flag<'a>(
         }
         "--top" => out.filter.top = Some(parse_count(&need(flag, rest)?)?),
         "-C" => out.cwd = Some(PathBuf::from(need(flag, rest)?)),
-        other => return Err(format!("unknown flag `{other}`")),
+        other => return positional(out, other),
     }
     Ok(())
+}
+
+/// Anything that is not a flag is a PATH, and anything that looks like a
+/// flag and is not one is still an error.
+///
+/// Told apart by the leading dash rather than by guessing: before this,
+/// every non-flag argument was reported as `unknown flag`, which called a
+/// path a flag in the one message a reader had to work from.
+fn positional(out: &mut ScanArgs, arg: &str) -> Result<(), String> {
+    match arg {
+        other if other.starts_with('-') => {
+            Err(format!("unknown flag `{other}`"))
+        }
+        // Section I's `scan [<path>...]`. A positional NARROWS the corpus
+        // the config already names; it never widens it.
+        path => {
+            out.filter.paths.push(path.to_string());
+            Ok(())
+        }
+    }
 }
 
 fn parse_level(raw: &str) -> Result<u8, String> {
@@ -71,6 +91,7 @@ pub fn scan_command(flags: &[String], env: &Env) -> Result<Output, String> {
         return Err(NO_SOURCES.to_string());
     }
     let mut outcome = inventory(&resolved, &args, &cwd, env.home.as_deref())?;
+    unreached(&args, &outcome)?;
     let skipped = fill_tokens(&mut outcome);
     let mut warnings = warnings(&outcome);
     warnings.extend(skipped);
@@ -101,6 +122,48 @@ pub(super) fn fill_tokens(outcome: &mut scan::Outcome) -> Vec<String> {
 /// nothing ever runs.
 pub(super) fn set_row_tokens(row: &mut scan::Row, count: Option<u32>) {
     row.tokens = count;
+}
+
+/// A named path the corpus never reached is a TYPO, not an empty result.
+///
+/// `--class M` matching nothing is a fact about the corpus. A path
+/// matching nothing is a fact about the argument: the file is outside the
+/// configured roots, or it is spelled wrong, and printing an empty table
+/// would report either as "clean" (V26).
+fn unreached(args: &ScanArgs, outcome: &scan::Outcome) -> Result<(), String> {
+    let seen: Vec<&str> = outcome.report.rows.iter().map(file_of).collect();
+    let missed: Vec<&str> = args
+        .filter
+        .paths
+        .iter()
+        .filter(|want| !covers(&seen, want))
+        .map(String::as_str)
+        .collect();
+    if missed.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "{NO_SUCH_PATH}`{}`. {SO_LOOK}",
+        missed.join("`, `")
+    ))
+}
+
+const NO_SUCH_PATH: &str = "no corpus file matches ";
+const SO_LOOK: &str = "Check the spelling, or run `rekall scan --sources` \
+                       to see what the configured roots actually reach";
+
+/// The `file` half of a `file:line-line` row.
+fn file_of(row: &scan::Row) -> &str {
+    row.src
+        .rsplit_once(':')
+        .map_or(row.src.as_str(), |(f, _)| f)
+}
+
+/// A directory covers everything beneath it; a file covers itself.
+fn covers(seen: &[&str], want: &str) -> bool {
+    let want = want.trim_end_matches('/');
+    seen.iter()
+        .any(|f| *f == want || f.starts_with(&format!("{want}/")))
 }
 
 pub(super) fn inventory(
@@ -267,5 +330,74 @@ mod tests {
         let _ = std::fs::write(dir.join("bad.md"), [0xff_u8, 0xfe]);
         let flags = vec!["-C".to_string(), dir.to_string_lossy().to_string()];
         assert_eq!(perform(Action::Scan(flags), &env()), 0);
+    }
+
+    /// Section I's `scan [<path>...]`, which the parser rejected as an
+    /// unknown flag until now. A positional narrows the corpus the config
+    /// already names; it never widens it.
+    fn two_file_project(name: &str) -> PathBuf {
+        let dir = project(name);
+        let _ = std::fs::create_dir_all(dir.join("docs"));
+        let _ = std::fs::write(
+            dir.join("docs").join("AGENTS.md"),
+            "- always run the linter before pushing\n",
+        );
+        dir
+    }
+
+    #[test]
+    fn a_path_narrows_the_scan_to_that_file() {
+        let dir = two_file_project("scan-one-path");
+        let all = run_in(&dir, &[]).map(|o| o.text).unwrap_or_default();
+        let one = run_in(&dir, &["CLAUDE.md"])
+            .map(|o| o.text)
+            .unwrap_or_default();
+        assert!(all.contains("docs/AGENTS.md"), "{all}");
+        assert!(!one.contains("docs/AGENTS.md"), "{one}");
+        assert!(one.contains("CLAUDE.md"), "{one}");
+    }
+
+    /// A directory covers everything beneath it, which is what anybody
+    /// typing a path at a shell means by it.
+    #[test]
+    fn a_directory_narrows_to_everything_under_it() {
+        let dir = two_file_project("scan-dir-path");
+        let text = run_in(&dir, &["docs"]).map(|o| o.text).unwrap_or_default();
+        assert!(text.contains("docs/AGENTS.md"), "{text}");
+        assert!(!text.contains("CLAUDE.md:"), "{text}");
+    }
+
+    /// A path the corpus never reached is a TYPO, not an empty result --
+    /// printing an empty table would report a misspelling as "clean".
+    #[test]
+    fn a_path_outside_the_corpus_is_an_error_not_an_empty_table() {
+        let dir = two_file_project("scan-no-such-path");
+        let why = run_in(&dir, &["docs/NOPE.md"]).err().unwrap_or_default();
+        assert!(why.contains("no corpus file matches"), "{why}");
+        assert!(why.contains("--sources"), "{why}");
+    }
+
+    /// Something that looks like a flag and is not one stays an error. The
+    /// message called a PATH a flag before this; it must not now call a
+    /// flag a path.
+    #[test]
+    fn an_unknown_flag_is_still_an_unknown_flag() {
+        let dir = two_file_project("scan-still-flags");
+        let why = run_in(&dir, &["--nope"]).err().unwrap_or_default();
+        assert!(why.contains("unknown flag"), "{why}");
+    }
+
+    /// Paths compose with the other filters rather than replacing them.
+    #[test]
+    fn a_path_and_a_class_filter_both_apply() {
+        let dir = two_file_project("scan-path-and-class");
+        let text = run_in(&dir, &["CLAUDE.md", "--class", "S"])
+            .map(|o| o.text)
+            .unwrap_or_default();
+        assert!(!text.contains("docs/AGENTS.md"), "{text}");
+        assert!(
+            text.lines().all(|l| l.is_empty() || l.contains("  S")),
+            "{text}"
+        );
     }
 }

@@ -33,7 +33,13 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 
 ## §V INVARIANTS
 
+V69: a POSITIONAL is a PATH & a PATH is a FILTER, ⊥ a root. `rekall.toml` decides what the corpus IS ∴ an argument that could WIDEN it would make the config advisory. A directory covers what is beneath it, a file covers itself, & the comparison is on the STABLE NAME `scan` already prints ∴ what narrows the output is the string the output shows. A named path the corpus never reached is a USAGE error, ⊥ an empty table: `--class M` matching nothing is a fact about the CORPUS, a path matching nothing is a fact about the ARGUMENT (`.:V26`).
 
 ## §T TASKS
 
 id|status|task|cites
+
+## §B BUGS
+
+id|date|cause|fix
+B27|2026-09-06|§I has said `rekall scan [<path>...]` since commit one & `ScanArgs` held ⊥ a path field ∴ ∀ positional hit the flag arm: `rekall scan set/skills/gnu/sed.md` answered `unknown flag`, CALLING A PATH A FLAG in the one message a reader works from. FOUND by dogfooding against a 1388-statement corpus -- wanted within FOUR MINUTES of real use|V69
