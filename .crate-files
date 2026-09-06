@@ -15,6 +15,7 @@ clippy.toml
 deny.toml
 docs/CODE_OF_CONDUCT.md
 docs/CONTRIBUTING.md
+docs/EXAMPLE.md
 docs/FEDERATION.md
 docs/INTEGRATION.md
 docs/LLM-DISCLAIMER.md
