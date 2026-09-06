@@ -46,6 +46,15 @@ pub struct Candidate<'a> {
 
 /// Why a skill did not load, or did.
 const LOADS: &str = "trigger matched";
+/// An `M` rule matched.
+///
+/// SEPARATE from `LOADS` because the two promise different things. An `S`
+/// artifact's payload is INJECTED on a match. An `M` artifact's RUNNER is
+/// executed, and it speaks only if it finds a violation -- so `hook`
+/// answers `{}` for a matched rule on a clean tree, and a reader told
+/// only "trigger matched" would call that a contradiction (B28).
+const RUNS: &str =
+    "trigger matched; the rule RUNS here and speaks only if it fails";
 const REFUSED: &str =
     "refused by the do-not-fire block, which WINS over a match";
 const NO_MATCH: &str = "trigger did not match";
@@ -148,7 +157,7 @@ fn weigh(
         return (false, REFUSED);
     }
     if trigger::matches(fire, at) {
-        return (true, LOADS);
+        return (true, if label.starts_with('M') { RUNS } else { LOADS });
     }
     (false, NO_MATCH)
 }
@@ -327,10 +336,23 @@ mod tests {
     /// runner still gates at commit; the trigger is how it additionally
     /// arrives uninvited.
     #[test]
-    fn a_mechanical_rule_with_a_trigger_loads() {
+    fn a_mechanical_rule_with_a_trigger_runs_here() {
         let held = row("aaa", "M1");
         let text = skill("path = [\"**/*.rs\"]", "");
-        assert_eq!(first(&one(&held, &text)), (true, LOADS.to_string()));
+        assert_eq!(first(&one(&held, &text)), (true, RUNS.to_string()));
+    }
+
+    /// B28. The MATCH is the same for both classes -- one matcher, V18 --
+    /// and what differs is what happens next: a skill's payload is
+    /// injected, a rule's runner is executed and may find nothing to say.
+    #[test]
+    fn a_skill_and_a_rule_match_alike_and_promise_differently() {
+        let text = skill("path = [\"**/*.rs\"]", "");
+        let rule = first(&one(&row("aaa", "M1"), &text));
+        let skill_row = first(&one(&row("bbb", "S1"), &text));
+        assert_eq!((rule.0, skill_row.0), (true, true));
+        assert_ne!(rule.1, skill_row.1);
+        assert!(rule.1.contains("speaks only if it fails"), "{}", rule.1);
     }
 
     /// The SAME emptiness, read differently by class. For an `M` it is a
