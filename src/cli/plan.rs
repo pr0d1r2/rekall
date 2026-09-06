@@ -50,6 +50,10 @@ pub fn plan_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let loaded = load_corpus(&base, env)?;
     let mut built = built_from(&args, &loaded, env, &base)?;
     fill_net(&mut built);
+    built.notes = plan::emptied(&loaded.statements, &built)
+        .iter()
+        .map(|path| plan::emptied_note(path))
+        .collect();
     emit_plan(&built, &args, &base)
 }
 
@@ -353,5 +357,36 @@ mod tests {
             .unwrap_or_default();
         assert!(why.contains("HOME is not set"), "{why}");
         assert!(why.contains("not offered"), "{why}");
+    }
+
+    /// A corpus file holding ONE statement is left with its heading and a
+    /// pointer when that statement goes. Legal -- V1 wants the pointer --
+    /// and not what anybody pictured, so the plan says it in advance.
+    #[test]
+    fn a_plan_that_empties_a_file_says_so() {
+        let dir = plan_project("empties");
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n",
+        );
+        let id = first_scan_id(&dir);
+        let text = plan_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
+        assert!(text.contains("note    "), "{text}");
+        assert!(text.contains("holds no other statement"), "{text}");
+    }
+
+    /// The note is about the FILE, so a file with something left in it
+    /// gets none. Otherwise every plan would carry one and nobody would
+    /// read the one that mattered.
+    #[test]
+    fn a_plan_that_leaves_something_behind_is_quiet() {
+        let dir = plan_project("leaves-some");
+        let _ = std::fs::write(
+            dir.join("CLAUDE.md"),
+            "# Rules\n\n- never commit to `main`\n\n- always run the tests\n",
+        );
+        let id = first_scan_id(&dir);
+        let text = plan_in(&dir, &[&id]).map(|o| o.text).unwrap_or_default();
+        assert!(!text.contains("note    "), "{text}");
     }
 }

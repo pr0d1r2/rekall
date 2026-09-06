@@ -35,7 +35,7 @@ executes it.**
 [`SPEC.md`](../SPEC.md) is the law rather than a description written
 afterwards. It carries:
 
-- **70 `§V` invariants** — what must stay true, each with the reasoning it
+- **71 `§V` invariants** — what must stay true, each with the reasoning it
   stands on rather than the rule alone.
 - **`§T` tasks** — 32 landed, 10 open. What is decided and what is not is
   visible without reading the commit log.

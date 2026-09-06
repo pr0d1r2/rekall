@@ -1,3 +1,4 @@
+use super::consent::{approved, consent_for};
 use super::{
     Env, Format, Output, load_corpus, need, one, parse_format, report,
 };
@@ -49,39 +50,6 @@ fn apply_apply_arg<'a>(
     Ok(())
 }
 
-/// How consent for a mutating run was obtained.
-///
-/// An enum rather than two booleans, because `approved(true, false)` at a
-/// call site says nothing about which is which -- the two-bool limit in
-/// clippy.toml exists for exactly this, and the three states here are a
-/// KIND rather than a pair of flags.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Consent {
-    /// `--auto-approve` was passed.
-    Flag,
-    /// A terminal was present and the user answered.
-    Answered(String),
-    /// No terminal and no flag. Silence is NOT consent: prompting into a
-    /// pipe hangs a CI job until someone kills it, and proceeding without
-    /// asking makes the DESTRUCTIVE path the quiet one (V20).
-    Unattended,
-}
-
-/// Whether this run may mutate.
-pub fn approved(consent: &Consent) -> Result<(), String> {
-    match consent {
-        Consent::Flag => Ok(()),
-        Consent::Unattended => Err(NEEDS_APPROVAL.to_string()),
-        Consent::Answered(answer) => match answer.trim() {
-            "y" | "Y" | "yes" => Ok(()),
-            _ => Err("cancelled".to_string()),
-        },
-    }
-}
-
-pub const NEEDS_APPROVAL: &str = "this would edit your corpus and stdin is not a terminal. \
-Re-run with --auto-approve if that is what you want";
-
 /// Run `apply` end to end.
 ///
 /// Order matters and is the point: resolve the plan, CHECK IT IS FRESH
@@ -92,16 +60,37 @@ pub fn apply_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let loaded = load_corpus(&base, env)?;
     let path = ledger::path_in(&base);
     let held = ledger::load(&path).map_err(|error| error.to_string())?;
-    let requested = resolve_plan(&args, &loaded, &held, hook::wired(&base))?;
+    let mut requested =
+        resolve_plan(&args, &loaded, &held, hook::wired(&base))?;
     refuse_if_stale(&requested.plan, &loaded)?;
-    let outcome = staged_outcome(&requested, &held);
-    let staged = Staged {
+    note_emptied(&mut requested.plan, &loaded);
+    let staged = staged_for(&requested, held, path, env);
+    commit(&args, &requested.plan, &base, staged)
+}
+
+fn staged_for(
+    requested: &Requested,
+    held: ledger::Ledger,
+    path: PathBuf,
+    env: &Env,
+) -> Staged {
+    let outcome = staged_outcome(requested, &held);
+    Staged {
         held,
         outcome,
         path,
         home: env.home.clone(),
-    };
-    commit(&args, &requested.plan, &base, staged)
+    }
+}
+
+/// Recomputed rather than trusted from a saved plan file: the corpus may
+/// have gained a statement in that file since the plan was written, and
+/// the note would then describe a state that no longer holds.
+fn note_emptied(built: &mut plan::Plan, loaded: &crate::scan::Loaded) {
+    built.notes = plan::emptied(&loaded.statements, built)
+        .iter()
+        .map(|path| plan::emptied_note(path))
+        .collect();
 }
 
 fn staged_outcome(
@@ -257,17 +246,30 @@ fn commit(
 ) -> Result<Output, String> {
     let pending = apply::pending(&built.steps, &staged.held);
     if pending.is_empty() {
-        return report(
-            &staged.outcome,
-            args.json,
-            vec!["nothing to do".to_string()],
-            render_apply_human,
-        );
+        let nothing = vec!["nothing to do".to_string()];
+        return report(&staged.outcome, args.json, nothing, render_apply_human);
     }
-    let named = render_apply_human(&staged.outcome, &[]);
-    approved(&consent_for(args.auto_approve, &named)?)?;
+    approved(&consent_for(
+        args.auto_approve,
+        &asked(&staged.outcome, built),
+    )?)?;
     let done = perform_apply(&pending, base, &mut staged)?;
-    report(&staged.outcome, args.json, done, render_apply_human)
+    let mut out = report(&staged.outcome, args.json, done, render_apply_human)?;
+    out.warnings.extend(built.notes.iter().cloned());
+    Ok(out)
+}
+
+/// What the human is asked to approve: every file touched, and the notes
+/// IN FRONT of the question. "This leaves the file with nothing but a
+/// heading" is something to know BEFORE answering, and V20 exists to make
+/// a moment for knowing things in.
+fn asked(outcome: &apply::Outcome, built: &plan::Plan) -> String {
+    let notes: String = built
+        .notes
+        .iter()
+        .map(|n| format!("note    {n}\n"))
+        .collect();
+    format!("{}{notes}", render_apply_human(outcome, &[]))
 }
 
 fn perform_apply(
@@ -291,46 +293,6 @@ pub(super) fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| since.as_secs())
-}
-
-/// V7: name every file BEFORE asking, so the question is informed.
-///
-/// Takes the rendered names rather than an outcome, because V20 is ONE
-/// rule and not one per verb: `apply` and `revert` both delete from the
-/// user's private memory, and a second confirm gate written for the second
-/// verb is a second place for the rule to be slightly wrong.
-pub(super) fn consent_for(
-    auto_approve: bool,
-    named: &str,
-) -> Result<Consent, String> {
-    if auto_approve {
-        return Ok(Consent::Flag);
-    }
-    eprint!("{named}");
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        return Ok(Consent::Unattended);
-    }
-    ask_at_terminal()
-}
-
-/// Read an answer from anywhere.
-///
-/// Takes the reader rather than reaching for stdin, so the parsing of a
-/// consent answer -- the part with a decision in it -- is testable without
-/// a terminal. What is left needing one is the two lines below.
-pub fn read_answer(
-    input: &mut impl std::io::BufRead,
-) -> Result<Consent, String> {
-    let mut answer = String::new();
-    input
-        .read_line(&mut answer)
-        .map_err(|error| error.to_string())?;
-    Ok(Consent::Answered(answer))
-}
-
-fn ask_at_terminal() -> Result<Consent, String> {
-    eprint!("apply these changes? [y/N] ");
-    read_answer(&mut std::io::stdin().lock())
 }
 
 fn write_all(
@@ -589,35 +551,6 @@ mod tests {
         assert_eq!(
             decide(&args(&["apply", "abc"])),
             Action::Apply(args(&["abc"]))
-        );
-    }
-
-    /// V20: off a tty, silence is not consent.
-    #[test]
-    fn without_a_terminal_and_without_the_flag_apply_refuses() {
-        assert_eq!(
-            approved(&Consent::Unattended),
-            Err(NEEDS_APPROVAL.to_string())
-        );
-        assert!(NEEDS_APPROVAL.contains("--auto-approve"));
-    }
-
-    #[test]
-    fn the_flag_is_consent_and_a_no_is_not() {
-        assert!(approved(&Consent::Flag).is_ok());
-        assert!(approved(&Consent::Answered("y\n".to_string())).is_ok());
-        assert!(approved(&Consent::Answered("yes".to_string())).is_ok());
-        assert!(approved(&Consent::Answered("n".to_string())).is_err());
-        assert!(approved(&Consent::Answered(String::new())).is_err());
-    }
-
-    /// Bare Enter means NO. The prompt reads `[y/N]`, and a destructive
-    /// default that triggers on a stray keypress is not a confirmation.
-    #[test]
-    fn an_empty_answer_cancels() {
-        assert_eq!(
-            approved(&Consent::Answered("\n".to_string())),
-            Err("cancelled".to_string())
         );
     }
 
@@ -881,22 +814,6 @@ mod tests {
         assert_eq!(perform(Action::Apply(flags), &env()), 0);
     }
 
-    #[test]
-    fn an_answer_is_read_from_any_reader() {
-        let mut input = std::io::Cursor::new(b"y\n".to_vec());
-        assert_eq!(
-            read_answer(&mut input).ok(),
-            Some(Consent::Answered("y\n".to_string()))
-        );
-    }
-
-    #[test]
-    fn an_answer_that_is_read_is_then_judged() {
-        let mut yes = std::io::Cursor::new(b"yes\n".to_vec());
-        let mut no = std::io::Cursor::new(b"\n".to_vec());
-        assert!(read_answer(&mut yes).and_then(|c| approved(&c)).is_ok());
-        assert!(read_answer(&mut no).and_then(|c| approved(&c)).is_err());
-    }
     fn skill_step(slug: &str) -> plan::Step {
         plan::Step {
             id: "abc1234".to_string(),

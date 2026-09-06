@@ -23,6 +23,7 @@ use std::path::Path;
 mod apply;
 mod catch;
 mod check;
+mod consent;
 mod env;
 mod hook;
 mod init;
@@ -37,10 +38,10 @@ mod scan;
 mod show;
 
 pub use apply::{
-    ApplyArgs, Consent, NEEDS_APPROVAL, NO_APPLY_INPUT, apply_command,
-    approved, parse_apply, read_answer, render_apply_human,
+    ApplyArgs, NO_APPLY_INPUT, apply_command, parse_apply, render_apply_human,
 };
 pub use check::{CheckArgs, Checked, check_command, parse_check};
+pub use consent::{Consent, NEEDS_APPROVAL, approved, read_answer};
 pub use hook::hook_command;
 pub use init::{InitArgs, init_command, parse_init};
 pub use log::{LogArgs, log_command, parse_log};
