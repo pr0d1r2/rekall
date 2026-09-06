@@ -44,6 +44,12 @@ pub struct Filter {
     pub class: Option<String>,
     pub sharpness: Option<u8>,
     pub top: Option<usize>,
+    /// Narrow to these corpus paths, section I's `scan [<path>...]`.
+    ///
+    /// A FILTER over what the roots already reach, never a second set of
+    /// roots: `rekall.toml` decides what the corpus IS, and a positional
+    /// argument that could widen it would make the config advisory.
+    pub paths: Vec<String>,
 }
 
 impl Filter {
@@ -58,7 +64,24 @@ impl Filter {
         let sharp_ok = self
             .sharpness
             .is_none_or(|wanted| row.sharpness == Some(wanted));
-        class_ok && sharp_ok
+        class_ok && sharp_ok && self.reaches(&row.src)
+    }
+
+    /// Does a `file:line-line` row sit under one of the named paths?
+    ///
+    /// A DIRECTORY narrows to everything beneath it and a file to itself,
+    /// which is what anybody typing a path at a shell means by it. The
+    /// comparison is on the stable name `scan` already prints, so what
+    /// narrows the output is the same string the output shows.
+    fn reaches(&self, src: &str) -> bool {
+        if self.paths.is_empty() {
+            return true;
+        }
+        let file = src.rsplit_once(':').map_or(src, |(head, _)| head);
+        self.paths.iter().any(|want| {
+            let want = want.trim_end_matches('/');
+            file == want || file.starts_with(&format!("{want}/"))
+        })
     }
 }
 
