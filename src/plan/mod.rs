@@ -84,6 +84,18 @@ pub struct Plan {
     pub format: u32,
     pub fingerprint: Vec<Fingerprint>,
     pub steps: Vec<Step>,
+    /// What the plan would do BESIDE the steps, in the reader's language.
+    ///
+    /// A note is per-FILE where a step is per-STATEMENT, which is why it
+    /// does not hang off `Step`: "this leaves the file with nothing but a
+    /// heading" is a fact about the file, and attaching it to whichever
+    /// step happened to be last would make it read as a property of that
+    /// statement.
+    ///
+    /// `default` so a plan written before this field still loads: a plan
+    /// is an artifact somebody may have committed for review (V19).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -287,6 +299,7 @@ pub fn build(
         format: FORMAT,
         fingerprint: fingerprints_for(&steps, sources),
         steps,
+        notes: Vec::new(),
     })
 }
 
@@ -378,12 +391,63 @@ fn check_one(
     }
 }
 
+/// Files this plan would leave holding no statements at all.
+///
+/// A source file in a one-concept-per-file corpus is often ONE statement,
+/// and extracting it leaves a heading and a pointer -- a skill that still
+/// exists, still loads, and says nothing. That is legal (V1 wants the
+/// pointer) and it is not what anybody pictured, so `plan` says it before
+/// the move and `apply` says it while making it.
+///
+/// Computed from the WHOLE corpus rather than from the plan alone: the
+/// question is whether anything would be LEFT, which the steps cannot
+/// answer by themselves.
+#[must_use]
+pub fn emptied(all: &[statement::Statement], plan: &Plan) -> Vec<String> {
+    let tally = tally_by_file(all, plan);
+    plan.steps
+        .iter()
+        .map(|step| step.src.as_str())
+        .filter(|src| tally.get(src).is_some_and(|(all, going)| all == going))
+        .map(str::to_string)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Per file: how many statements it holds, and how many this plan takes.
+fn tally_by_file<'a>(
+    all: &'a [statement::Statement],
+    plan: &Plan,
+) -> std::collections::BTreeMap<&'a str, (usize, usize)> {
+    let mut left = std::collections::BTreeMap::new();
+    for found in all {
+        let going = plan.steps.iter().any(|step| step.id == found.id);
+        let seen: &mut (usize, usize) =
+            left.entry(found.path.as_str()).or_insert((0, 0));
+        seen.0 = seen.0.saturating_add(1);
+        seen.1 = seen.1.saturating_add(usize::from(going));
+    }
+    left
+}
+
+/// The sentence a reader gets for an emptied file.
+#[must_use]
+pub fn emptied_note(path: &str) -> String {
+    format!(
+        "{path} holds no other statement, so it is left with its heading and a pointer -- delete it, or give it something to say"
+    )
+}
+
 /// Human rendering. The JSON carries the SAME anatomy (V17).
 #[must_use]
 pub fn render_human(plan: &Plan) -> String {
     let mut out = String::new();
     for step in &plan.steps {
         out.push_str(&render_step(step));
+    }
+    for note in &plan.notes {
+        out.push_str(&format!("note    {note}\n"));
     }
     out
 }
@@ -620,6 +684,7 @@ mod tests {
             format: FORMAT,
             fingerprint: Vec::new(),
             steps: Vec::new(),
+            notes: Vec::new(),
         }
     }
 
@@ -801,6 +866,7 @@ mod tests {
     fn reading_a_plan_recomputes_the_wiring_from_the_runner() {
         let mut plan = Plan {
             format: FORMAT,
+            notes: Vec::new(),
             fingerprint: Vec::new(),
             steps: vec![Step {
                 label: "M1".to_string(),
@@ -821,6 +887,7 @@ mod tests {
     fn a_runner_round_trips_through_the_plan_file() {
         let plan = Plan {
             format: FORMAT,
+            notes: Vec::new(),
             fingerprint: Vec::new(),
             steps: vec![Step {
                 runner: "ascii".to_string(),
@@ -828,11 +895,7 @@ mod tests {
             }],
         };
         let encoded = toml::to_string(&plan).unwrap_or_default();
-        let back: Plan = toml::from_str(&encoded).unwrap_or(Plan {
-            format: FORMAT,
-            fingerprint: Vec::new(),
-            steps: Vec::new(),
-        });
+        let back: Plan = toml::from_str(&encoded).unwrap_or(empty_plan());
         assert_eq!(first_step(&back).runner, "ascii");
     }
 }

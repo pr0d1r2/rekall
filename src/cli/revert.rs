@@ -1,4 +1,4 @@
-use super::apply::{approved, consent_for};
+use super::consent::{approved, consent_for};
 use super::{
     Env, Format, Output, load_corpus, need, one, parse_format, report,
 };

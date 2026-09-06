@@ -42,6 +42,7 @@ src/cli/SPEC.md
 src/cli/apply.rs
 src/cli/catch.rs
 src/cli/check.rs
+src/cli/consent.rs
 src/cli/env.rs
 src/cli/hook.rs
 src/cli/init.rs

@@ -172,7 +172,7 @@ fn agent_from(flags: &[String]) -> Result<hook::Agent, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::apply::read_answer;
+    use crate::cli::consent::read_answer;
 
     use crate::cli::reported;
     use crate::cli::scan::scan_command;
