@@ -63,8 +63,11 @@ comment nobody will find. The message says what was rejected and why, not only
 what changed — `git log` is the audit trail for decisions that have no other
 home.
 
-Work goes straight to `main`. There are no feature branches in this repository;
-the gate is the review.
+Work reaches `main` through a pull request -- yours too, and the gate is
+enforced on the branch rather than after the fact. The gate is still the
+review: approvals are set to zero, so nothing waits on a reviewer who does
+not exist, and what a PR buys is a place for CI to answer before the merge
+rather than after it.
 
 ## What the gate will not let you do
 
