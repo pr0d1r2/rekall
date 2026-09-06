@@ -339,7 +339,8 @@ c931906  CLAUDE.md:7-7  M1  fires=0  net=+2  .rekall/rules/never-commit-a-env-fi
     backup first and say in the PR how long the restore took.
 ```
 
-1388 real statements, one of them misclassified: [`EXAMPLE.md`](docs/EXAMPLE.md).
+1388 real statements, one misclassified, one carried into a merged PR:
+[`EXAMPLE.md`](docs/EXAMPLE.md).
 
 `rekall log --dead` lists what has never fired. This is the answer to the file
 that only grows: rationale decays, so nobody dares delete a rule, and the

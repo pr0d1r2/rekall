@@ -4,9 +4,11 @@ The README's walkthrough uses a four-line corpus so every number fits on the
 page. This is the other kind of evidence: `rekall` pointed at a real corpus
 that somebody else maintains, with the commands to reproduce it.
 
-Nothing here was extracted. Every command below is report-only — `scan`,
-`show` and `plan` do not touch a corpus, which is what makes it safe to run
-them against a repository you do not own.
+Most of it changes nothing. `scan`, `show` and `plan` are report-only, which
+is what makes them safe to run against a repository you do not own — so the
+measurements below were taken without touching that corpus at all. The last
+section is the exception: one statement carried all the way through, into a
+merged pull request.
 
 ## The corpus
 
@@ -137,6 +139,90 @@ file you can review before a byte moves.
   move, in those words.
 - **Nothing here measures whether the rules are any good.** `rekall`
   classifies what a statement can become, not whether it should exist.
+
+## One carried all the way through
+
+Everything above is report-only. This section is the other half: a single
+statement taken out of that corpus and landed as a guardrail in the
+repository it came from, in
+[set-and-setting#513](https://github.com/pr0d1r2/set-and-setting/pull/513),
+merged.
+
+The statement, `4116dcd`, was 74 tokens of always-on prose:
+
+> Always use `sed` from the dev shell (GNU sed via nixpkgs `gnused`).
+> Never use macOS built-in `/usr/bin/sed` which is BSD sed and has
+> incompatible flag syntax (e.g. `-i ''` vs `-i`). The dev shell provides
+> GNU sed on all architectures so scripts stay portable.
+
+`M1`: a fact about which binary, no judgement, and exactly the kind of rule
+an agent breaks by reflex rather than by disagreement. `rekall apply` wrote
+the runner, deleted the span, left the pointer and recorded the row —
+**net +65 tokens**. `rekall revert 4116dcd` would put the paragraph back
+verbatim.
+
+### What the runner had to get right
+
+Scoping, and it is not obvious. `set/skills/gnu/awk.md` names
+`/usr/bin/awk` **in order to forbid it**, so a rule that greps every file
+for the forbidden string fails on the prose that forbids it. The check
+reads executable content — `*.sh`, `*.bash`, `*.nix`, `*.yml`, `*.yaml`,
+`justfile` — and leaves Markdown alone. `.rekall/` is excluded for the same
+reason one line up: the script quotes the statement it enforces.
+
+### The host repository decides what a guardrail is
+
+This is the part a `plan` line cannot tell you. `rekall plan` says "add the
+script to the gate so it EXITS NONZERO on a violation", and in that
+repository the gate has opinions:
+
+- **A guardrail is a registered check.** A lefthook command missing from
+  `check-fragment-map.nix` fails `check-fragment-map-complete`; one in the
+  map but absent from `coveragePerFileClass` fails it a second way. Both
+  commands are now declared against the file classes they read.
+- **`lefthook.yml` is generated.** The steps belong in
+  `setting/integrations/lefthook/set.yml`; the assembled file is rebuilt by
+  `nix run .#mkSetting`. A first attempt edited the output and the fidelity
+  check refused it — which is this tool's own argument one layer up: a
+  generated thing has one source, and editing the output is how the two
+  stop agreeing.
+- **No execute bit.** `rekall apply` writes the runner `0755` and that
+  repository's `execute-permissions` check forbids it. The step invokes
+  `sh <path>`, so the bit was never load-bearing there.
+- **A new script needs a spec.** `tdd-order-bats` refused the push until
+  one existed.
+
+None of that is rekall's business to know, and none of it is optional. An
+extraction lands in somebody else's repository on that repository's terms.
+
+### The spec found a real defect in the rule
+
+Writing the seven bats cases immediately caught something reading had not:
+the runner's self-exclusion is **by path**. A copy of the script anywhere
+outside `.rekall/` matches its own quoted payload and reports itself as a
+violation. That is a property of where `apply` installs it, and it is now
+pinned by a test rather than assumed.
+
+### What it cost rekall
+
+Pointing the tool at prose it did not grow up with found three defects in
+the tool, each fixed before this section was written:
+
+| | found | |
+|---|---|---|
+| `B27` | `scan [<path>...]` was documented and unimplemented; a path was reported as an `unknown flag` | [#7](https://github.com/pr0d1r2/rekall/pull/7) |
+| `B28` | `recall` said `load` for a rule `hook` would keep silent about, against a README claiming they cannot disagree | [#8](https://github.com/pr0d1r2/rekall/pull/8) |
+| `B29` | an extraction that empties its source file said nothing — which is what happened to `sed.md` | [#9](https://github.com/pr0d1r2/rekall/pull/9) |
+
+The first was wanted within four minutes of real use. The second needs a
+matched trigger and a passing runner at the same moment, which only a real
+rule in a real repository produces. The third is visible in this very
+example: `set/skills/gnu/sed.md` is now a heading and a pointer, because
+the whole file was that one statement.
+
+Whether such a file should then be deleted is a decision for whoever owns
+the corpus. `rekall` reports it and does not act: the pointer is what makes
+the extraction reversible.
 
 ## Reproducing this
 
