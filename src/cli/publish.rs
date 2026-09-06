@@ -100,3 +100,25 @@ pub(super) fn make_runnable(path: &Path) -> Result<(), String> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
         .map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// Both ways out before any filesystem work. A mechanical rule is not
+    /// published at all, and an artifact path with no skill slug in it is
+    /// nothing this can link -- neither is an error, because `apply`
+    /// calls this for every step it writes.
+    #[test]
+    fn nothing_to_publish_is_not_a_failure() {
+        let base = PathBuf::from("target").join("publish-none");
+        let _ = std::fs::create_dir_all(&base);
+        assert!(publish_artifact(&base, "M1", ".rekall/rules/x.sh").is_ok());
+        assert!(publish_artifact(&base, "S1", "not-a-skill.txt").is_ok());
+        assert!(
+            !base.join(".claude").exists(),
+            "neither call may create a host directory"
+        );
+    }
+}

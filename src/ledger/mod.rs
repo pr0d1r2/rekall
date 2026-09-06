@@ -762,4 +762,19 @@ mod tests {
     fn a_path_with_no_parent_needs_no_directory() {
         assert!(ensure_dir(Path::new("/")).is_ok());
     }
+
+    /// A ledger that cannot be written is an error and not a silent
+    /// no-op: every mutating verb saves through here, and a lost row is
+    /// an extraction with no way back (V9).
+    #[test]
+    fn a_ledger_that_cannot_be_written_says_so() {
+        let dir = PathBuf::from("target").join("ledger-unwritable");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("ledger.toml");
+        let _ = std::fs::create_dir_all(&path);
+        assert!(matches!(
+            save(&path, &Ledger::default()),
+            Err(Error::Write { .. })
+        ));
+    }
 }

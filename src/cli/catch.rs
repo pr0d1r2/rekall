@@ -533,4 +533,32 @@ mod tests {
             std::time::UNIX_EPOCH
         );
     }
+
+    /// The common case needs no path a human would have to look up
+    /// (V46): with no argument, the newest file under a real root is what
+    /// gets read.
+    #[test]
+    fn no_argument_reads_the_newest_file_under_a_root() {
+        let at = home_with("newestroot", &[".claude/projects"]);
+        let _ = std::fs::write(at.join(".claude/projects/a.jsonl"), "{}\n");
+        let found = session_path(&CatchArgs::default(), &env_home(&at));
+        assert!(
+            found.as_ref().is_ok_and(|p| p.ends_with("a.jsonl")),
+            "{found:?}"
+        );
+        let _ = std::fs::remove_dir_all(&at);
+    }
+
+    /// A root that exists and holds nothing is a different answer from a
+    /// root that does not exist, and the message names every place it
+    /// looked rather than the first.
+    #[test]
+    fn roots_that_hold_nothing_name_every_place_looked() {
+        let at = home_with("emptyroots", &[".claude/projects"]);
+        let why = session_path(&CatchArgs::default(), &env_home(&at))
+            .err()
+            .unwrap_or_default();
+        assert!(why.contains("projects"), "{why}");
+        let _ = std::fs::remove_dir_all(&at);
+    }
 }

@@ -844,4 +844,33 @@ mod tests {
             USAGE_EXIT
         );
     }
+
+    /// `catch` reports like the other eight, and the arm that says so is
+    /// only exercised through `perform` -- its own tests call the command
+    /// directly, which is the shape that let this one go unrun.
+    #[test]
+    fn catch_reports_through_the_same_seam_as_the_rest() {
+        let dir = PathBuf::from("target").join("cli-catch-dispatch");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("s.jsonl");
+        let _ = std::fs::write(&path, "{}\n");
+        let flags =
+            args(&["-C", &dir.to_string_lossy(), &path.to_string_lossy()]);
+        assert_eq!(perform(Action::Catch(flags), &env()), 0);
+    }
+
+    /// A config that names no root is a config nothing can be read from,
+    /// and the message says which file to edit rather than reporting an
+    /// empty corpus as a clean one.
+    #[test]
+    fn a_corpus_with_no_roots_is_an_error_not_an_empty_answer() {
+        let dir = PathBuf::from("target").join("cli-no-roots");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("rekall.toml"), "[sources]\nroots = []\n");
+        let why = load_corpus(&dir, &env()).err().unwrap_or_default();
+        assert_eq!(why, NO_SOURCES);
+    }
 }

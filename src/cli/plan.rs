@@ -335,4 +335,23 @@ mod tests {
             "plan did not land in the project"
         );
     }
+
+    /// B13's shape where the file is somebody's memory: a corpus path
+    /// under `~` cannot be resolved with HOME unset, so the plan is not
+    /// offered rather than offered and refused at `apply`.
+    #[test]
+    fn a_plan_it_could_not_execute_is_not_offered() {
+        let built = plan::Plan {
+            steps: vec![plan::Step {
+                src: "~/CLAUDE.md".to_string(),
+                ..plan::Step::default()
+            }],
+            ..plan::Plan::default()
+        };
+        let why = refuse_unresolvable(&built, Path::new("."), None)
+            .err()
+            .unwrap_or_default();
+        assert!(why.contains("HOME is not set"), "{why}");
+        assert!(why.contains("not offered"), "{why}");
+    }
 }

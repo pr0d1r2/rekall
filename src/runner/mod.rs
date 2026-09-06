@@ -237,11 +237,11 @@ mod tests {
         let path = script("hang.sh", "#!/bin/sh\nsleep 30\n");
         let started = Instant::now();
         let out = run(&path, Duration::from_millis(80));
+        let took = started.elapsed();
         assert!(matches!(out, Fired::TimedOut(_)), "{out:?}");
         assert!(
-            started.elapsed() < Duration::from_secs(5),
-            "the wait was not bounded: {:?}",
-            started.elapsed()
+            took < Duration::from_secs(5),
+            "the wait was not bounded: {took:?}"
         );
         assert!(
             out.advice()

@@ -25,7 +25,9 @@ pub struct Fingerprint {
 }
 
 /// One statement's extraction.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub struct Step {
     pub id: String,
     pub src: String,
@@ -72,7 +74,12 @@ pub struct Step {
     pub wiring: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// `Default` on both so a test can state the ONE field it is about. A
+/// fixture spelling out ten fields to assert on one hides which one
+/// mattered.
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
 pub struct Plan {
     pub format: u32,
     pub fingerprint: Vec<Fingerprint>,

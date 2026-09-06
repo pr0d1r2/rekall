@@ -265,14 +265,23 @@ mod tests {
 
     #[test]
     fn a_caught_statement_carries_its_argument() {
-        let Some(first) = caught(CORRECTION).caught.first().cloned() else {
-            assert!(caught(CORRECTION).caught.is_empty(), "expected one row");
-            return;
-        };
-        assert!(!first.id.is_empty(), "a candidate needs an id");
-        assert_eq!(first.src, "session.jsonl");
-        assert!(!first.label.is_empty(), "a candidate carries its class");
-        assert!(!first.signals.is_empty(), "and why it was classed so");
+        let out = caught(CORRECTION);
+        let shape: Vec<String> = out.caught.iter().map(argument_of).collect();
+        let want = "id=true src=session.jsonl class=true signals=true";
+        assert_eq!(shape, vec![want.to_string()], "{out:?}");
+    }
+
+    /// Every part of the argument in one string, so the assertion is a
+    /// single comparison against a single expectation rather than four
+    /// that can each pass while the row is wrong.
+    fn argument_of(row: &Caught) -> String {
+        format!(
+            "id={} src={} class={} signals={}",
+            !row.id.is_empty(),
+            row.src,
+            !row.label.is_empty(),
+            !row.signals.is_empty()
+        )
     }
 
     /// Two turns saying the same thing are one candidate's worth of id, so
@@ -331,5 +340,17 @@ mod tests {
         let out = caught(&format!("{CODEX_USER}\n{claude}"));
         assert_eq!(out.turns, 2, "one shape must not shadow the other");
         assert_eq!(out.skipped, 0);
+    }
+
+    /// A turn whose content is neither a string nor a block list carries
+    /// no text this can read. Unknown shapes are IGNORED rather than
+    /// refused (V46) -- a harness is free to add a field, and a reader
+    /// that dies on one is a reader that stops working on an upgrade.
+    #[test]
+    fn a_content_shape_it_does_not_know_reads_as_empty() {
+        let odd = "{\"type\":\"user\",\"message\":{\"content\":42}}\n";
+        let out = caught(odd);
+        assert!(out.caught.is_empty(), "{out:?}");
+        assert_eq!(out.skipped, 0, "a shape it can parse is not unreadable");
     }
 }

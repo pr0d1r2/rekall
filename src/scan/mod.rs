@@ -785,4 +785,13 @@ mod tests {
         assert_eq!(row.label, "");
         assert!(row.signals.is_empty());
     }
+
+    /// A path with no parent has no directory to look the targets up in,
+    /// so it is not an index -- the same answer as too few targets, and
+    /// reached before any filesystem call.
+    #[test]
+    fn a_parentless_path_is_not_an_index() {
+        let listed = "- [one](a.md)\n- [two](b.md)\n";
+        assert!(!is_index(Path::new("/"), listed));
+    }
 }

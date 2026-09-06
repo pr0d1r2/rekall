@@ -557,4 +557,35 @@ mod tests {
             "the artifact resolved against the wrong root: {artifact}"
         );
     }
+
+    /// The mirror of `plan`'s refusal: a row whose source sits under `~`
+    /// with HOME unset cannot be put back, and saying so beats writing
+    /// the statement somewhere it never came from.
+    #[test]
+    fn a_row_it_cannot_resolve_says_why() {
+        let row = ledger::Extracted {
+            src: "~/CLAUDE.md".to_string(),
+            ..ledger::Extracted::default()
+        };
+        let why = restored_text(&row, Path::new("."), None)
+            .err()
+            .unwrap_or_default();
+        assert!(why.contains("HOME"), "{why}");
+        assert!(why.contains("cannot be put back"), "{why}");
+    }
+
+    /// `unpublish` is best effort in both directions: a mechanical rule
+    /// has no link to remove, and removing a skill's link is what stops
+    /// the host indexing a file the ledger no longer names.
+    #[test]
+    fn unpublish_skips_a_rule_and_removes_a_skill_link() {
+        let dir = revert_project("unpublish");
+        unpublish(&dir, ".rekall/rules/never-commit.sh");
+        let link = dir.join(".claude").join("skills").join("slug");
+        let _ = std::fs::create_dir_all(link.parent().unwrap_or(&dir));
+        let _ = std::fs::write(dir.join("target.md"), "x");
+        let _ = std::os::unix::fs::symlink("../../target.md", &link);
+        unpublish(&dir, ".rekall/skills/slug/SKILL.md");
+        assert!(link.symlink_metadata().is_err(), "the link survived");
+    }
 }

@@ -93,4 +93,29 @@
 # PATH. Nothing was excluded and nothing stopped being asserted.
 
 
-lines 99.26
+
+# RAISED 2026-09-06, 99.26 -> 99.33, and MET for the first time since it was
+# written. The two entries above record the floor standing above the
+# measurement -- 99.07 against 99.26 -- deliberately, with the 0.3 fall margin
+# absorbing the difference rather than the number being lowered to fit.
+#
+# WHAT WAS COVERED, all of it reachable and none of it excluded: `session_path`
+# picking the newest transcript under a real root and the error when every root
+# is empty; `catch` dispatching through the same seam as the other reporting
+# verbs; `load_corpus` on a config that names no root; `plan` and `revert`
+# refusing a `~` path with HOME unset, which is the same rule at both ends;
+# `publish_artifact`'s two ways out before any filesystem work; `unpublish` on
+# a rule and on a skill with a live link; `save` on a ledger path that cannot
+# be written; a content shape `catch` does not know; a parentless path in the
+# index test; and the class-moved arm of `show`'s ledger lookup.
+#
+# Two dead assertion arms went with them -- a `let ... else` and a loop body
+# that could not run -- because an unexecutable assertion is not coverage owed,
+# it is a test saying nothing.
+#
+# THE RESIDUE IS UNCHANGED IN KIND, and is what the remaining gap is: the
+# binary entry, the tty prompt V20 requires, `Unimplemented` (kept on purpose
+# for the day section I names a verb before this build performs it), OS errors
+# on handles that opened, and `itok` absent from PATH.
+
+lines 99.33
