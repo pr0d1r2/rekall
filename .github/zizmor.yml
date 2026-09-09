@@ -1,0 +1,48 @@
+# zizmor's IGNORE LEDGER -- the debt, written down rather than absorbed.
+#
+# The gate runs `--persona=pedantic`, which is stricter than the findings this
+# repository is obliged to fix: pedantic reports code smells, and a smell is a
+# claim about how a file will AGE rather than about what it does today.
+# Running it anyway is the point -- conforming to the stricter reading is what
+# produces the more pristine file. This ledger is the price of NOT conforming,
+# stated once and in the open.
+#
+# IT IS EMPTY, and that is a result rather than a placeholder. Pedantic's two
+# findings against `ci.yml` were both `anonymous-definition`, and this
+# repository could simply FIX them: `main` carries no required status checks
+# and no ruleset, so naming a job strands nothing. A sibling running the same
+# audit had to ledger exactly that finding, because twelve required checks are
+# named after its job contexts and a rename makes the branch unmergeable by
+# hand. The difference is the repository, not the rule -- which is why the
+# ledger exists here before it has an entry to hold.
+#
+# WHAT AN ENTRY MEANS: this finding is REAL, it is understood, and it is not
+# being fixed for a reason that outlives the person who wrote it down. What it
+# does NOT mean is that the finding is wrong. A false positive belongs upstream
+# as a bug report, not here.
+#
+# EVERY ENTRY CARRIES ITS EXIT. An ignore with no stated condition for its own
+# removal is indistinguishable from one nobody ever revisits, which is how a
+# debt register becomes a wall of noise. A rule with no runner is a sentence
+# (V17 in the fleet's shared reading); an exemption with no exit is the same
+# thing pointing the other way.
+#
+# LINE NUMBERS ARE PART OF THE MATCH, so an entry that drifts stops
+# suppressing and the finding comes back. That is a feature -- it forces a
+# re-read whenever the surrounding job moves -- but it means editing `ci.yml`
+# above a ledgered job can turn the gate red without anything being wrong.
+# The fix then is to update the number here after confirming the reason still
+# holds, never to reach for a broader pattern: an entry suppresses an
+# INSTANCE, and the audit has to stay live for every other one.
+#
+# The shape of an entry, for whoever writes the first:
+#
+#   rules:
+#     <audit-name>:
+#       ignore:
+#         - ci.yml:<line>
+#
+# with the three things above it in comments: that the finding is real, WHY it
+# is declined, and the CONDITION that retires it.
+
+rules: {}

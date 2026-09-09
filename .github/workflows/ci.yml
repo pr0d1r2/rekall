@@ -44,7 +44,15 @@ jobs:
   # The gate, on every platform CI can reach. Nothing installs a linter:
   # hk, typos, taplo, nixfmt, ripsecrets, mth, sherd and itok all arrive
   # through the same pinned shell.
+  #
+  # The job NAME is stated rather than inherited. GitHub falls back to the job
+  # id when `name:` is absent, so the value here is deliberately that same id:
+  # the status contexts stay byte-identical (`gate (ubuntu-latest)`), and no
+  # branch protection -- here, or in a sibling that copies this file -- can be
+  # stranded by a rename nobody saw in a diff. A default is a decision nobody
+  # made (zizmor: anonymous-definition, reported only at `--persona=pedantic`).
   gate:
+    name: gate
     runs-on: ${{ matrix.os }}
     strategy:
       # Every platform reports, so one failure does not hide another that is
@@ -152,6 +160,9 @@ jobs:
   # a package that builds on linux and not on darwin is a package that is
   # broken for half the people it is offered to.
   nix-build:
+    # Stated for the reason given at `gate` above, and equal to the id for the
+    # same reason.
+    name: nix-build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
