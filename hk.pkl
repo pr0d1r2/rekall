@@ -661,11 +661,25 @@ local fast = new Mapping<String, Step> {
   /// and the fleet's own config for it disables the two rules that would
   /// fire on a workflow file, so it would have added a dependency to check
   /// indentation on the one YAML file `actionlint` already reads.
+  ///
+  /// `--persona=pedantic` ON PURPOSE, and it is the STRICTER setting rather
+  /// than the `regular` default. Pedantic reports code smells -- claims about
+  /// how the file will AGE rather than about what it does today -- and
+  /// conforming to that stricter reading is what produces the more pristine
+  /// workflow. It found two here, both `anonymous-definition`, and both were
+  /// FIXED rather than declined: `main` requires no status checks, so naming
+  /// a job renames nothing anybody depends on.
+  ///
+  /// `-c` names the ledger EXPLICITLY rather than leaving it to zizmor's own
+  /// discovery, so the path is visible in the step that depends on it. What
+  /// pedantic reports and this repository does not fix is written down there,
+  /// each entry carrying the reason and the condition that retires it -- and
+  /// the ledger is in the GLOB, so editing it re-runs the audit it governs.
   ["zizmor"] {
-    glob = List(".github/workflows/*.yml")
+    glob = List(".github/workflows/*.yml", ".github/zizmor.yml")
     check = """
       command -v zizmor >/dev/null 2>&1 || { echo "hk: SKIPPED zizmor -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell to run it." >&2; exit 0; }
-      zizmor --offline --quiet .github/workflows/ || { echo 'hk: the workflow has a security finding. Each one names its audit and links the rule; fix it, or suppress it in the workflow with a comment that says why.' >&2; exit 1; }
+      zizmor --offline --quiet --persona=pedantic -c .github/zizmor.yml .github/workflows/ || { echo 'hk: the workflow has a security finding. Each one names its audit and links the rule. FIX it -- or, if it is understood and deliberately accepted, record it in .github/zizmor.yml with the reason and the condition that would retire it. An ignore with no exit is a rule nobody revisits.' >&2; exit 1; }
       """
   }
 
