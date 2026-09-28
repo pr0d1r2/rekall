@@ -127,7 +127,7 @@ id|status|task|cites
 T1|x|FOLDED, the 0.1.0 SCAFFOLD rung (was T1-T2): root `flake.nix`, `Cargo.toml`, `hk.pkl`, lint & ASCII gates, `mth` wired, `.context-limits` + its runner|V12,V22,V23,V24,V25,§C
 T3|x|FOLDED, the 0.2.0 WORKING rung (was T3-T17, T21-T28, T30-T37, T40, T42-T43, T45, T52-T55, T58-T59): config & corpus readers, splitter & ids, weighted classifier, and every verb but `catch` -- scan · show · plan · apply · check · recall · hook · log · revert -- with the ledger, `itok` delegation, the trigger block and the artifact head. Row-by-row detail is in `git log`; the CITES column is the UNION, so no invariant is orphaned by the fold|`src:B3`,`src:B6`,I.hook,I.recall,I.scan,R14,R15,R4,R6,R9,T19,`src:T39`,`src:V1`,V10,`src:V11`,`src:V13`,V15,`src:V16`,`src:V17`,`src:V18`,`src:V19`,`src:V2`,`src:V20`,V22,V23,V26,V28,`src:V29`,`src:V3`,`src:V30`,V31,`src:V34`,`src:V36`,`src:V37`,V39,`src:V4`,`src:V40`,`src:V41`,`src:V42`,`src:V43`,V5,`src:V6`,V7,V8,`src:V9`,§C,§I
 T19|.|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T3
-T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
+T20|.|ship=0.5.0; `set-and-setting`: lefthook/`hk` + check|-
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 
 
