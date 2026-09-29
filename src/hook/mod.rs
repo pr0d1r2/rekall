@@ -61,7 +61,6 @@ pub fn situation(payload: &Payload) -> trigger::Situation {
     trigger::Situation {
         tool: payload.tool_name.clone(),
         path: path.or_else(|| payload.cwd.clone()),
-        text: text_of(payload),
     }
 }
 
