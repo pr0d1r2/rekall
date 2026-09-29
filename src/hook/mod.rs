@@ -58,15 +58,12 @@ pub struct ToolInput {
 #[must_use]
 pub fn situation(payload: &Payload) -> trigger::Situation {
     let path = payload.tool_input.as_ref().and_then(path_of);
-    let text = payload
-        .prompt
-        .clone()
-        .or_else(|| {
-            payload
-                .tool_input
-                .as_ref()
-                .and_then(|input| input.command.clone())
-        });
+    let text = payload.prompt.clone().or_else(|| {
+        payload
+            .tool_input
+            .as_ref()
+            .and_then(|input| input.command.clone())
+    });
     trigger::Situation {
         tool: payload.tool_name.clone(),
         path: path.or_else(|| payload.cwd.clone()),
