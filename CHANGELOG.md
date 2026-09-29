@@ -31,6 +31,10 @@ through `/spec`.
 
 ## [Unreleased]
 
+The next planned release is `0.7.0`. It deliberately includes the breaking
+public API changes required by the current library data contract; this is the
+version decision recorded in `SPEC.md`.
+
 ## [0.4.0] — 2026-09-06
 
 **The handover rung, and the first version on crates.io.** `rekall issue`
