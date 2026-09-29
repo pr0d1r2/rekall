@@ -121,7 +121,7 @@ V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself al
 
 
 
-V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: the module-size step SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute comes first: an attribute is ⊥ a section boundary. A CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ add a TOTAL-line cap, ∵ an agent LOADING the file pays every line, tests included. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
+V50: SIZE gate MEASURES what its message NAMES: READER PAYS. MEASURED 2026-09-05: module-size SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`". Stop at TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ first attribute: an attribute ⊥ a section boundary. A CODE-only cap leaves the FILE unbounded; B9's second half went unseen ∴ add a TOTAL-line cap, ∵ agents pay every line. Both caps are PAYABLE: an impossible limit is bypassed, ⊥ met (V27).
 
 ## §T TASKS
 
