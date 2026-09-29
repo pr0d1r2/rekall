@@ -73,8 +73,7 @@ pub fn recall_command(flags: &[String], env: &Env) -> Result<Output, String> {
 fn situation(args: &RecallArgs) -> trigger::Situation {
     trigger::Situation {
         tool: args.tool.clone(),
-        path: args.path.clone(),
-        cwd: args.cwd.clone(),
+        path: args.path.clone().or_else(|| args.cwd.clone()),
         text: args.text.clone(),
     }
 }
