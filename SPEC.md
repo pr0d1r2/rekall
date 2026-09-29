@@ -107,7 +107,7 @@ V33: a gate MESSAGE is DATA, ⊥ CODE. ⊥ backticks & ⊥ `$(...)` in a shell-q
 
 V35: a JUDGMENT records what it REJECTED & what would REVERSE it. Alternatives unrecorded cannot be UNDONE knowingly -- the next reader sees only the survivor & re-derives or repeats. ONE decision per COMMIT ∴ `git revert <sha>` undoes exactly one, & spec-then-build reverts SEPARATELY, in that order. ⊥ ceremony: §C's three rejected NAMES (R1, R2, R10) are the load-bearing half of that bullet, & `mth check --records` enforces the shape (T38).
 
-V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself always-on ∴ the saving is (statement − pointer) & can be NEGATIVE. MEASURED 2026-08-24 on a foreign corpus: an 18-token statement left a 28-token pointer (NET −10); a 22-token one left 29 (NET −7). `log` called both RECLAIMED. §G's claim is ⊥ automatic ∴ `log` reports NET, & `plan` NAMES it before the move. ANTI-CORRELATED with sharpness: an `M1` is a one-liner, exactly where a fat pointer swamps the payload. The SAME arithmetic governs FEDERATION -- `§N`+`§F` are the always-on residue of a conditional load -- & is unmeasured there too. rekall's OWN spec ⊥ federates: 162 lines is under FORMAT's one-file rule ∴ the DIAGNOSIS is for corpora that need it (`src:T46`), ⊥ for this one.
+V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself always-on ∴ the saving is (statement − pointer) & can be NEGATIVE. MEASURED 2026-08-24 on a foreign corpus: an 18-token statement left a 28-token pointer (NET −10); a 22-token one left 29 (NET −7). `log` called both RECLAIMED. §G's claim is ⊥ automatic ∴ `log` reports NET, & `plan` NAMES it before the move. ANTI-CORRELATED with sharpness: an `M1` is a one-liner, exactly where a fat pointer swamps the payload. rekall's OWN spec ⊥ federates: 162 lines is under FORMAT's one-file rule ∴ the DIAGNOSIS is for corpora that need it (`src:T46`), ⊥ for this one.
 
 
 
@@ -121,7 +121,7 @@ V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself al
 
 
 
-V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: the module-size step SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute happens to come first: an attribute is ⊥ a section boundary. & a CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ a SECOND cap on TOTAL lines, ∵ an agent LOADING the file pays every line, tests included -- §G's arithmetic on this crate's own source. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
+V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: the module-size step SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute comes first: an attribute is ⊥ a section boundary. A CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ add a TOTAL-line cap, ∵ an agent LOADING the file pays every line, tests included. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
 
 ## §T TASKS
 
