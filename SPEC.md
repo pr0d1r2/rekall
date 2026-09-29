@@ -4,6 +4,10 @@ Self-contained spec. `rekall` develops inside a larger workspace but is designed
 
 ## §G GOAL
 
+NEXT SHIP: v0.5.0. The next milestone permits the breaking public API
+changes required by the current work; the release number must be spent
+deliberately rather than treating them as an additive release.
+
 Turn always-on agent prose into TANGIBLES: mine agent memory & `CLAUDE.md`-class corpora for statements that are MECHANICAL (become a CPU rule with a runner) or SITUATIONAL (become a skill with a trigger), extract them, and GATE that the extraction stayed honest.
 
 MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at turn 3 competes with everything after it, dies at compaction, and costs window on every turn it does NOT fire. A rule that arrives at its trigger point uninvited costs nothing until it matters.
