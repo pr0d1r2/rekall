@@ -64,28 +64,6 @@ pub fn situation(payload: &Payload) -> trigger::Situation {
     }
 }
 
-/// What a `word` trigger is tested against.
-///
-/// BOTH halves, joined: what the user typed on the events that carry it,
-/// and what the tool was asked to do on the events that carry that. A tool
-/// call has no prompt, so reading `prompt` alone made every `word` trigger
-/// dead on the only event `hook` runs on -- and `recall`, which takes the
-/// situation as an argument, said the opposite (B7, V18).
-fn text_of(payload: &Payload) -> String {
-    let typed = payload.prompt.clone().unwrap_or_default();
-    let asked = payload
-        .tool_input
-        .as_ref()
-        .and_then(|input| input.command.clone())
-        .unwrap_or_default();
-    [typed, asked]
-        .iter()
-        .filter(|part| !part.is_empty())
-        .cloned()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
 fn path_of(input: &ToolInput) -> Option<String> {
     input
         .file_path
@@ -316,13 +294,6 @@ mod tests {
         assert_eq!(situation(&parse(raw)).path.as_deref(), Some("a.ipynb"));
     }
 
-    #[test]
-    fn the_prompt_becomes_the_situation_text() {
-        let raw =
-            r#"{"hook_event_name":"UserPromptSubmit","prompt":"run clippy"}"#;
-        assert_eq!(situation(&parse(raw)).text, "run clippy");
-    }
-
     /// Fields this crate does not know are IGNORED. A harness grows them,
     /// and rejecting one would break the adapter on somebody else's
     /// release schedule.
@@ -337,7 +308,7 @@ mod tests {
     #[test]
     fn unreadable_input_yields_an_empty_situation() {
         let at = situation(&parse("not json at all"));
-        assert!(at.tool.is_none() && at.path.is_none() && at.text.is_empty());
+        assert!(at.tool.is_none() && at.path.is_none());
     }
 
     #[test]
