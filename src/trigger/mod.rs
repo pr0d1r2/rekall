@@ -65,6 +65,7 @@ impl Trigger {
 pub struct Situation {
     pub tool: Option<String>,
     pub path: Option<String>,
+    pub text: Option<String>,
 }
 
 impl Situation {
@@ -242,14 +243,16 @@ fn path_ok(held: &Trigger, at: &Situation) -> bool {
         .is_some_and(|path| set.is_match(std::path::Path::new(path)))
 }
 
-/// Word triggers are not available on the stable situation API yet.
 fn word_ok(held: &Trigger, at: &Situation) -> bool {
-    let _ = at;
-    // `Situation` deliberately retains its v0.4 construction shape. Text
-    // matching can be added later through a constructor without breaking
-    // callers that use struct literals.
-    let _ = held;
-    true
+    if held.word.is_empty() {
+        return true;
+    }
+    at.text.as_ref().is_some_and(|text| {
+        let text = text.to_lowercase();
+        held.word
+            .iter()
+            .any(|want| text.contains(&want.to_lowercase()))
+    })
 }
 
 #[cfg(test)]
@@ -262,10 +265,11 @@ mod tests {
         format!("# s\n\nprose\n\n{FIRES}\n\n{FENCE}\n{block}\n```\n")
     }
 
-    fn at(tool: &str, path: &str, _text: &str) -> Situation {
+    fn at(tool: &str, path: &str, text: &str) -> Situation {
         Situation {
             tool: Some(tool.to_string()),
             path: Some(path.to_string()),
+            text: Some(text.to_string()),
         }
     }
 

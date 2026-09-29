@@ -74,6 +74,7 @@ fn situation(args: &RecallArgs) -> trigger::Situation {
     trigger::Situation {
         tool: args.tool.clone(),
         path: args.path.clone().or_else(|| args.cwd.clone()),
+        text: (!args.text.is_empty()).then(|| args.text.clone()),
     }
 }
 
