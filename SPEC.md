@@ -4,8 +4,6 @@ Self-contained spec. `rekall` develops inside a larger workspace but is designed
 
 ## §G GOAL
 
-NEXT SHIP: 0.7.0 DECISION: spend the next minor on the breaking public API changes required by the current work. REJECTED: reshaping the API to preserve v0.4.0 compatibility, because these public structs are the library's intended data contract. REVERSE IF: the release is required to remain additive, in which case the new fields must move behind constructors or a separate type before shipping.
-
 Turn always-on agent prose into TANGIBLES: mine agent memory & `CLAUDE.md`-class corpora for statements that are MECHANICAL (become a CPU rule with a runner) or SITUATIONAL (become a skill with a trigger), extract them, and GATE that the extraction stayed honest.
 
 MOTIVATING SHAPE: a rule a model must REMEMBER is already lost. Prose stated at turn 3 competes with everything after it, dies at compaction, and costs window on every turn it does NOT fire. A rule that arrives at its trigger point uninvited costs nothing until it matters.
@@ -100,14 +98,14 @@ V24: a gate step is a PLAIN command a human can PASTE. `hk` decides WHEN a step 
 V25: the GATE is NETWORKLESS, extending `src:V6` to the RUNNER. Its schema is VENDORED, ⊥ fetched at eval. A gate that resolves a URL to decide anything goes soft on a plane, in a locked-down CI, & on the day that host is down.
 V26: a MISSING runner is ⊥ a pass. A step this crate OWNS -> FAIL. An OPTIONAL third-party tool -> SKIP, NAMED IN OUTPUT. A silent skip is a pass nobody earned, & it reads GREEN.
 V27: a RATCHET moves ONE WAY & its floor TRACKS REALITY. Its `fix` half REFUSES to record a regression -- a ratchet that writes down whatever it measures files down its own teeth on the commit it should have refused. & an UNRECORDED RISE is a FAILURE too: a floor below what the code actually reaches is a floor LYING about what it protects, & every line above it may silently go uncovered again. ∴ new code RAISES the floor, & the gate ⊥ green until it does -- the same shape as `cargo fmt --check` red on an unformatted file, cleared by ONE command.
-V28: success is SILENCE; a FAILING gate NAMES THE FIX. Output that ALWAYS appears is output nobody reads ∴ failure hides in noise everyone learned to scroll past.
+V28: success is SILENCE; a FAILING gate NAMES THE FIX. Output that ALWAYS appears is output nobody reads ∴ the one real failure hides in noise everyone learned to scroll past.
 
 V31: a MEASURED figure carries its BOX & DATE, or it is ⊥ EVIDENCE. V21 one level in: `src` says WHO can check it, the box says WHAT ! be re-created to check it. R14's two boxes are ~5x apart ∴ a timing compared across them without both names compares NOTHING, & what survives is the RATIO.
 V33: a gate MESSAGE is DATA, ⊥ CODE. ⊥ backticks & ⊥ `$(...)` in a shell-quoted advisory: the shell EXECUTES them & the advice is REPLACED by what it ran.
 
 V35: a JUDGMENT records what it REJECTED & what would REVERSE it. Alternatives unrecorded cannot be UNDONE knowingly -- the next reader sees only the survivor & re-derives or repeats. ONE decision per COMMIT ∴ `git revert <sha>` undoes exactly one, & spec-then-build reverts SEPARATELY, in that order. ⊥ ceremony: §C's three rejected NAMES (R1, R2, R10) are the load-bearing half of that bullet, & `mth check --records` enforces the shape (T38).
 
-V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself always-on ∴ the saving is (statement − pointer) & can be NEGATIVE. MEASURED 2026-08-24 on a foreign corpus: an 18-token statement left a 28-token pointer (NET −10); a 22-token one left 29 (NET −7). `log` called both RECLAIMED. §G's claim is ⊥ automatic ∴ `log` reports NET, & `plan` NAMES it before the move. ANTI-CORRELATED with sharpness: an `M1` is a one-liner, exactly where a fat pointer swamps the payload. rekall's OWN spec ⊥ federates: 162 lines is under FORMAT's one-file rule ∴ the DIAGNOSIS is for corpora that need it (`src:T46`), ⊥ for this one.
+V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself always-on ∴ the saving is (statement − pointer) & can be NEGATIVE. MEASURED 2026-08-24 on a foreign corpus: an 18-token statement left a 28-token pointer (NET −10); a 22-token one left 29 (NET −7). `log` called both RECLAIMED. §G's claim is ⊥ automatic ∴ `log` reports NET, & `plan` NAMES it before the move. ANTI-CORRELATED with sharpness: an `M1` is a one-liner, exactly where a fat pointer swamps the payload. The SAME arithmetic governs FEDERATION -- `§N`+`§F` are the always-on residue of a conditional load -- & is unmeasured there too. rekall's OWN spec ⊥ federates: 162 lines is under FORMAT's one-file rule ∴ the DIAGNOSIS is for corpora that need it (`src:T46`), ⊥ for this one.
 
 
 
@@ -121,7 +119,7 @@ V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself al
 
 
 
-V50: SIZE gate MEASURES what its message NAMES: READER PAYS. MEASURED 2026-09-05: module-size SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`". Stop at TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ first attribute: an attribute ⊥ a section boundary. A CODE-only cap leaves the FILE unbounded; B9's second half went unseen ∴ add a TOTAL-line cap, ∵ agents pay every line. Both caps are PAYABLE: an impossible limit is bypassed, ⊥ met (V27).
+V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: the module-size step SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute happens to come first: an attribute is ⊥ a section boundary. & a CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ a SECOND cap on TOTAL lines, ∵ an agent LOADING the file pays every line, tests included -- §G's arithmetic on this crate's own source. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
 
 ## §T TASKS
 

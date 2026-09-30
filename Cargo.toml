@@ -21,7 +21,7 @@ name = "rekall"
 # once in a session outlives it as a ledger candidate. Every verb section I
 # names now does its job, which is why the minor moves rather than the
 # patch -- what a consumer may rely on changed, not how much there is.
-version = "0.7.0"
+version = "0.4.0"
 edition = "2024"
 # The FLEET PIN, not a local choice: `nixpkgs-lock` pins nixos-26.05 for
 # every repo in the fleet, and 1.95 is what it carries (SPEC.md R8). A crate

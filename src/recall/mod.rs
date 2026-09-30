@@ -208,6 +208,7 @@ mod tests {
         trigger::Situation {
             tool: Some("Edit".to_string()),
             path: Some(path.to_string()),
+            cwd: None,
             text: String::new(),
         }
     }
