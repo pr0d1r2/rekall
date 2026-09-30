@@ -143,6 +143,7 @@ fn said(done: &std::process::Output) -> String {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// The bound these tests run under, and it is DELIBERATELY generous.
     ///
@@ -157,6 +158,8 @@ mod tests {
     /// has to: that one is about the clock rather than about the rule.
     const PATIENT: Duration = Duration::from_secs(60);
 
+    static NEXT_SCRIPT: AtomicUsize = AtomicUsize::new(0);
+
     /// Write a rule and run it, with no fork in between.
     fn fired(name: &str, body: &str, limit: Duration) -> Fired {
         let guard = crate::testutil::spawning_lock();
@@ -168,7 +171,10 @@ mod tests {
 
     fn script(name: &str, body: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
-        let dir = PathBuf::from("target").join("runner");
+        let id = NEXT_SCRIPT.fetch_add(1, Ordering::Relaxed);
+        let dir = PathBuf::from("target")
+            .join("runner")
+            .join(format!("{}-{id}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join(name);
         let _ = std::fs::write(&path, body);
