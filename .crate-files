@@ -87,6 +87,7 @@ src/show/SPEC.md
 src/show/mod.rs
 src/statement/SPEC.md
 src/statement/mod.rs
+src/testutil.rs
 src/tokens/SPEC.md
 src/tokens/mod.rs
 src/trigger/SPEC.md

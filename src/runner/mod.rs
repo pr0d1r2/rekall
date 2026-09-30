@@ -157,21 +157,9 @@ mod tests {
     /// has to: that one is about the clock rather than about the rule.
     const PATIENT: Duration = Duration::from_secs(60);
 
-    /// WRITING A SCRIPT AND SPAWNING ONE ARE MUTUALLY EXCLUSIVE (V68).
-    ///
-    /// On Linux, `execve` refuses a file any process holds open for
-    /// writing -- ETXTBSY. Rust opens with CLOEXEC, so an exec'd child
-    /// does not keep the handle, but between another thread's fork and
-    /// its exec the child DOES hold it, and this thread's exec of the
-    /// file it just wrote lands in that window.
-    ///
-    /// MEASURED on this repo's first CI run: two of six jobs red, both
-    /// Linux, each on a different test, neither reproducible on darwin.
-    static SPAWNING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     /// Write a rule and run it, with no fork in between.
     fn fired(name: &str, body: &str, limit: Duration) -> Fired {
-        let guard = SPAWNING.lock().unwrap_or_else(|held| held.into_inner());
+        let guard = crate::testutil::spawning_lock();
         let path = script(name, body);
         let out = run(&path, limit);
         drop(guard);

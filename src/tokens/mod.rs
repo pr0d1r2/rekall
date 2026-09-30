@@ -232,6 +232,9 @@ fn unwritable(error: std::io::Error) -> Fault {
 /// in a column a tokenizer will later fill is a number that looks
 /// measured and is not.
 fn run(paths: &[PathBuf]) -> Result<Counts, Fault> {
+    #[cfg(test)]
+    let _guard = crate::testutil::spawning_lock();
+
     let done = std::process::Command::new(TOOL)
         .args(["estimate", "--bpe", "--format", "json"])
         .args(paths)
