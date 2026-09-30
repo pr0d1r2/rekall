@@ -26,3 +26,6 @@ pub mod show;
 pub mod statement;
 pub mod tokens;
 pub mod trigger;
+
+#[cfg(test)]
+pub(crate) mod testutil;
