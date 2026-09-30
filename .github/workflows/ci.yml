@@ -68,7 +68,12 @@ jobs:
     # The coverage step compiles the suite with instrumentation, which is the
     # slowest thing here by some way. Generous, but bounded: a hung job that
     # burns an hour is worse than one that fails.
-    timeout-minutes: 30
+    #
+    # The tight bound sits ON THE GATE STEP (25). A job bound also counts the
+    # cache steps, and a job timeout cancels a job whose checks passed no
+    # matter what `continue-on-error` says (itok#52). This one is only the
+    # net above the gate plus the bounded cache steps.
+    timeout-minutes: 35
     steps:
       # Pinned to commit SHAs, not tags. A tag is mutable: whoever controls
       # the action can move `v4` to different code, and every workflow that
@@ -96,17 +101,20 @@ jobs:
             extra-substituters = https://pr0d1r2.cachix.org
             extra-trusted-public-keys = pr0d1r2.cachix.org-1:NfWjbhgAj41byXhCKiaE+av3Vnphm1fTezHXEGsiQIM=
 
-      # Two caches, because they hold different things and expire on
-      # different inputs: the nix store keyed on the flake, and cargo's
-      # registry plus `target/` keyed on the lockfiles.
-      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
-        with:
-          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
-          gc-max-store-size-linux: 4G
-          gc-max-store-size-macos: 4G
-
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # ONE cache: cargo's registry plus `target/`, keyed on the lockfiles.
+      # There is NO Nix store cache. The shell is substituted from
+      # cache.nixos.org and pr0d1r2.cachix.org (above), and restoring a cached
+      # store is slower than that: on itok#54, macOS restored it in 215-280s
+      # where substituting it took 29-45s, and dropping it halved total job
+      # time. It also held this repo's Actions caches over the 10 GB budget
+      # (10974 MiB in 18 entries), so every save evicted another.
+      #
+      # Restore and save are separate steps, each bounded and allowed to
+      # fail: a slow cache is skipped, it never turns a passing gate red.
+      - id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        timeout-minutes: 3
+        continue-on-error: true
         with:
           path: |
             ~/.cargo/registry/index
@@ -123,9 +131,8 @@ jobs:
       # from here is what makes `cachix use pr0d1r2` in CONTRIBUTING.md worth
       # the line it costs.
       #
-      # It does NOT speed this job up. The nix store is already cached
-      # runner-side and `hk check` is dominated by compiling this crate, which
-      # no binary cache can serve.
+      # It does NOT speed this job up much: `hk check` is dominated by
+      # compiling this crate, which no binary cache can serve.
       - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
         # A CACHE PUSH MAY NOT DECIDE A BUILD. The upload runs in a POST step,
         # after the thing it is uploading has already succeeded or failed, so
@@ -150,6 +157,21 @@ jobs:
       # costs minutes, so whoever -- or whatever -- fixes this should get
       # every problem in one pass.
       - run: nix develop --command hk check --all --check --no-fail-fast
+        timeout-minutes: 25
+
+      # Saved only after a passing gate, only on a key miss, and bounded: a
+      # slow upload is skipped and the job stays green.
+      - if: steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        timeout-minutes: 3
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'flake.lock') }}
 
   # The package, built from the tracked lock alone and PUSHED to the cache
   # that the gate job above reads from. Separate from the gate because it is
@@ -178,11 +200,6 @@ jobs:
           extra_nix_config: |
             extra-substituters = https://pr0d1r2.cachix.org
             extra-trusted-public-keys = pr0d1r2.cachix.org-1:NfWjbhgAj41byXhCKiaE+av3Vnphm1fTezHXEGsiQIM=
-
-      - uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569 # v7
-        with:
-          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
 
       # PUSHES what it builds. A fork's pull request has no secret, and the
       # action treats an empty token as read-only rather than failing -- so
