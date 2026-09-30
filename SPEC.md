@@ -119,7 +119,7 @@ V39: RECLAIM is NET, ⊥ GROSS. An extraction leaves a POINTER that is itself al
 
 
 
-V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: the module-size step SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute happens to come first: an attribute is ⊥ a section boundary. & a CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ a SECOND cap on TOTAL lines, ∵ an agent LOADING the file pays every line, tests included -- §G's arithmetic on this crate's own source. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
+V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the READER PAYS. MEASURED 2026-09-05: module-size SAID "over 500 CODE lines" & COUNTED "lines before the first top-level `#[cfg(test)]`" -- a different quantity (B9). The stop is the TEST MODULE (`#[cfg(test)]` then `mod tests`), ⊥ whatever attribute comes first: an attribute is ⊥ a section boundary. A CODE cap alone leaves the FILE unbounded, which is how B9's second half went unseen ∴ a SECOND cap on TOTAL lines, ∵ an agent pays every line, tests included -- §G's arithmetic on this source. BOTH caps start PAYABLE: a limit nobody can meet is bypassed, ⊥ met (V27).
 
 ## §T TASKS
 
@@ -131,17 +131,17 @@ T20|.|`set-and-setting` integration: lefthook/`hk` fragment + pinned check|-
 T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 
 
-T63|x|module-size: stop at the TEST MODULE, not any `#[cfg(test)]`, & add a TOTAL-line cap that starts payable|V50,V22
-T80|x|README badge block GENERATED between its markers: `check` renders & diffs, `fix` writes ∴ ALL 8 numbers DERIVED, alt-vs-URL drift IMPOSSIBLE ⊥ detected. Step counts from `hk run <hook> --plan --json` -- hk's OWN plan, ∵ parsing `hk.pkl` is a 2nd reading of the gate definition (V23)|V22,V23
-T86|.|MARKDOWN gate: 35 `.md` files, ⊥ a linter. DECIDED, ⊥ BUILT: the TOOL is the open half -- `markdownlint` Node, `mdformat` Python, `dprint` FORMATS ⊥ LINTS ∴ ⊥ a Rust answer as `typos`/`zizmor` were. UNCOVERED: heading order, fence hygiene, a link whose TEXT lies|`.:V22`,`.:V26`
+T63|x|module-size: stop at TEST MODULE, not any `#[cfg(test)]`, & add a payable TOTAL-line cap|V50,V22
+T80|x|README badge block GENERATED between markers: `check` renders & diffs, `fix` writes ∴ ALL 8 numbers DERIVED, alt-vs-URL drift IMPOSSIBLE ⊥ detected. Step counts from `hk run <hook> --plan --json` -- hk's plan, ∵ parsing `hk.pkl` is a 2nd gate definition (V23)|V22,V23
+T86|.|MARKDOWN gate: 35 `.md` files, ⊥ linter. DECIDED, ⊥ BUILT: TOOL open -- `markdownlint` Node, `mdformat` Python, `dprint` FORMATS ⊥ LINTS ∴ ⊥ Rust answer as `typos`/`zizmor` were. UNCOVERED: heading order, fence hygiene, lying link text|`.:V22`,`.:V26`
 
 ## §B BUGS
 
 id|date|cause|fix
-B2|2026-08-22|a gate message put its fix in backticks inside a double-quoted shell string ∴ the shell RAN `direnv` & printed `command not found` where the advice belonged|V33
-B9|2026-09-05|the module-size runner stopped at the FIRST top-level `#[cfg(test)]` ∴ a test-only `mod testing;` near the top made a 468-line file MEASURE 32. SILENT & DOWNWARD (a smaller number is ⊥ red), found by printing sizes for another reason ⊥ by the gate. Same shape had passed a 3001-line `cli.rs` at 464|V50
-B17|2026-09-05|`nix build .#default` had NEVER succeeded & `ci.yml` runs it ∴ CI was to be red on the public repo's first push. 11 sandbox failures: 5 want `itok` (V8 DELEGATES ∴ a real dependency), 6 are `runner:B16`. Unmeasured ∵ the repo does ⊥ exist ∴ the workflow has ⊥ run|`.:V22`
-B18|2026-09-05|`git push <tag>` FAILS the pre-push hook: hk diffs the TRACKED branch against the pushed ref & a tag is ⊥ a commit. `--no-verify` is CORRECT once the tag's commit is CHECKED to have passed|`.:V22`
-B19|2026-09-05|the git hook `exec`s whatever `hk` is on PATH ∴ gates with a STALE DEV SHELL, ⊥ the flake. MEASURED: a session predating `flake update` kept `mth` 0.6.1 & ⊥ `sherd` ∴ the old `mth` JOINED the `§F` header every commit while `federation`, the ONE step catching it, SKIPPED for want of `sherd`. Corrupt & undetect in one run, 3x. V26 makes a MISSING tool say so & says nothing about a STALE one|`.:V26`
-B25|2026-09-06|§I named THREE flags no code accepts: `plan --to`, `apply --to`, `catch --agent` -- each `unknown flag`, exit 2. Two were superseded by `issue` & one by dialect SNIFFING ∴ the SURFACE moved & the law did ⊥. FOUND by typing them, ⊥ by the gate|`.:V22`
-B27|2026-09-30|`runner` tests used fixed names under `target/runner` ∴ the process-wide lock could not protect against another cargo test process overwriting or holding one of those files; Linux then rejected `execve` with ETXTBSY|`src/runner:V68`
+B2|2026-08-22|a gate message put its fix in backticks inside a double-quoted shell string ∴ the shell RAN `direnv` & printed `command not found` instead of the advice|V33
+B9|2026-09-05|module-size stopped at the FIRST top-level `#[cfg(test)]` ∴ a test-only `mod testing;` near the top made a 468-line file MEASURE 32. SILENT & DOWNWARD (a smaller number is ⊥ red), found by printing sizes for another reason ⊥ by the gate. Same shape passed a 3001-line `cli.rs` at 464|V50
+B17|2026-09-05|`nix build .#default` had NEVER succeeded & `ci.yml` runs it ∴ CI was to be red on first push. 11 sandbox failures: 5 want `itok` (V8 DELEGATES ∴ a real dependency), 6 are `runner:B16`. Unmeasured ∵ the repo does ⊥ exist ∴ the workflow has ⊥ run|`.:V22`
+B18|2026-09-05|`git push <tag>` FAILS pre-push: hk diffs the TRACKED branch against the pushed ref & a tag is ⊥ a commit. `--no-verify` is CORRECT once its commit is CHECKED to have passed|`.:V22`
+B19|2026-09-05|the git hook `exec`s whatever `hk` is on PATH ∴ gates with a STALE DEV SHELL, ⊥ the flake. MEASURED: a pre-`flake update` session kept `mth` 0.6.1 & ⊥ `sherd` ∴ old `mth` JOINED the `§F` header while `federation`, the ONE step catching it, SKIPPED for want of `sherd`. Corrupt & undetect in one run, 3x. V26 names MISSING tools, not STALE ones|`.:V26`
+B25|2026-09-06|§I named THREE flags no code accepts: `plan --to`, `apply --to`, `catch --agent` -- each `unknown flag`, exit 2. Two became `issue` & one dialect SNIFFING ∴ the SURFACE moved & the law did ⊥. FOUND by typing them, ⊥ by the gate|`.:V22`
+B27|2026-09-30|`runner` tests used names under `target/runner` ∴ process-wide lock could not prevent another test process using them; Linux rejected `execve` with ETXTBSY|`src/runner:V68`
