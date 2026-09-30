@@ -215,16 +215,6 @@ $ echo $?
 1
 ```
 
-**This is the point of the tool.** Deleting a rule from prose and writing a
-placeholder beside it is strictly worse than leaving it alone: the rule is now
-gone from the window *and* enforced by nothing. The gate exits 1 until the
-extraction is finished, and every line names the fix rather than only the
-breach.
-
-Artifacts arrive with empty triggers on purpose. An empty trigger matches
-nothing, so an unfilled skill loads never rather than always — always-on prose
-is what it was extracted from.
-
 ### Finishing the extraction
 
 The skill gets a trigger and a refusal clause:
