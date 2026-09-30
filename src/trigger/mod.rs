@@ -65,11 +65,6 @@ impl Trigger {
 pub struct Situation {
     pub tool: Option<String>,
     pub path: Option<String>,
-    /// Where the agent is working. Section I gives `recall` a `--cwd`
-    /// separate from every other verb's `-C`: one says where the PROJECT
-    /// is, this says where the WORK is, and only the second is a fact a
-    /// trigger can turn on.
-    pub cwd: Option<String>,
     /// The free text a human typed, or the harness's description.
     pub text: String,
 }
@@ -83,7 +78,7 @@ impl Situation {
     /// somewhere else entirely -- a refusal nobody could predict from
     /// reading it. The named file is the more specific fact, so it wins.
     fn in_play(&self) -> Option<&String> {
-        self.path.as_ref().or(self.cwd.as_ref())
+        self.path.as_ref()
     }
 }
 
@@ -275,14 +270,13 @@ mod tests {
         Situation {
             tool: Some(tool.to_string()),
             path: Some(path.to_string()),
-            cwd: None,
             text: text.to_string(),
         }
     }
 
     fn in_dir(cwd: &str) -> Situation {
         Situation {
-            cwd: Some(cwd.to_string()),
+            path: Some(cwd.to_string()),
             ..Situation::default()
         }
     }
@@ -506,8 +500,7 @@ mod tests {
     #[test]
     fn a_named_file_beats_the_directory_it_was_named_from() {
         let held = only("path = [\"**/backend/**\"]");
-        let mut at = at("Edit", "srv/web/app.rs", "");
-        at.cwd = Some("srv/backend/api".to_string());
+        let at = at("Edit", "srv/web/app.rs", "");
         assert!(!matches(&held, &at));
     }
 
