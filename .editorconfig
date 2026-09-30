@@ -30,3 +30,6 @@ max_line_length = 80
 # line per row on purpose -- `mth` owns their shape.
 [*.md]
 max_line_length = off
+
+[*.sh]
+switch_case_indent = true
