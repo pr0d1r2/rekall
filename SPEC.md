@@ -4,7 +4,7 @@ Self-contained spec. `rekall` develops inside a larger workspace but is designed
 
 ## §G GOAL
 
-NEXT SHIP: v0.7.0 (BREAKING). DECISION: spend the next minor on the breaking public API changes required by the current work. REJECTED: reshaping the API to preserve v0.4.0 compatibility, because these public structs are the library's intended data contract. REVERSE IF: the release is required to remain additive, in which case the new fields must move behind constructors or a separate type before shipping.
+NEXT SHIP: v0.8.0 (BREAKING). DECISION: spend the next minor on the breaking public API changes required by the current work. REJECTED: reshaping the API to preserve v0.4.0 compatibility, because these public structs are the library's intended data contract. REVERSE IF: the release is required to remain additive, in which case the new fields must move behind constructors or a separate type before shipping.
 
 Turn always-on agent prose into TANGIBLES: mine agent memory & `CLAUDE.md`-class corpora for statements that are MECHANICAL (become a CPU rule with a runner) or SITUATIONAL (become a skill with a trigger), extract them, and GATE that the extraction stayed honest.
 
