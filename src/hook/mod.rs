@@ -59,11 +59,8 @@ pub struct ToolInput {
 pub fn situation(payload: &Payload) -> trigger::Situation {
     trigger::Situation {
         tool: payload.tool_name.clone(),
-        path: payload
-            .tool_input
-            .as_ref()
-            .and_then(path_of)
-            .or_else(|| payload.cwd.clone()),
+        path: payload.tool_input.as_ref().and_then(path_of),
+        cwd: payload.cwd.clone(),
         text: text_of(payload),
     }
 }
@@ -309,7 +306,7 @@ mod tests {
         let at = situation(&parse(EDIT));
         assert_eq!(at.tool.as_deref(), Some("Edit"));
         assert_eq!(at.path.as_deref(), Some("src/main.rs"));
-        assert_eq!(at.path.as_deref(), Some("src/main.rs"));
+        assert_eq!(at.cwd.as_deref(), Some("/repo"));
     }
 
     /// A notebook names its path differently. Reading only `file_path`
