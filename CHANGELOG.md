@@ -17,6 +17,7 @@ answers one question: *what can you rely on at this tag?*
 | `0.3` | second intake: `catch` mines a transcript, so a rule stated once outlives the session | reached |
 | `0.4` | the HANDOVER: an extraction leaves this repo for a registry with no window where the rule is enforced by nothing, and the gate proves a skill can actually be loaded | reached |
 | `0.5` | the diagnostic half — `init` names the first cut, `--dead` answers across a team rather than one checkout | planned |
+| `0.7` | the breaking public API changes required by the current work | planned |
 | `1.0` | the contract frozen: the CLI surface, the JSON anatomy, the trigger format and the ledger schema | planned |
 
 Pre-1.0 SemVer permits a minor to break, and here each rung *is* a behaviour
@@ -29,6 +30,10 @@ through `/spec`.
 `0.4.0` is the first version published to crates.io.
 
 ## [Unreleased]
+
+The next planned release is `0.7.0`. It deliberately includes the breaking
+public API changes required by the current library data contract; this is the
+version decision recorded in `SPEC.md`.
 
 ## [0.4.0] — 2026-09-06
 
