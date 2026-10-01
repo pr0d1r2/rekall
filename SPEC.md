@@ -123,9 +123,9 @@ V50: a SIZE gate MEASURES what its message NAMES, & what it names is what the RE
 
 ## §T TASKS
 
-|id|scope|tasks|done-when|
-|-|-|-|-|
-|M5|ships as `0.5.0`|T1,T3,T19,T20,T38,T63,T80,T86|done|
+| id | scope | tasks | done-when |
+|----|-------|-------|-----------|
+| M5 | ships as `0.5.0` | T1,T3,T19,T20,T38,T63,T80,T86 | done |
 
 id|status|task|cites
 T1|x|FOLDED, the 0.1.0 SCAFFOLD rung (was T1-T2): root `flake.nix`, `Cargo.toml`, `hk.pkl`, lint & ASCII gates, `mth`, `.context-limits` + runner|V12,V22,V23,V24,V25,§C
