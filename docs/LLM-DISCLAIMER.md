@@ -63,7 +63,7 @@ afterwards. It carries:
 
 - **71 `§V` invariants** — what must stay true, each with the reasoning it
   stands on rather than the rule alone.
-- **`§T` tasks** — 34 landed, 9 open. What is decided and what is not is
+- **`§T` tasks** — 35 landed, 8 open. What is decided and what is not is
   visible without reading the commit log.
 - **9 `§B` bugs** — every defect found so far, paired with the invariant
   that now catches it. A bug that produced no invariant is a bug that will
