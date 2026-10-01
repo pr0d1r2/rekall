@@ -36,7 +36,7 @@ through `/spec`.
   is now `#[non_exhaustive]`. Callers that construct `Situation` values must
   add `..` to their struct literals (or use `Situation::default()`), and may
   not rely on the set of fields staying fixed. This breaking API change ships
-  in 0.5.0.
+  in 1.0.0.
 
 ## [0.4.0] — 2026-09-06
 
