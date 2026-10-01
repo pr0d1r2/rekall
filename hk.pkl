@@ -572,6 +572,48 @@ local fast = new Mapping<String, Step> {
     fix = "typos --write-changes"
   }
 
+  /// MARKDOWN (T86). The repository's 35 shipped Markdown files get a real
+  /// syntax/style verdict when the optional ecosystem tools are present.
+  /// `markdownlint` owns linting; `mdformat` and `dprint` own formatting, so
+  /// neither formatter is presented as a second linter. The tools are not
+  /// Rust dependencies and are deliberately optional, exactly like `typos`
+  /// and `zizmor`: absence is a named skip (V26), not a silent pass.
+  ///
+  /// `AGENTS.md` is the host instruction file and is intentionally outside
+  /// this shipped-document set. The file list is derived from git so the
+  /// count cannot drift with build output or an untracked Markdown file.
+  ["markdownlint"] {
+    glob = List("**/*.md")
+    check = """
+      command -v markdownlint >/dev/null 2>&1 || { echo "hk: SKIPPED markdownlint -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell or install the Node tool to run it." >&2; exit 0; }
+      files=$(git ls-files '*.md' | grep -v '^AGENTS[.]md$')
+      [ -n "$files" ] || { echo 'hk: markdownlint found no Markdown files to check. Restore the tracked document set before retrying.' >&2; exit 1; }
+      markdownlint $files
+      """
+  }
+
+  ["mdformat"] {
+    glob = List("**/*.md")
+    check = """
+      command -v mdformat >/dev/null 2>&1 || { echo "hk: SKIPPED mdformat -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell or install the Python tool to run it." >&2; exit 0; }
+      files=$(git ls-files '*.md' | grep -v '^AGENTS[.]md$')
+      [ -n "$files" ] || { echo 'hk: mdformat found no Markdown files to check. Restore the tracked document set before retrying.' >&2; exit 1; }
+      mdformat --check $files
+      """
+    fix = "mdformat $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')"
+  }
+
+  ["dprint-markdown"] {
+    glob = List("**/*.md")
+    check = """
+      command -v dprint >/dev/null 2>&1 || { echo "hk: SKIPPED dprint -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell or install the formatter to run it." >&2; exit 0; }
+      files=$(git ls-files '*.md' | grep -v '^AGENTS[.]md$')
+      [ -n "$files" ] || { echo 'hk: dprint found no Markdown files to check. Restore the tracked document set before retrying.' >&2; exit 1; }
+      dprint check $files
+      """
+    fix = "dprint fmt $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')"
+  }
+
   /// Secrets. hk's `detect-private-key` builtin does exactly what its name
   /// says and nothing else, so a token-shaped secret walks straight past it.
 

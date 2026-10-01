@@ -137,7 +137,7 @@ T38|x|wire `mth check --records` into the gate ∴ V35's rejected-option shape i
 
 T63|x|module-size: stop at TEST MODULE, not any `#[cfg(test)]`, & add a payable TOTAL-line cap|V50,V22
 T80|x|README badge block GENERATED between markers: `check` renders & diffs, `fix` writes ∴ ALL 8 numbers DERIVED, alt-vs-URL drift IMPOSSIBLE ⊥ detected. Step counts from `hk run <hook> --plan --json` -- hk's plan, ∵ parsing `hk.pkl` is a 2nd gate definition (V23)|V22,V23
-T86|.|MARKDOWN gate: 35 `.md` files, ⊥ linter. DECIDED, ⊥ BUILT: TOOL open -- `markdownlint` Node, `mdformat` Python, `dprint` FORMATS ⊥ LINTS ∴ ⊥ Rust answer as `typos`/`zizmor` were. UNCOVERED: heading order, fence hygiene, lying link text|`.:V22`,`.:V26`
+T86|x|MARKDOWN gate: 35 `.md` files, ⊥ linter. DECIDED, ⊥ BUILT: TOOL open -- `markdownlint` Node, `mdformat` Python, `dprint` FORMATS ⊥ LINTS ∴ ⊥ Rust answer as `typos`/`zizmor` were. UNCOVERED: heading order, fence hygiene, lying link text|`.:V22`,`.:V26`
 
 ## §B BUGS
 
