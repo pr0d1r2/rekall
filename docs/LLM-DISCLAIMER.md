@@ -63,7 +63,7 @@ afterwards. It carries:
 
 - **71 `§V` invariants** — what must stay true, each with the reasoning it
   stands on rather than the rule alone.
-- **`§T` tasks** — 33 landed, 10 open. What is decided and what is not is
+- **`§T` tasks** — 34 landed, 9 open. What is decided and what is not is
   visible without reading the commit log.
 - **9 `§B` bugs** — every defect found so far, paired with the invariant
   that now catches it. A bug that produced no invariant is a bug that will
@@ -84,8 +84,8 @@ parsed, not about one that was skimmed.
 
 Entering the dev shell (`nix develop`, or `direnv allow`) installs
 `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk)
-against one definition of the gate in [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl): **27 steps on
-commit, 33 on push**, the slow half adding doctests, rustdoc, the
+against one definition of the gate in [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl): **28 steps on
+commit, 34 on push**, the slow half adding doctests, rustdoc, the
 no-default-features build, the packaged tarball and coverage.
 [`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) calls that same definition on three
 platforms, so a laptop and a runner cannot disagree.

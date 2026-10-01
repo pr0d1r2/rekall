@@ -377,6 +377,15 @@ local fast = new Mapping<String, Step> {
     check = "sh .rekall/rules/run-hk-check-before-pushing.sh"
   }
 
+  /// T20: the set-and-setting consumer fragments are documentation with a
+  /// real contract. Keep the measured corpus revision and both adapters
+  /// together; this check is local and offline, so it cannot turn into a
+  /// network-dependent gate.
+  ["set-and-setting-integration"] {
+    glob = List("docs/EXAMPLE.md", "docs/INTEGRATION.md", "docs/set-and-setting/**", "tools/check-set-and-setting-integration.sh")
+    check = "sh tools/check-set-and-setting-integration.sh"
+  }
+
   /// EXTRACTED from CLAUDE.md by rekall (id 551a009). No glob: the branch
   /// you are on is not something a file change announces.
   ["branch-not-main"] {

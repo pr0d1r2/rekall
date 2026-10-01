@@ -1,0 +1,6 @@
+# Copy this fragment into set-and-setting's generated lefthook source.
+# The command is deliberately the same check used by the hk fragment.
+pre-commit:
+  commands:
+    rekall-check:
+      run: rekall check
