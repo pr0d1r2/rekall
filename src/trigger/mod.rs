@@ -61,6 +61,7 @@ impl Trigger {
 }
 
 /// What the caller knows about right now.
+#[non_exhaustive]
 #[derive(Debug, Default, Clone)]
 pub struct Situation {
     pub tool: Option<String>,

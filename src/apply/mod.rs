@@ -31,21 +31,6 @@ pub fn pointer(step: &plan::Step) -> String {
 /// invisible kind: each looks right alone, and the divergence only shows
 /// when a revert cannot find a pointer that is plainly there.
 ///
-/// THE ID ALONE, because the pointer is a COST (V39). It stays in the
-/// corpus forever and is re-read every turn, so it is subtracted from
-/// whatever the extraction saved. MEASURED: naming the artifact too cost
-/// 28 tokens against an 18-token statement -- the extraction went
-/// BACKWARDS. This form is ~8.
-///
-/// The trade is real and is worth stating: a reader with no tooling now
-/// sees an opaque id where they used to see a path. `rekall log` and
-/// `rekall show <id>` both resolve it, and the ledger is tracked, so the
-/// answer is one command away rather than inline. Paying 20 tokens on
-/// every turn of every session to save that one command is the wrong side
-/// of the trade -- which is the whole argument of this crate, applied to
-/// its own output. REJECTED: the artifact's basename (still ~15, and a
-/// slug is not a location); a footnote index at the end of the file (one
-/// pointer becomes two, and they drift apart under edits).
 #[must_use]
 pub fn pointer_of(id: &str) -> String {
     format!("{POINTER_OPEN}{id} -->")
