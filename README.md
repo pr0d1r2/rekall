@@ -16,7 +16,7 @@
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
-[![gate steps 28 commit / 34 push](https://img.shields.io/badge/gate_steps-28_commit_%2F_34_push-6E4AFF)][hk]
+[![gate steps 31 commit / 37 push](https://img.shields.io/badge/gate_steps-31_commit_%2F_37_push-6E4AFF)][hk]
 [![coverage floor 99.33%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.33%25-brightgreen)](.coverage)
 [![invariants 71](https://img.shields.io/badge/invariants-71-6E4AFF)](SPEC.md)
 [![bugs logged 29](https://img.shields.io/badge/bugs_logged-29-6E4AFF)](SPEC.md)
@@ -497,7 +497,7 @@ and why the root is a route rather than a reading.
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
 truth — 71 invariants, each carrying the reasoning it stands on; 29 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
-what is decided and what is still open, at 35 landed and 8 remaining.
+what is decided and what is still open, at 36 landed and 7 remaining.
 
 ## Development
 
@@ -506,7 +506,7 @@ direnv allow      # or: nix develop
 hk check          # the whole gate, the same definition CI runs
 ```
 
-28 steps on commit, 34 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
+31 steps on commit, 37 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
 the loop; [`INTEGRATION.md`](docs/INTEGRATION.md) is how to put `rekall` in
 someone else's gate.
 
