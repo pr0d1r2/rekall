@@ -21,6 +21,7 @@ docs/INTEGRATION.md
 docs/LLM-DISCLAIMER.md
 docs/SECURITY.md
 docs/THIRD-PARTY-NOTICES.md
+docs/set-and-setting/lefthook.yml
 rustfmt.toml
 src/SPEC.md
 src/apply/SPEC.md
@@ -93,3 +94,4 @@ src/tokens/mod.rs
 src/trigger/SPEC.md
 src/trigger/mod.rs
 tests/cli.rs
+tools/check-set-and-setting-integration.sh

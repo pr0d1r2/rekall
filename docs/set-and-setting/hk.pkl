@@ -1,0 +1,8 @@
+/// set-and-setting integration fragment. Keep this in the host repository's
+/// hk definition; it is a fragment, not a second gate definition here.
+["rekall-check"] {
+  glob = List("**/CLAUDE.md", "**/AGENTS.md", ".rekall/**", ".claude/skills/**")
+  check = """
+    rekall check || { echo 'hk: rekall found an unfinished extraction. Fix the reported source or artifact drift.' >&2; exit 1; }
+    """
+}

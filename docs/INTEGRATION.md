@@ -50,6 +50,19 @@ Verified in both directions: a complete extraction commits, and an extraction
 with an unfilled trigger exits 1, prints the two problems and leaves the tree
 uncommitted.
 
+### lefthook
+
+For the `set-and-setting` host, the ready-to-copy fragments live in
+[`docs/set-and-setting/lefthook.yml`](set-and-setting/lefthook.yml) and
+[`docs/set-and-setting/hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/docs/set-and-setting/hk.pkl). The lefthook command
+and the hk command intentionally run the same pinned `rekall check`; add the
+hk fragment to the host's single gate definition and let its generator produce
+`lefthook.yml`.
+
+The example corpus is pinned to commit `9724383` in `docs/EXAMPLE.md`. The
+repository gate checks that pin and both fragments, so changing the integration
+cannot leave a plausible-looking but untested snippet behind.
+
 ### Anything else
 
 `rekall check` is an ordinary command that exits nonzero, so any hook runner
