@@ -477,7 +477,7 @@ local fast = new Mapping<String, Step> {
     glob = List("SPEC.md")
     depends = List("spec-fmt")
     check = """
-      mth check SPEC.md || { echo 'hk: SPEC.md failed its own format check. Fix the spec, not the checker -- mth owns this format (section C) and this repo is its consumer.' >&2; exit 1; }
+      mth check SPEC.md --records || { echo 'hk: SPEC.md failed its own format or rejected-option-record check. Fix the spec, not the checker -- mth owns this format (section C) and this repo is its consumer.' >&2; exit 1; }
       """
   }
 

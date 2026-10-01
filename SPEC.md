@@ -36,7 +36,7 @@ self|.|-
 - `.envrc` = `use flake`, `.direnv/` gitignored. `flake.nix` at the repo ROOT, ⊥ a subdirectory: a flake's source root is its OWN dir ∴ a nested one cannot SEE `Cargo.toml`/`src/` & cannot offer a real package. ENTERING the shell IS the toolchain CI uses (V23) ∴ "works on my box" & "passes CI" stop being two questions.
 - The dev shell puts `mth` & `rekall` on PATH via cargo-run shims ∴ the gate's own tools need ⊥ a global install, & this crate checks its OWN spec & its OWN corpus (T19, consumer #0). A tool absent from PATH FAILS the gate (V26).
 - Gate = `hk` (`hk.pkl`), ONE definition, local & CI (V23). Coverage floor RATCHETS (V27).
-- GATE SET, tiered by COST. COMMIT: `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` · `mth fmt --check` · `mth check` · ASCII gate · the `.context-limits` runner (V22). PUSH: coverage · doctest · rustdoc · `--no-default-features` · `cargo package`. A ~60s step on COMMIT is a step someone learns to bypass, & a bypassed hook is worse than none.
+- GATE SET, tiered by COST. COMMIT: `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` · `mth fmt --check` · `mth check --records` · ASCII gate · the `.context-limits` runner (V22). PUSH: coverage · doctest · rustdoc · `--no-default-features` · `cargo package`. A ~60s COMMIT step is learned bypassed, & a bypassed hook is worse than none.
 - `-D warnings` goes AFTER `--`, ⊥ in `RUSTFLAGS`: RUSTFLAGS reaches PATH DEPS, & `itok` is one (V8) ∴ a sibling's stray warning would redden THIS gate for code this crate ⊥ owns.
 - ⊥ a lint-debt file & ⊥ an allow-list: this crate starts at ZERO code ∴ `-D warnings` runs CLEAN from commit one. An allow added later NAMES what it exempts & why -- an exemption is ⊥ a suppression.
 
@@ -132,7 +132,7 @@ T1|x|FOLDED, the 0.1.0 SCAFFOLD rung (was T1-T2): root `flake.nix`, `Cargo.toml`
 T3|x|FOLDED, the 0.2.0 WORKING rung (was T3-T17, T21-T28, T30-T37, T40, T42-T43, T45, T52-T55, T58-T59): config & corpus readers, splitter & ids, classifier, and every verb but `catch` with ledger, `itok`, triggers and artifacts|`src:B3`,`src:B6`,I.hook,I.recall,I.scan,R14,R15,R4,R6,R9,T19,`src:T39`,`src:V1`,V10,`src:V11`,`src:V13`,V15,`src:V16`,`src:V17`,`src:V18`,`src:V19`,`src:V2`,`src:V20`,V22,V23,V26,V28,`src:V29`,`src:V3`,`src:V30`,V31,`src:V34`,`src:V36`,`src:V37`,V39,`src:V4`,`src:V40`,`src:V41`,`src:V42`,`src:V43`,V5,`src:V6`,V7,V8,`src:V9`,§C,§I
 T19|x|EXTRACT this repo's own `M`/`S` statements & write their runners/triggers; the reclaim is then `rekall log`, RE-DERIVABLE ⊥ transcribed|R4,R5,T3
 T20|x|`set-and-setting` integration: lefthook/`hk` fragment + check|V22,V23
-T38|.|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
+T38|x|wire `mth check --records` into the gate ∴ V35's rejected-option shape is ENFORCED, ⊥ hoped|V35,V22,V26
 
 
 T63|x|module-size: stop at TEST MODULE, not any `#[cfg(test)]`, & add a payable TOTAL-line cap|V50,V22
