@@ -6,36 +6,27 @@ its own conventions before it is pointed at anyone else's -- a tool that
 gates other people's extractions and not its own is a tool nobody has run
 in anger.
 
-Read that as a warning about the file's future, not a claim about its
-present: every statement below is a candidate for extraction, and the ones
-that stay are the ones that could not be made mechanical.
+<!-- rekall bd60d41 -->
 
 ## Working agreement
 
 <!-- rekall 6d3751c -->
-- One decision per commit, and the reasoning goes in the message, not in a
-  comment nobody will find.
-- Decide in the spec before building. A judgment records what it rejected
-  and what would reverse it, so a wrong call can be undone knowingly
-  rather than archaeologically. `SPEC.md` V35 is the rule; this line only
-  points at it, because two copies of one rule is the defect this whole
-  tool exists to remove.
+<!-- rekall 9ace912 -->
+<!-- rekall 12b9139 -->
 <!-- rekall c75aeab -->
 
 ## Code
 
 <!-- rekall 8043abe -->
-- Never raise a threshold in `clippy.toml` to make a build pass. Those
-  numbers are reviewed decisions and raising one is the reflex they exist
-  to catch.
+<!-- rekall 76785f7 -->
 <!-- rekall b2c5684 -->
-- Token counting belongs to `itok`. Do not write a second counter.
-- Do not add a dependency for something the standard library already does.
+<!-- rekall ce4c814 -->
+<!-- rekall 4fd0559 -->
 
 ## The spec
 
-- `SPEC.md` is edited through `/spec`, never by hand.
-- `/build` flips a `§T` status cell and touches nothing else in the spec.
+<!-- rekall 1780949 -->
+<!-- rekall 5939230 -->
 <!-- rekall 8fe6c04 -->
 
 ## The gate
