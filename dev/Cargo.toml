@@ -5,6 +5,9 @@ edition = "2024"
 rust-version = "1.95"
 publish = false
 
+[dependencies]
+walkdir = "2"
+
 [package.metadata.release]
 release = false
 

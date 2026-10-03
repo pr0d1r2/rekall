@@ -156,24 +156,19 @@ fn rows(root: &Path, prefix: &str) -> usize {
 }
 #[allow(clippy::excessive_nesting)]
 fn walk_specs(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    fn go(p: &Path, out: &mut Vec<PathBuf>) {
-        if let Ok(rd) = fs::read_dir(p) {
-            for e in rd.flatten() {
-                let q = e.path();
-                if q.file_name().is_some_and(|n| n == "target" || n == ".git") {
-                    continue;
-                }
-                if q.is_dir() {
-                    go(&q, out)
-                } else if q.file_name().is_some_and(|n| n == "SPEC.md") {
-                    out.push(q)
-                }
-            }
-        }
-    }
-    go(root, &mut out);
-    out
+    walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            !entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name == "target" || name == ".git")
+        })
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file() && entry.file_name() == "SPEC.md")
+        .map(|entry| entry.into_path())
+        .collect()
 }
 
 fn render(root: &Path, external: &mut External<'_>) -> Result<String, String> {
