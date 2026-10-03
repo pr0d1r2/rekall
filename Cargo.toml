@@ -6,6 +6,7 @@
 # form and which three names were rejected; the reasons are load-bearing and
 # live there rather than being restated here.
 name = "rekall"
+
 # A minor is a level of GUARANTEE, not a feature count. 0.1.0 was the
 # scaffold rung (builds reproducibly, gate runs, no verb works); 0.2.0 was
 # the working rung (every verb but `catch`).
@@ -128,6 +129,10 @@ cognitive_complexity = "deny"
 excessive_nesting = "deny"
 fn_params_excessive_bools = "deny"
 struct_excessive_bools = "deny"
+
+[workspace]
+members = ["dev"]
+resolver = "3"
 
 [lints.rust]
 unsafe_code = "forbid"
