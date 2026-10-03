@@ -166,7 +166,9 @@ fn walk_specs(root: &Path) -> Vec<PathBuf> {
                 .is_some_and(|name| name == "target" || name == ".git")
         })
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file() && entry.file_name() == "SPEC.md")
+        .filter(|entry| {
+            entry.file_type().is_file() && entry.file_name() == "SPEC.md"
+        })
         .map(|entry| entry.into_path())
         .collect()
 }
