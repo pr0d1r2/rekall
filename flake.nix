@@ -155,6 +155,7 @@
             root = ./.;
             fileset = pkgs.lib.fileset.unions [
               ./src
+              ./dev
               ./Cargo.toml
               ./Cargo.lock
             ];
