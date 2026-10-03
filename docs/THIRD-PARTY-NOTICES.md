@@ -1,6 +1,6 @@
 # Third-party notices
 
-`rekall` ships **five direct dependencies**, which pull in 26 crates in total.
+`rekall` ships **5 direct dependencies**, which pull in 25 crates in total.
 This file says what they are, why each direct one is there rather than
 hand-rolled, and what licence the set carries.
 
@@ -25,6 +25,7 @@ runs offline from the tracked `Cargo.lock`.
 
 Every crate reachable from a normal (non-dev, non-build) dependency edge:
 
+<!-- BEGIN crates -->
 | Crate | Version | Licence |
 |---|---|---|
 | aho-corasick | 1.1.5 | Unlicense OR MIT |
@@ -37,21 +38,22 @@ Every crate reachable from a normal (non-dev, non-build) dependency edge:
 | quote | 1.0.47 | MIT OR Apache-2.0 |
 | regex-automata | 0.4.18 | MIT OR Apache-2.0 |
 | regex-syntax | 0.8.11 | MIT OR Apache-2.0 |
-| same-file | 1.0.6 | Unlicense OR MIT |
+| same-file | 1.0.6 | Unlicense/MIT |
 | serde | 1.0.229 | MIT OR Apache-2.0 |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 |
-| serde_derive | 1.0.229 | MIT OR Apache-2.0 |
+| serde_derive | 1.0.229 (proc-macro) | MIT OR Apache-2.0 |
 | serde_json | 1.0.151 | MIT OR Apache-2.0 |
 | serde_spanned | 1.1.1 | MIT OR Apache-2.0 |
 | syn | 3.0.3 | MIT OR Apache-2.0 |
-| toml | 0.9.12 | MIT OR Apache-2.0 |
-| toml_datetime | 0.7.5 | MIT OR Apache-2.0 |
-| toml_parser | 1.1.3 | MIT OR Apache-2.0 |
-| toml_writer | 1.1.2 | MIT OR Apache-2.0 |
+| toml | 0.9.12+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_datetime | 0.7.5+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_parser | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_writer | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.24 | (MIT OR Apache-2.0) AND Unicode-3.0 |
-| walkdir | 2.5.0 | Unlicense OR MIT |
-| winnow | 0.7.15, 1.0.4 | MIT |
+| walkdir | 2.5.0 | Unlicense/MIT |
+| winnow | 1.0.4, 0.7.15 | MIT |
 | zmij | 1.0.23 | MIT |
+<!-- END crates -->
 
 Every crate is available under MIT or a more permissive licence, so the whole
 tree can be taken under MIT alongside this project. `unicode-ident` additionally
