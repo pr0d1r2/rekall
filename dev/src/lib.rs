@@ -101,9 +101,50 @@ pub fn splice(
 fn value(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|line| {
         line.trim().strip_prefix(key).map(|v| {
-            v.trim().trim_matches('"').trim_end_matches(',').to_string()
+            v.trim().trim_end_matches(',').trim_matches('"').to_string()
         })
     })
+}
+
+fn unix_date(seconds: &str) -> String {
+    let mut days = seconds.parse::<u64>().unwrap_or_default() / 86_400;
+    let mut year = 1970i64;
+    loop {
+        let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+        let length = if leap { 366 } else { 365 };
+        if days < length {
+            break;
+        }
+        days -= length;
+        year += 1;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let lengths = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    let month = lengths
+        .iter()
+        .position(|length| {
+            if days < *length as u64 {
+                true
+            } else {
+                days -= *length as u64;
+                false
+            }
+        })
+        .map_or(12, |index| index + 1);
+    format!("{year:04}-{month:02}-{:02}", days + 1)
 }
 fn rows(root: &Path, prefix: &str) -> usize {
     walk_specs(root)
@@ -152,13 +193,14 @@ fn render(root: &Path, external: &mut External<'_>) -> Result<String, String> {
         .to_string();
     let node = lock_node(&lock, "nixpkgs")
         .ok_or("flake.lock nixpkgs node is missing")?;
-    let _nixref = value(node, "\"ref\":")
+    let nixref = value(node, "\"ref\":")
         .unwrap_or_default()
         .trim_start_matches("nixos-")
         .to_string();
     let rev = value(node, "\"rev\":").unwrap_or_default();
-    let _nixrev = rev.chars().take(7).collect::<String>();
-    let _when = value(node, "\"lastModified\":").unwrap_or_default();
+    let nixrev = rev.chars().take(7).collect::<String>();
+    let when = unix_date(&value(node, "\"lastModified\":").unwrap_or_default());
+    let when_url = when.replace('-', "--");
     let com = external("hk run pre-commit --plan --json -a < /dev/null")
         .map_err(|e| format!("missing hk: {e}"))?
         .lines()
@@ -187,16 +229,31 @@ fn render(root: &Path, external: &mut External<'_>) -> Result<String, String> {
         })
         .collect::<std::collections::BTreeSet<_>>()
         .len();
-    let bug = rows(root, "B");
+    let bug = walk_specs(root)
+        .iter()
+        .flat_map(|p| fs::read_to_string(p).ok())
+        .flat_map(|s| s.lines().map(str::to_owned).collect::<Vec<_>>())
+        .filter_map(|line| {
+            line.strip_prefix('B')
+                .and_then(|rest| rest.split('|').next())
+                .map(str::to_owned)
+        })
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
     let nod = walk_specs(root).len();
-    let _cov = value(
+    let cov = value(
         &fs::read_to_string(root.join(".coverage"))
             .map_err(|e| e.to_string())?,
         "lines ",
     )
     .ok_or("coverage is empty")?;
     let mut out = String::new();
-    writeln!(out,"<!-- BEGIN badges -->\n[![CI](https://github.com/{slug}/actions/workflows/ci.yml/badge.svg)](https://github.com/{slug}/actions/workflows/ci.yml)\n[![License: {lic}](https://img.shields.io/badge/license-{lic}-blue.svg)](LICENSE)\n[![edition {ed}](https://img.shields.io/badge/edition-{ed}-000000?logo=rust&logoColor=white)](Cargo.toml)\n[![MSRV {msrv}](https://img.shields.io/badge/MSRV-{msrv}-000000?logo=rust&logoColor=white)](Cargo.toml)\n[![direct dependencies {deps}](https://img.shields.io/badge/direct_dependencies-{deps}-brightgreen)](docs/THIRD-PARTY-NOTICES.md)\n[![invariants {inv}](https://img.shields.io/badge/invariants-{inv}-6E4AFF)](SPEC.md)\n[![bugs logged {bug}](https://img.shields.io/badge/bugs_logged-{bug}-6E4AFF)](SPEC.md)\n[![federated nodes {nod}](https://img.shields.io/badge/federated_nodes-{nod}-6E4AFF)](docs/FEDERATION.md)\n\n<!-- END badges -->", deps=dependency_count(&cargo)).map_err(|e|e.to_string())?;
+    writeln!(
+        out,
+        "<!-- BEGIN badges -->\n[![CI](https://github.com/{slug}/actions/workflows/ci.yml/badge.svg)](https://github.com/{slug}/actions/workflows/ci.yml)\n[![License: {lic}](https://img.shields.io/badge/license-{lic}-blue.svg)](LICENSE)\n[![edition {ed}](https://img.shields.io/badge/edition-{ed}-000000?logo=rust&logoColor=white)](Cargo.toml)\n[![MSRV {msrv}](https://img.shields.io/badge/MSRV-{msrv}-000000?logo=rust&logoColor=white)](Cargo.toml)\n[![direct dependencies {deps}](https://img.shields.io/badge/direct_dependencies-{deps}-brightgreen)](docs/THIRD-PARTY-NOTICES.md)\n[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-brightgreen)](Cargo.toml)\n[![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)\n\n[![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]\n[![gate steps {com} commit / {pus} push](https://img.shields.io/badge/gate_steps-{com}_commit_%2F_{pus}_push-6E4AFF)][hk]\n[![coverage floor {cov}%](https://img.shields.io/badge/coverage_floor-%E2%89%A5{cov}%25-brightgreen)](.coverage)\n[![invariants {inv}](https://img.shields.io/badge/invariants-{inv}-6E4AFF)](SPEC.md)\n[![bugs logged {bug}](https://img.shields.io/badge/bugs_logged-{bug}-6E4AFF)](SPEC.md)\n[![federated nodes {nod}](https://img.shields.io/badge/federated_nodes-{nod}-6E4AFF)](docs/FEDERATION.md)\n\n[![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]\n[![nixpkgs {nixref} ({when} - {nixrev})](https://img.shields.io/badge/nixpkgs-{nixref}_({when_url}_--_{nixrev})-5277C3?logo=nixos&logoColor=white)](https://github.com/{slug}/blob/main/flake.lock)\n[![intel linux](https://img.shields.io/badge/linux-5277C3?logo=intel&logoColor=white)][flake]\n[![amd linux](https://img.shields.io/badge/linux-5277C3?logo=amd&logoColor=white)][flake]\n[![arm linux](https://img.shields.io/badge/linux-5277C3?logo=arm&logoColor=white)][flake]\n[![arm macos](https://img.shields.io/badge/macos-5277C3?logo=arm&logoColor=white)][flake]\n\n[![built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-D97757)](https://claude.com/claude-code)\n[![built with Opus 5](https://img.shields.io/badge/built_with-Opus_5-D97757)](https://www.anthropic.com/claude)\n[![built with SDD](https://img.shields.io/badge/built_with-spec--driven_development-D97757)](SPEC.md)\n<!-- END badges -->",
+        deps = dependency_count(&cargo),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(out)
 }
 
