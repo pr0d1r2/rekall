@@ -16,7 +16,7 @@
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
-[![gate steps 31 commit / 37 push](https://img.shields.io/badge/gate_steps-31_commit_%2F_37_push-6E4AFF)][hk]
+[![gate steps 32 commit / 38 push](https://img.shields.io/badge/gate_steps-32_commit_%2F_38_push-6E4AFF)][hk]
 [![coverage floor 99.33%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.33%25-brightgreen)](.coverage)
 [![invariants 71](https://img.shields.io/badge/invariants-71-6E4AFF)](SPEC.md)
 [![bugs logged 29](https://img.shields.io/badge/bugs_logged-29-6E4AFF)](SPEC.md)
@@ -506,7 +506,7 @@ direnv allow      # or: nix develop
 hk check          # the whole gate, the same definition CI runs
 ```
 
-31 steps on commit, 37 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
+32 steps on commit, 38 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
 the loop; [`INTEGRATION.md`](docs/INTEGRATION.md) is how to put `rekall` in
 someone else's gate.
 

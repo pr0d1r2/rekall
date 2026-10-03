@@ -84,8 +84,8 @@ parsed, not about one that was skimmed.
 
 Entering the dev shell (`nix develop`, or `direnv allow`) installs
 `pre-commit` and `pre-push`, which run [hk](https://github.com/jdx/hk)
-against one definition of the gate in [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl): **31 steps on
-commit, 37 on push**, the slow half adding doctests, rustdoc, the
+against one definition of the gate in [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl): **32 steps on
+commit, 38 on push**, the slow half adding doctests, rustdoc, the
 no-default-features build, the packaged tarball and coverage.
 [`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) calls that same definition on three
 platforms, so a laptop and a runner cannot disagree.
