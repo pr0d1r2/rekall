@@ -229,6 +229,15 @@ local fast = new Mapping<String, Step> {
     fix = "cargo run --quiet --package rekall-dev -- readme"
   }
 
+  /// The dependency notice table is generated from Cargo's locked offline
+  /// normal tree. Its inputs are deliberately narrow: changing unrelated
+  /// prose must not invoke Cargo.
+  ["notices"] {
+    glob = List("Cargo.toml", "Cargo.lock", "docs/THIRD-PARTY-NOTICES.md", "dev/**")
+    check = "cargo run --quiet --package rekall-dev -- notices --check"
+    fix = "cargo run --quiet --package rekall-dev -- notices"
+  }
+
   ["readme-counts"] {
     /// `hk.pkl` is in the glob because the STEP COUNTS below are read from
     /// hk's own plan: adding a step changes the true number, and the

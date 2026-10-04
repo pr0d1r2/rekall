@@ -106,6 +106,112 @@ fn value(text: &str, key: &str) -> Option<String> {
     })
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct Notice {
+    pub name: String,
+    pub version: String,
+    pub license: String,
+}
+
+pub fn parse_tree(tree: &str) -> Result<Vec<Notice>, String> {
+    let mut notices = std::collections::BTreeMap::new();
+    for line in tree.lines().filter(|line| !line.trim().is_empty()) {
+        let (package, license) = line.split_once('|').ok_or_else(|| {
+            format!("cargo tree row has no licence separator: {line}")
+        })?;
+        let package = package.trim();
+        let (name, version) = package.rsplit_once(" v").ok_or_else(|| {
+            format!("cargo tree row has no package version: {line}")
+        })?;
+        if name == "rekall" {
+            continue;
+        }
+        match notices.entry(name.to_owned()) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(Notice {
+                    name: name.to_owned(),
+                    version: version.to_owned(),
+                    license: license.trim().to_owned(),
+                });
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                let notice = entry.get_mut();
+                if !notice.version.split(", ").any(|v| v == version) {
+                    notice.version.push_str(", ");
+                    notice.version.push_str(version);
+                }
+            }
+        }
+    }
+    if notices.is_empty() {
+        return Err("cargo tree contained no dependencies".into());
+    }
+    Ok(notices.into_values().collect())
+}
+
+fn direct_dependencies(cargo: &str) -> std::collections::BTreeSet<String> {
+    let mut in_deps = false;
+    cargo
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.starts_with('[') {
+                in_deps = trimmed == "[dependencies]";
+                return None;
+            }
+            if !in_deps || trimmed.is_empty() || trimmed.starts_with('#') {
+                return None;
+            }
+            trimmed
+                .split_once('=')
+                .map(|(name, _)| name.trim().to_owned())
+        })
+        .collect()
+}
+
+pub fn render_notices(
+    cargo: &str,
+    tree: &str,
+    document: &str,
+) -> Result<String, String> {
+    let notices = parse_tree(tree)?;
+    let direct = direct_dependencies(cargo);
+    let table = notices
+        .iter()
+        .map(|notice| {
+            format!(
+                "| {} | {} | {} |",
+                notice.name, notice.version, notice.license
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let block = format!(
+        "<!-- BEGIN crates -->\n| Crate | Version | Licence |\n|---|---|---|\n{table}\n<!-- END crates -->"
+    );
+    let rendered = splice(document, "crates", &block)?;
+    let marker = "`rekall` ships **";
+    let start = rendered
+        .find(marker)
+        .ok_or("notices count sentence is missing")?;
+    let end = rendered[start..]
+        .find(" crates in total.")
+        .ok_or("notices count sentence is missing")?
+        + start;
+    let end = end + " crates in total.".len();
+    let sentence = format!(
+        "`rekall` ships **{} direct dependencies**, which pull in {} crates in total.",
+        direct.len(),
+        notices.len()
+    );
+    Ok(format!(
+        "{}{}{}",
+        &rendered[..start],
+        sentence,
+        &rendered[end..]
+    ))
+}
+
 fn unix_date(seconds: &str) -> String {
     let mut days = seconds.parse::<u64>().unwrap_or_default() / 86_400;
     let mut year = 1970i64;
@@ -301,6 +407,25 @@ mod tests {
         );
         assert!(marker_block("<!-- BEGIN badges -->\n<!-- BEGIN badges -->\n<!-- END badges -->", "badges").is_err());
     }
+
+    #[test]
+    fn tree_parser_deduplicates_versions_and_preserves_license_expression() {
+        let rows = parse_tree("rekall v1.0.0|MIT\nserde v1.0.0|MIT OR Apache-2.0\n  serde v1.0.0|MIT OR Apache-2.0\nunicode-ident v1.0.0|(MIT OR Apache-2.0) AND Unicode-3.0\n").unwrap_or_default();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1].license, "(MIT OR Apache-2.0) AND Unicode-3.0");
+    }
+
+    #[test]
+    fn notices_render_counts_and_table_from_recorded_tree() {
+        let cargo = "[dependencies]\nserde = \"1\"\ntoml = \"1\"\n";
+        let tree = "rekall v1.0.0|MIT\nserde v1.0.0|MIT OR Apache-2.0\ntoml v1.0.0|MIT\n";
+        let doc = "`rekall` ships **old direct dependencies**, which pull in old crates in total.\n<!-- BEGIN crates -->\nold\n<!-- END crates -->\n";
+        let rendered = render_notices(cargo, tree, doc).unwrap_or_default();
+        assert!(rendered.contains(
+            "**2 direct dependencies**, which pull in 2 crates in total."
+        ));
+        assert!(rendered.contains("| serde | 1.0.0 | MIT OR Apache-2.0 |"));
+    }
 }
 
 pub fn run(
@@ -309,8 +434,18 @@ pub fn run(
     external: &mut External<'_>,
     err: &mut dyn Write,
 ) -> u8 {
-    if args.first().map(String::as_str) != Some("readme") {
-        let _ = writeln!(err, "usage: rekall-dev readme [--check] [<path>...]");
+    let Some(verb) = args.first().map(String::as_str) else {
+        let _ = writeln!(
+            err,
+            "usage: rekall-dev <readme|notices> [--check] [<path>...]"
+        );
+        return 2;
+    };
+    if verb != "readme" && verb != "notices" {
+        let _ = writeln!(
+            err,
+            "usage: rekall-dev <readme|notices> [--check] [<path>...]"
+        );
         return 2;
     }
     let check = args.iter().any(|a| a == "--check");
@@ -318,7 +453,16 @@ pub fn run(
         .iter()
         .skip(1)
         .find(|a| !a.starts_with('-'))
-        .map_or_else(|| root.join("README.md"), |p| root.join(p));
+        .map_or_else(
+            || {
+                root.join(if verb == "readme" {
+                    "README.md"
+                } else {
+                    "docs/THIRD-PARTY-NOTICES.md"
+                })
+            },
+            |p| root.join(p),
+        );
     let old = match fs::read_to_string(&path) {
         Ok(v) => v,
         Err(e) => {
@@ -326,14 +470,30 @@ pub fn run(
             return 1;
         }
     };
-    let rendered = match render(root, external) {
+    let rendered = match if verb == "readme" {
+        render(root, external)
+    } else {
+        let cargo = fs::read_to_string(root.join("Cargo.toml"));
+        let tree = external(
+            "cargo tree -e normal --prefix none -f '{p}|{l}' --locked --offline",
+        );
+        match (cargo, tree) {
+            (Ok(cargo), Ok(tree)) => render_notices(&cargo, &tree, &old),
+            (Err(e), _) => Err(e.to_string()),
+            (_, Err(e)) => Err(format!("missing cargo: {e}")),
+        }
+    } {
         Ok(v) => v,
         Err(e) => {
             let _ = writeln!(err, "{e}");
             return 1;
         }
     };
-    let new = match splice(&old, "badges", &rendered) {
+    let new = match if verb == "readme" {
+        splice(&old, "badges", &rendered)
+    } else {
+        Ok(rendered)
+    } {
         Ok(v) => v,
         Err(e) => {
             let _ = writeln!(err, "{e}");
