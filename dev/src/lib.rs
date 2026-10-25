@@ -5,6 +5,27 @@ use std::path::{Path, PathBuf};
 
 pub type External<'a> = dyn FnMut(&str) -> Result<String, String> + 'a;
 
+/// Run `command` through `sh -c`, returning its stdout. A non-zero exit is an
+/// error carrying the command and its stderr, so callers never mistake a
+/// failed command for empty output.
+pub fn shell(command: &str) -> Result<String, String> {
+    let output = std::process::Command::new("sh")
+        .args(["-c", command])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
+    }
+    let status = output
+        .status
+        .code()
+        .map_or_else(|| output.status.to_string(), |code| code.to_string());
+    Err(format!(
+        "\"{command}\" exited {status}: {}",
+        String::from_utf8_lossy(&output.stderr).trim_end()
+    ))
+}
+
 pub fn dependency_count(cargo: &str) -> usize {
     let mut in_deps = false;
     let mut nested = 0usize;
@@ -363,6 +384,19 @@ fn render(root: &Path, external: &mut External<'_>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_returns_stdout_on_success() {
+        assert_eq!(shell("echo hi"), Ok("hi\n".to_string()));
+    }
+
+    #[test]
+    fn shell_reports_exit_status_and_stderr_on_failure() {
+        assert_eq!(
+            shell("echo boom >&2; exit 101"),
+            Err("\"echo boom >&2; exit 101\" exited 101: boom".to_string())
+        );
+    }
 
     #[test]
     fn dependency_count_ignores_wrapped_features() {
