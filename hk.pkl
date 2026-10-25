@@ -232,8 +232,17 @@ local fast = new Mapping<String, Step> {
   // The dependency notice table is generated from Cargo's locked offline
   // normal tree. Its inputs are deliberately narrow: changing unrelated
   // prose must not invoke Cargo.
+  //
+  // `depends` on clippy is LOAD-BEARING, not only the cargo-lock courtesy
+  // above. `cargo tree --offline` reads the crates from the local registry
+  // and downloads nothing, so on a cold one (a fresh clone, or a CI runner
+  // whose cache missed) it prints no rows at all and this step fails with
+  // "cargo tree contained no dependencies". clippy builds every target, so
+  // once it has run the registry holds exactly the locked set. Unordered,
+  // the step raced the first build and lost on a cold macOS runner.
   ["notices"] {
     glob = List("Cargo.toml", "Cargo.lock", "docs/THIRD-PARTY-NOTICES.md", "dev/**")
+    depends = List("clippy")
     check = "cargo run --quiet --package rekall-dev -- notices --check"
     fix = "cargo run --quiet --package rekall-dev -- notices"
   }
