@@ -73,24 +73,24 @@ env {
 /// into the file it exists to keep true.
 
 local fast = new Mapping<String, Step> {
-  /// THE PRESENCE GATE (V26). A missing runner is NOT a pass.
-  ///
-  /// Every tool whose VERDICT this crate owns, checked in one place before
-  /// anything else runs: `cargo` for the build and the tests, `mth` for
-  /// SPEC.md's format, `itok` for the ceiling, `sherd` for the federation,
-  /// and `rekall` for its own corpus. If one is absent the gate goes RED,
-  /// because a step that silently did not happen reports the same green as
-  /// a step that passed.
-  ///
-  /// ONE definition rather than a guard pasted into ten steps (V23). It
-  /// carries no `glob`, so it always runs, and everything else chains from
-  /// it -- a presence check that only fires when a Rust file changed would
-  /// miss the case where nothing changed and nothing was checked.
-  ///
-  /// The optional third-party tools are deliberately NOT here. V26 draws
-  /// the line at ownership: this crate answers for what `cargo test` says,
-  /// and does not answer for whether `typos` is installed. Those skip and
-  /// SAY SO, which is the other half of the same rule.
+  // THE PRESENCE GATE (V26). A missing runner is NOT a pass.
+  //
+  // Every tool whose VERDICT this crate owns, checked in one place before
+  // anything else runs: `cargo` for the build and the tests, `mth` for
+  // SPEC.md's format, `itok` for the ceiling, `sherd` for the federation,
+  // and `rekall` for its own corpus. If one is absent the gate goes RED,
+  // because a step that silently did not happen reports the same green as
+  // a step that passed.
+  //
+  // ONE definition rather than a guard pasted into ten steps (V23). It
+  // carries no `glob`, so it always runs, and everything else chains from
+  // it -- a presence check that only fires when a Rust file changed would
+  // miss the case where nothing changed and nothing was checked.
+  //
+  // The optional third-party tools are deliberately NOT here. V26 draws
+  // the line at ownership: this crate answers for what `cargo test` says,
+  // and does not answer for whether `typos` is installed. Those skip and
+  // SAY SO, which is the other half of the same rule.
   ["runners"] {
     check = "sh .rekall/rules/a-gate-step-that-cannot-run.sh"
   }
@@ -102,14 +102,14 @@ local fast = new Mapping<String, Step> {
     fix = "cargo fmt"
   }
 
-  /// `-D warnings` is passed AFTER `--` rather than through RUSTFLAGS.
-  /// RUSTFLAGS reaches PATH DEPENDENCIES, and V8 commits this crate to
-  /// taking `itok` as one -- so the RUSTFLAGS form would let a sibling's
-  /// stray warning redden this gate for code this crate does not own.
-  ///
-  /// No allow-list and no lint-debt file. This crate started at zero lines,
-  /// so it can hold the full deny list from commit one; adopting it later
-  /// would mean measuring a debt and ratcheting it down instead (V12, V27).
+  // `-D warnings` is passed AFTER `--` rather than through RUSTFLAGS.
+  // RUSTFLAGS reaches PATH DEPENDENCIES, and V8 commits this crate to
+  // taking `itok` as one -- so the RUSTFLAGS form would let a sibling's
+  // stray warning redden this gate for code this crate does not own.
+  //
+  // No allow-list and no lint-debt file. This crate started at zero lines,
+  // so it can hold the full deny list from commit one; adopting it later
+  // would mean measuring a debt and ratcheting it down instead (V12, V27).
   ["clippy"] {
     glob = List("**/*.rs")
     depends = List("fmt")
@@ -118,42 +118,42 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// ASCII-only Rust source (SPEC.md §C): Trojan-Source resistance, and
-  /// plain legibility for the models this tool exists to serve. SPEC.md is
-  /// deliberately NOT in the glob -- its symbols are FORMAT, not source.
-  ///
-  /// The pattern is a POSIX RANGE under LC_ALL=C, not `grep -P` and not a
-  /// `[:print:]` class. MEASURED on this box: `-P` does not exist in BSD
-  /// grep, and `[^[:print:][:blank:]]` matched nothing against a UTF-8 byte
-  /// pair there -- so both forms would have passed silently on half the
-  /// supported platforms, which is a gate that reports green for a check it
-  /// never performed (V26).
+  // ASCII-only Rust source (SPEC.md §C): Trojan-Source resistance, and
+  // plain legibility for the models this tool exists to serve. SPEC.md is
+  // deliberately NOT in the glob -- its symbols are FORMAT, not source.
+  //
+  // The pattern is a POSIX RANGE under LC_ALL=C, not `grep -P` and not a
+  // `[:print:]` class. MEASURED on this box: `-P` does not exist in BSD
+  // grep, and `[^[:print:][:blank:]]` matched nothing against a UTF-8 byte
+  // pair there -- so both forms would have passed silently on half the
+  // supported platforms, which is a gate that reports green for a check it
+  // never performed (V26).
   ["ascii"] {
     glob = List("**/*.rs")
     check = "sh .rekall/rules/rust-source-is-ascii-only-specmd.sh"
   }
 
-  /// EXTRACTED from CLAUDE.md by rekall (id b2c5684). The rule and its
-  /// runner live in one file; this step decides only WHEN it runs (V24).
+  // EXTRACTED from CLAUDE.md by rekall (id b2c5684). The rule and its
+  // runner live in one file; this step decides only WHEN it runs (V24).
   ["allow-is-explained"] {
     glob = List("**/*.rs")
     check = "sh .rekall/rules/an-allow-must-name-what-it.sh"
   }
 
-  /// EXTRACTED from CLAUDE.md by rekall (id 3edbbbe). It reads THIS file
-  /// and every extracted runner beside it, so the gate is judged by the
-  /// rule it carries rather than by anyone remembering it.
-  /// SHIPPED docs must not link to UNSHIPPED files.
-  ///
-  /// `lychee` resolves every relative link in this repository and passes,
-  /// because in a checkout they all exist. The `.crate` is a different file
-  /// set: `hk.pkl`, `flake.nix` and `.github/` are excluded on purpose, and
-  /// a link to one of them is a dead link for everyone reading on crates.io
-  /// or docs.rs. MEASURED: 8 such links across 4 files, with the link
-  /// checker green the whole time -- a check looking at the wrong file set.
-  ///
-  /// Links to an excluded file belong as ABSOLUTE urls to the repository,
-  /// which is where that file actually lives.
+  // EXTRACTED from CLAUDE.md by rekall (id 3edbbbe). It reads THIS file
+  // and every extracted runner beside it, so the gate is judged by the
+  // rule it carries rather than by anyone remembering it.
+  // SHIPPED docs must not link to UNSHIPPED files.
+  //
+  // `lychee` resolves every relative link in this repository and passes,
+  // because in a checkout they all exist. The `.crate` is a different file
+  // set: `hk.pkl`, `flake.nix` and `.github/` are excluded on purpose, and
+  // a link to one of them is a dead link for everyone reading on crates.io
+  // or docs.rs. MEASURED: 8 such links across 4 files, with the link
+  // checker green the whole time -- a check looking at the wrong file set.
+  //
+  // Links to an excluded file belong as ABSOLUTE urls to the repository,
+  // which is where that file actually lives.
   ["shipped-links"] {
     glob = List("README.md", "docs/**/*.md", ".crate-files", "Cargo.toml")
     check = """
@@ -184,54 +184,54 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// The README BADGE BLOCK, generated between the markers it already carried
-  /// (T80). `check` renders and diffs; `fix` splices the render back in. hk
-  /// runs a step's `fix` only when its `check` FAILS, so the README is
-  /// rewritten on drift and never otherwise.
-  ///
-  /// WHY GENERATE rather than widen `readme-counts` to cover more numbers.
-  /// The block holds eight declared figures and each was written three times
-  /// -- alt text, shields.io URL, and the prose beside it. `readme-counts`
-  /// read three of them, and only the URL copy of those three, so two numbers
-  /// drifted green: `![invariants 59]` against a 63 URL, and `gate steps 21
-  /// commit / 27 push` against a real 23 and 29, wrong in BOTH copies with
-  /// nothing anywhere holding the right figure. That is V22's own defect
-  /// living inside the runner written to prevent it, and gating a third copy
-  /// would only have made the next one fail louder. Rendering removes the
-  /// copies instead.
-  ///
-  /// The renderer lives in the unpublished `rekall-dev` workspace member;
-  /// this step only selects when its pure, tested implementation runs.
+  // The README BADGE BLOCK, generated between the markers it already carried
+  // (T80). `check` renders and diffs; `fix` splices the render back in. hk
+  // runs a step's `fix` only when its `check` FAILS, so the README is
+  // rewritten on drift and never otherwise.
+  //
+  // WHY GENERATE rather than widen `readme-counts` to cover more numbers.
+  // The block holds eight declared figures and each was written three times
+  // -- alt text, shields.io URL, and the prose beside it. `readme-counts`
+  // read three of them, and only the URL copy of those three, so two numbers
+  // drifted green: `![invariants 59]` against a 63 URL, and `gate steps 21
+  // commit / 27 push` against a real 23 and 29, wrong in BOTH copies with
+  // nothing anywhere holding the right figure. That is V22's own defect
+  // living inside the runner written to prevent it, and gating a third copy
+  // would only have made the next one fail louder. Rendering removes the
+  // copies instead.
+  //
+  // The renderer lives in the unpublished `rekall-dev` workspace member;
+  // this step only selects when its pure, tested implementation runs.
 
-  /// The README's PROSE counts, against the specs they claim to count.
-  ///
-  /// Four numbers -- invariants, bug rows, and the landed/open task split --
-  /// appear in SENTENCES in the README body, and every one of them drifted in
-  /// a single session while the gate stayed green: 54 against 58, 10 against
-  /// 18, 16 against 23. They are exactly V22's subject, a figure DECLARED
-  /// with nothing reading it, and the fix is a runner rather than a habit.
-  ///
-  /// THE BADGE COPIES USED TO BE CHECKED HERE and no longer are. `badges`
-  /// above GENERATES them (T80), which is strictly stronger than comparing
-  /// them: a figure rendered from its source cannot disagree with it, so
-  /// there is nothing left to compare. What stays is the prose, which is a
-  /// human's sentences -- generating those would mean authoring them, and a
-  /// generator that writes prose is a generator nobody trusts to run.
-  ///
-  /// INLINE, and not a script under `.rekall/rules/`. That directory belongs
-  /// to EXTRACTED artifacts: every file in it is claimed by a ledger row that
-  /// records which statement it came from and how to undo it, and `rekall
-  /// check` calls anything else there an orphan. It did exactly that to the
-  /// first draft of this step, which is the tool catching its own author.
+  // The README's PROSE counts, against the specs they claim to count.
+  //
+  // Four numbers -- invariants, bug rows, and the landed/open task split --
+  // appear in SENTENCES in the README body, and every one of them drifted in
+  // a single session while the gate stayed green: 54 against 58, 10 against
+  // 18, 16 against 23. They are exactly V22's subject, a figure DECLARED
+  // with nothing reading it, and the fix is a runner rather than a habit.
+  //
+  // THE BADGE COPIES USED TO BE CHECKED HERE and no longer are. `badges`
+  // above GENERATES them (T80), which is strictly stronger than comparing
+  // them: a figure rendered from its source cannot disagree with it, so
+  // there is nothing left to compare. What stays is the prose, which is a
+  // human's sentences -- generating those would mean authoring them, and a
+  // generator that writes prose is a generator nobody trusts to run.
+  //
+  // INLINE, and not a script under `.rekall/rules/`. That directory belongs
+  // to EXTRACTED artifacts: every file in it is claimed by a ledger row that
+  // records which statement it came from and how to undo it, and `rekall
+  // check` calls anything else there an orphan. It did exactly that to the
+  // first draft of this step, which is the tool catching its own author.
   ["badges"] {
     glob = List("README.md", "Cargo.toml", ".coverage", "SPEC.md", "src/**/SPEC.md", "flake.lock", ".github/workflows/ci.yml")
     check = "cargo run --quiet --package rekall-dev -- readme --check"
     fix = "cargo run --quiet --package rekall-dev -- readme"
   }
 
-  /// The dependency notice table is generated from Cargo's locked offline
-  /// normal tree. Its inputs are deliberately narrow: changing unrelated
-  /// prose must not invoke Cargo.
+  // The dependency notice table is generated from Cargo's locked offline
+  // normal tree. Its inputs are deliberately narrow: changing unrelated
+  // prose must not invoke Cargo.
   ["notices"] {
     glob = List("Cargo.toml", "Cargo.lock", "docs/THIRD-PARTY-NOTICES.md", "dev/**")
     check = "cargo run --quiet --package rekall-dev -- notices --check"
@@ -239,12 +239,12 @@ local fast = new Mapping<String, Step> {
   }
 
   ["readme-counts"] {
-    /// `hk.pkl` is in the glob because the STEP COUNTS below are read from
-    /// hk's own plan: adding a step changes the true number, and the
-    /// sentence that states it is in a file this step would otherwise never
-    /// be woken for. That is exactly how it came to say 21 and 27 against a
-    /// real 25 and 31 -- the badge was regenerated on every touch and the
-    /// prose beside it was gated by nothing (V22).
+    // `hk.pkl` is in the glob because the STEP COUNTS below are read from
+    // hk's own plan: adding a step changes the true number, and the
+    // sentence that states it is in a file this step would otherwise never
+    // be woken for. That is exactly how it came to say 21 and 27 against a
+    // real 25 and 31 -- the badge was regenerated on every touch and the
+    // prose beside it was gated by nothing (V22).
     glob = List("README.md", "docs/*.md", "SPEC.md", "src/**/SPEC.md", "hk.pkl")
     check = """
       # The file list comes from `find` with `target/` excluded, and nothing
@@ -302,37 +302,37 @@ local fast = new Mapping<String, Step> {
     check = "sh .rekall/rules/every-failing-step-names-the-fix.sh"
   }
 
-  /// EXTRACTED from CLAUDE.md by rekall (id c75aeab). It carries no glob,
-  /// so it runs every time: a hook that stopped being installed is a
-  /// condition no file change announces.
+  // EXTRACTED from CLAUDE.md by rekall (id c75aeab). It carries no glob,
+  // so it runs every time: a hook that stopped being installed is a
+  // condition no file change announces.
   ["pre-push-installed"] {
     check = "sh .rekall/rules/run-hk-check-before-pushing.sh"
   }
 
-  /// T20: the set-and-setting consumer fragments are documentation with a
-  /// real contract. Keep the measured corpus revision and both adapters
-  /// together; this check is local and offline, so it cannot turn into a
-  /// network-dependent gate.
+  // T20: the set-and-setting consumer fragments are documentation with a
+  // real contract. Keep the measured corpus revision and both adapters
+  // together; this check is local and offline, so it cannot turn into a
+  // network-dependent gate.
   ["set-and-setting-integration"] {
     glob = List("docs/EXAMPLE.md", "docs/INTEGRATION.md", "docs/set-and-setting/**", "tools/check-set-and-setting-integration.sh")
     check = "sh tools/check-set-and-setting-integration.sh"
   }
 
-  /// EXTRACTED from CLAUDE.md by rekall (id 551a009). No glob: the branch
-  /// you are on is not something a file change announces.
+  // EXTRACTED from CLAUDE.md by rekall (id 551a009). No glob: the branch
+  // you are on is not something a file change announces.
   ["branch-not-main"] {
     check = "sh .rekall/rules/every-change-reaches-main-through-a.sh"
   }
 
-  /// MODULE SIZE, the limit clippy does not have.
-  ///
-  /// It caps methods, parameters, nesting and complexity -- and nothing
-  /// caps a FILE. `src/cli.rs` reached 1,878 lines of code with every
-  /// function inside it passing, because the one dimension nobody
-  /// measured is the one that drifted. V22, in the gate that was missing.
-  ///
-  /// CODE lines only: everything before `#[cfg(test)]`. A thorough test
-  /// module is not the smell -- a file doing ten jobs is.
+  // MODULE SIZE, the limit clippy does not have.
+  //
+  // It caps methods, parameters, nesting and complexity -- and nothing
+  // caps a FILE. `src/cli.rs` reached 1,878 lines of code with every
+  // function inside it passing, because the one dimension nobody
+  // measured is the one that drifted. V22, in the gate that was missing.
+  //
+  // CODE lines only: everything before `#[cfg(test)]`. A thorough test
+  // module is not the smell -- a file doing ten jobs is.
   ["module-size"] {
     glob = List("**/*.rs")
     check = """
@@ -351,10 +351,10 @@ local fast = new Mapping<String, Step> {
   }
 
   ["test"] {
-    /// A step's glob must name every INPUT its tests read, not just the
-    /// language they are written in. Cargo.toml is here because the version
-    /// and lint set live there; SPEC.md will join it the moment a test reads
-    /// it, which T19 makes inevitable.
+    // A step's glob must name every INPUT its tests read, not just the
+    // language they are written in. Cargo.toml is here because the version
+    // and lint set live there; SPEC.md will join it the moment a test reads
+    // it, which T19 makes inevitable.
     glob = List("**/*.rs", "Cargo.toml")
     depends = List("clippy")
     check = """
@@ -362,31 +362,31 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// THE FEDERATION'S RUNNER. `mth` is intra-file BY DESIGN and has no `§F`
-  /// verb at all, so an edge table checked by nothing would be the
-  /// declaration V22 forbids -- and this spec now carries twenty-two of
-  /// them.
-  ///
-  /// `validate` is the whole verdict in one call: the DAG, the ids, every
-  /// node's chain against its ceiling, and whether a `§N` drifted from the
-  /// `§F` it is generated from. `sync --check` is separate because it
-  /// answers a question `validate` cannot -- whether the nav WOULD be
-  /// rewritten -- and a generated file nobody regenerates is stale by
-  /// definition.
-  ///
-  /// SHERD IS OWNED, not optional (V26). It arrives as a pinned flake input
-  /// -- `github:pr0d1r2/sherd`, the same class as `mth` and `itok` -- so this
-  /// crate answers for whether it RAN, and its presence check belongs in
-  /// `runners` with the other owned tools rather than in a guard here.
-  ///
-  /// It used to guard itself with `command -v sherd || exit 0`, describing
-  /// itself in that message as an "optional third-party tool". THAT IS THE
-  /// HALF OF B19 NOBODY FIXED. B19 records a stale dev shell holding an `mth`
-  /// that joined the `§F` header onto its first row -- and, in the same
-  /// breath, that `federation`, the ONE step which catches exactly that,
-  /// SKIPPED for want of `sherd`. Corrupt and undetected in one run, three
-  /// times over. The stale half was repaired and the skip that hid it was
-  /// left standing, still exiting 0, still reading green.
+  // THE FEDERATION'S RUNNER. `mth` is intra-file BY DESIGN and has no `§F`
+  // verb at all, so an edge table checked by nothing would be the
+  // declaration V22 forbids -- and this spec now carries twenty-two of
+  // them.
+  //
+  // `validate` is the whole verdict in one call: the DAG, the ids, every
+  // node's chain against its ceiling, and whether a `§N` drifted from the
+  // `§F` it is generated from. `sync --check` is separate because it
+  // answers a question `validate` cannot -- whether the nav WOULD be
+  // rewritten -- and a generated file nobody regenerates is stale by
+  // definition.
+  //
+  // SHERD IS OWNED, not optional (V26). It arrives as a pinned flake input
+  // -- `github:pr0d1r2/sherd`, the same class as `mth` and `itok` -- so this
+  // crate answers for whether it RAN, and its presence check belongs in
+  // `runners` with the other owned tools rather than in a guard here.
+  //
+  // It used to guard itself with `command -v sherd || exit 0`, describing
+  // itself in that message as an "optional third-party tool". THAT IS THE
+  // HALF OF B19 NOBODY FIXED. B19 records a stale dev shell holding an `mth`
+  // that joined the `§F` header onto its first row -- and, in the same
+  // breath, that `federation`, the ONE step which catches exactly that,
+  // SKIPPED for want of `sherd`. Corrupt and undetected in one run, three
+  // times over. The stale half was repaired and the skip that hid it was
+  // left standing, still exiting 0, still reading green.
   ["federation"] {
     glob = List("SPEC.md", "src/**/SPEC.md", ".context-limits")
     check = """
@@ -395,10 +395,10 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// THE FORMAT OWNER. `mth` owns SPEC.md's format (§C) and arrives as a
-  /// pinned flake input rather than off PATH, because the last time it was
-  /// merely expected on PATH the check was silently deferred and nothing
-  /// reported it (V26).
+  // THE FORMAT OWNER. `mth` owns SPEC.md's format (§C) and arrives as a
+  // pinned flake input rather than off PATH, because the last time it was
+  // merely expected on PATH the check was silently deferred and nothing
+  // reported it (V26).
   ["spec-fmt"] {
     glob = List("SPEC.md")
     check = "mth fmt --check SPEC.md"
@@ -413,19 +413,19 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// THE CEILING'S RUNNER (V22). `itok check` reads `.context-limits` and
-  /// exits nonzero on a breach, using its pinned tokenizer tier so the count
-  /// is reproducible rather than a per-run estimate.
-  ///
-  /// Delegated, never reimplemented: itok owns token accounting (V8), and a
-  /// second counter here would disagree with it eventually -- which is the
-  /// same defect as two rule sets, and the one that argues loudest for
-  /// itself because both numbers look plausible.
-  ///
-  /// On the COMMIT tier deliberately. The whole point of V12 is that the
-  /// ceiling is felt while the file is being edited; a breach discovered on
-  /// push is a breach discovered after the reasoning that caused it has been
-  /// written and defended.
+  // THE CEILING'S RUNNER (V22). `itok check` reads `.context-limits` and
+  // exits nonzero on a breach, using its pinned tokenizer tier so the count
+  // is reproducible rather than a per-run estimate.
+  //
+  // Delegated, never reimplemented: itok owns token accounting (V8), and a
+  // second counter here would disagree with it eventually -- which is the
+  // same defect as two rule sets, and the one that argues loudest for
+  // itself because both numbers look plausible.
+  //
+  // On the COMMIT tier deliberately. The whole point of V12 is that the
+  // ceiling is felt while the file is being edited; a breach discovered on
+  // push is a breach discovered after the reasoning that caused it has been
+  // written and defended.
   ["context-limits"] {
     glob = List("SPEC.md", "README.md", ".context-limits")
     check = """
@@ -433,22 +433,22 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// CONSUMER #0 (T19). This crate checks its OWN corpus with its own
-  /// binary -- a tool that gates other people's extractions and not its own
-  /// is a tool nobody has run in anger.
-  ///
-  /// `rekall` reaches PATH through the dev shell's cargo-run shim, so this
-  /// is the crate's own build and not a stale global install. It is an
-  /// OWNED step: if the binary is missing the step FAILS rather than
-  /// skipping, because a silent skip is a pass nobody earned (V26).
-  ///
-  /// On the COMMIT tier because it is cheap -- it reads a ledger and the
-  /// handful of files that ledger names, with no network and no key (V6).
-  ///
-  /// The glob is the LEDGER and the places extraction touches. Today this
-  /// repo has extracted nothing, so the step has nothing to say; it starts
-  /// biting the moment the first statement moves, which is the commit where
-  /// the obligation actually appears.
+  // CONSUMER #0 (T19). This crate checks its OWN corpus with its own
+  // binary -- a tool that gates other people's extractions and not its own
+  // is a tool nobody has run in anger.
+  //
+  // `rekall` reaches PATH through the dev shell's cargo-run shim, so this
+  // is the crate's own build and not a stale global install. It is an
+  // OWNED step: if the binary is missing the step FAILS rather than
+  // skipping, because a silent skip is a pass nobody earned (V26).
+  //
+  // On the COMMIT tier because it is cheap -- it reads a ledger and the
+  // handful of files that ledger names, with no network and no key (V6).
+  //
+  // The glob is the LEDGER and the places extraction touches. Today this
+  // repo has extracted nothing, so the step has nothing to say; it starts
+  // biting the moment the first statement moves, which is the commit where
+  // the obligation actually appears.
   ["rekall-check"] {
     glob = List(".rekall/**", "CLAUDE.md", "AGENTS.md", ".claude/skills/**")
     check = """
@@ -456,27 +456,27 @@ local fast = new Mapping<String, Step> {
       """
   }
 
-  /// `nixfmt --check` gates the flake itself: that file decides what every
-  /// other step runs with, so drift there is drift everywhere.
-  /// The five steps below are OPTIONAL THIRD-PARTY tools, and V26 gives
-  /// them the other treatment: absent means SKIP, and the skip is NAMED.
-  ///
-  /// The guard is a PRELUDE INSIDE the check, and it was hk's own
-  /// `step_condition` first. MEASURED: with `display_skip_reasons`
-  /// carrying "condition-false", a step whose condition evaluated false
-  /// was reported at DEBUG level and NOWHERE ELSE --
-  ///
-  ///     DEBUG typos: condition: exec('command -v typos') = false
-  ///
-  /// -- so the run exited 0 having said nothing about a check it never
-  /// performed. hk's native facility produces precisely the silent skip
-  /// V26 forbids, which is the whole reason to prefer it and the reason
-  /// it cannot be used.
-  ///
-  /// V24 still holds. Its rule is that hk decides WHEN and never what
-  /// passing MEANS; the verdict here is still `typos`'s, the prelude only
-  /// announces its absence, and the whole thing is still a plain command
-  /// a human can paste.
+  // `nixfmt --check` gates the flake itself: that file decides what every
+  // other step runs with, so drift there is drift everywhere.
+  // The five steps below are OPTIONAL THIRD-PARTY tools, and V26 gives
+  // them the other treatment: absent means SKIP, and the skip is NAMED.
+  //
+  // The guard is a PRELUDE INSIDE the check, and it was hk's own
+  // `step_condition` first. MEASURED: with `display_skip_reasons`
+  // carrying "condition-false", a step whose condition evaluated false
+  // was reported at DEBUG level and NOWHERE ELSE --
+  //
+  //     DEBUG typos: condition: exec('command -v typos') = false
+  //
+  // -- so the run exited 0 having said nothing about a check it never
+  // performed. hk's native facility produces precisely the silent skip
+  // V26 forbids, which is the whole reason to prefer it and the reason
+  // it cannot be used.
+  //
+  // V24 still holds. Its rule is that hk decides WHEN and never what
+  // passing MEANS; the verdict here is still `typos`'s, the prelude only
+  // announces its absence, and the whole thing is still a plain command
+  // a human can paste.
   ["nixfmt"] {
     glob = List("**/*.nix")
     check = """
@@ -504,16 +504,16 @@ local fast = new Mapping<String, Step> {
     fix = "typos --write-changes"
   }
 
-  /// MARKDOWN (T86). The repository's 35 shipped Markdown files get a real
-  /// syntax/style verdict when the optional ecosystem tools are present.
-  /// `markdownlint` owns linting; `mdformat` and `dprint` own formatting, so
-  /// neither formatter is presented as a second linter. The tools are not
-  /// Rust dependencies and are deliberately optional, exactly like `typos`
-  /// and `zizmor`: absence is a named skip (V26), not a silent pass.
-  ///
-  /// `AGENTS.md` is the host instruction file and is intentionally outside
-  /// this shipped-document set. The file list is derived from git so the
-  /// count cannot drift with build output or an untracked Markdown file.
+  // MARKDOWN (T86). The repository's 35 shipped Markdown files get a real
+  // syntax/style verdict when the optional ecosystem tools are present.
+  // `markdownlint` owns linting; `mdformat` and `dprint` own formatting, so
+  // neither formatter is presented as a second linter. The tools are not
+  // Rust dependencies and are deliberately optional, exactly like `typos`
+  // and `zizmor`: absence is a named skip (V26), not a silent pass.
+  //
+  // `AGENTS.md` is the host instruction file and is intentionally outside
+  // this shipped-document set. The file list is derived from git so the
+  // count cannot drift with build output or an untracked Markdown file.
   ["markdownlint"] {
     glob = List("**/*.md")
     check = """
@@ -546,34 +546,34 @@ local fast = new Mapping<String, Step> {
     fix = "dprint fmt $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')"
   }
 
-  /// Secrets. hk's `detect-private-key` builtin does exactly what its name
-  /// says and nothing else, so a token-shaped secret walks straight past it.
+  // Secrets. hk's `detect-private-key` builtin does exactly what its name
+  // says and nothing else, so a token-shaped secret walks straight past it.
 
-  /// The four formatting rules NOTHING ELSE OWNS.
-  ///
-  /// `.editorconfig` is a declaration, and a declaration no runner reads is
-  /// a wish (V22) -- editors honour it only if the person editing has the
-  /// plugin, which is exactly the enforcement-by-hope this repo refuses. So
-  /// the file lands with this step, in the same commit, and the step checks
-  /// the four rules that are genuinely unclaimed: line endings, tabs,
-  /// trailing whitespace, and the final newline.
-  ///
-  /// It does NOT check indentation width. rustfmt, taplo and nixfmt each own
-  /// that for their own files and are already in this gate; a second opinion
-  /// here would be a rule that can disagree with the formatter that runs
-  /// after it.
-  ///
-  /// No `editorconfig-checker` dependency: the whole check is four lines of
-  /// git and grep, and this repo does not add a dependency for what the
-  /// tools already present can do.
-  ///
-  /// EVERY LINE HERE MUST SUCCEED. hk runs a check under errexit, so a
-  /// bare failing test anywhere -- including inside a loop body, where it
-  /// reads as a condition and is not one -- kills the step with no message
-  /// at all. MEASURED: the first draft died on the first file that ended
-  /// correctly, reporting nothing, which is the silent failure the
-  /// `failure-says-something` runner exists to forbid and cannot see,
-  /// because it greps for a literal `exit 1`.
+  // The four formatting rules NOTHING ELSE OWNS.
+  //
+  // `.editorconfig` is a declaration, and a declaration no runner reads is
+  // a wish (V22) -- editors honour it only if the person editing has the
+  // plugin, which is exactly the enforcement-by-hope this repo refuses. So
+  // the file lands with this step, in the same commit, and the step checks
+  // the four rules that are genuinely unclaimed: line endings, tabs,
+  // trailing whitespace, and the final newline.
+  //
+  // It does NOT check indentation width. rustfmt, taplo and nixfmt each own
+  // that for their own files and are already in this gate; a second opinion
+  // here would be a rule that can disagree with the formatter that runs
+  // after it.
+  //
+  // No `editorconfig-checker` dependency: the whole check is four lines of
+  // git and grep, and this repo does not add a dependency for what the
+  // tools already present can do.
+  //
+  // EVERY LINE HERE MUST SUCCEED. hk runs a check under errexit, so a
+  // bare failing test anywhere -- including inside a loop body, where it
+  // reads as a condition and is not one -- kills the step with no message
+  // at all. MEASURED: the first draft died on the first file that ended
+  // correctly, reporting nothing, which is the silent failure the
+  // `failure-says-something` runner exists to forbid and cannot see,
+  // because it greps for a literal `exit 1`.
   ["editorconfig"] {
     glob = List("**/*")
     check = """
@@ -600,27 +600,27 @@ local fast = new Mapping<String, Step> {
   }
 
 
-  /// `actionlint` on the workflow, the ONE tracked file no other step reads
-  /// and the only one that runs on a machine nobody can attach to.
-  ///
-  /// THE TOOL WAS ALREADY PROVISIONED AND CALLED BY NOTHING. flake.nix put
-  /// actionlint in the dev shell and no step invoked it, which is V22's
-  /// defect wearing a tool's clothes rather than a number's: something
-  /// DECLARED, costing setup, exiting nonzero on nothing. Shipping a linter
-  /// nobody runs is the same green-for-nothing the rest of this file refuses.
-  ///
-  /// The failure it guards is specific and dated. ci.yml has NEVER EXECUTED
-  /// -- its own header says so, and `.:B17` records that the repository it
-  /// would run on does not exist yet -- so the first time this workflow is
-  /// read by GitHub is the first push of a repository that has just gone
-  /// public. A syntax error there is discovered by strangers.
-  ///
-  /// Bare `actionlint` rather than a path list: it discovers
-  /// `.github/workflows` itself, so a second workflow added later is linted
-  /// without anyone remembering to extend an argument here.
-  ///
-  /// NO `fix`. actionlint reports and does not rewrite, and a step claiming
-  /// a fix it cannot perform is worse than one that admits it has none.
+  // `actionlint` on the workflow, the ONE tracked file no other step reads
+  // and the only one that runs on a machine nobody can attach to.
+  //
+  // THE TOOL WAS ALREADY PROVISIONED AND CALLED BY NOTHING. flake.nix put
+  // actionlint in the dev shell and no step invoked it, which is V22's
+  // defect wearing a tool's clothes rather than a number's: something
+  // DECLARED, costing setup, exiting nonzero on nothing. Shipping a linter
+  // nobody runs is the same green-for-nothing the rest of this file refuses.
+  //
+  // The failure it guards is specific and dated. ci.yml has NEVER EXECUTED
+  // -- its own header says so, and `.:B17` records that the repository it
+  // would run on does not exist yet -- so the first time this workflow is
+  // read by GitHub is the first push of a repository that has just gone
+  // public. A syntax error there is discovered by strangers.
+  //
+  // Bare `actionlint` rather than a path list: it discovers
+  // `.github/workflows` itself, so a second workflow added later is linted
+  // without anyone remembering to extend an argument here.
+  //
+  // NO `fix`. actionlint reports and does not rewrite, and a step claiming
+  // a fix it cannot perform is worse than one that admits it has none.
   ["actionlint"] {
     glob = List(".github/workflows/**")
     check = """
@@ -630,34 +630,34 @@ local fast = new Mapping<String, Step> {
   }
 
 
-  /// Whether the workflow is SAFE, next to `actionlint`'s whether it is
-  /// CORRECT. Rust, and the only tool in this gate that reads a workflow as
-  /// an attack surface rather than as a schema.
-  ///
-  /// IT FOUND FIVE THINGS ON ITS FIRST RUN, all medium and all real: two
-  /// checkouts leaving the job's token in `.git/config` where a later step
-  /// or a cached `target/` could carry it off, and three jobs holding the
-  /// default `GITHUB_TOKEN` scope when none of them writes anything. Both
-  /// are one line to fix and neither would have been noticed by reading.
-  ///
-  /// The alternative considered and REJECTED was `yamllint`: it is Python,
-  /// and the fleet's own config for it disables the two rules that would
-  /// fire on a workflow file, so it would have added a dependency to check
-  /// indentation on the one YAML file `actionlint` already reads.
-  ///
-  /// `--persona=pedantic` ON PURPOSE, and it is the STRICTER setting rather
-  /// than the `regular` default. Pedantic reports code smells -- claims about
-  /// how the file will AGE rather than about what it does today -- and
-  /// conforming to that stricter reading is what produces the more pristine
-  /// workflow. It found two here, both `anonymous-definition`, and both were
-  /// FIXED rather than declined: `main` requires no status checks, so naming
-  /// a job renames nothing anybody depends on.
-  ///
-  /// `-c` names the ledger EXPLICITLY rather than leaving it to zizmor's own
-  /// discovery, so the path is visible in the step that depends on it. What
-  /// pedantic reports and this repository does not fix is written down there,
-  /// each entry carrying the reason and the condition that retires it -- and
-  /// the ledger is in the GLOB, so editing it re-runs the audit it governs.
+  // Whether the workflow is SAFE, next to `actionlint`'s whether it is
+  // CORRECT. Rust, and the only tool in this gate that reads a workflow as
+  // an attack surface rather than as a schema.
+  //
+  // IT FOUND FIVE THINGS ON ITS FIRST RUN, all medium and all real: two
+  // checkouts leaving the job's token in `.git/config` where a later step
+  // or a cached `target/` could carry it off, and three jobs holding the
+  // default `GITHUB_TOKEN` scope when none of them writes anything. Both
+  // are one line to fix and neither would have been noticed by reading.
+  //
+  // The alternative considered and REJECTED was `yamllint`: it is Python,
+  // and the fleet's own config for it disables the two rules that would
+  // fire on a workflow file, so it would have added a dependency to check
+  // indentation on the one YAML file `actionlint` already reads.
+  //
+  // `--persona=pedantic` ON PURPOSE, and it is the STRICTER setting rather
+  // than the `regular` default. Pedantic reports code smells -- claims about
+  // how the file will AGE rather than about what it does today -- and
+  // conforming to that stricter reading is what produces the more pristine
+  // workflow. It found two here, both `anonymous-definition`, and both were
+  // FIXED rather than declined: `main` requires no status checks, so naming
+  // a job renames nothing anybody depends on.
+  //
+  // `-c` names the ledger EXPLICITLY rather than leaving it to zizmor's own
+  // discovery, so the path is visible in the step that depends on it. What
+  // pedantic reports and this repository does not fix is written down there,
+  // each entry carrying the reason and the condition that retires it -- and
+  // the ledger is in the GLOB, so editing it re-runs the audit it governs.
   ["zizmor"] {
     glob = List(".github/workflows/*.yml", ".github/zizmor.yml")
     check = """
@@ -667,41 +667,41 @@ local fast = new Mapping<String, Step> {
   }
 
 
-  /// RELATIVE LINKS, across every tracked file rather than only markdown.
-  /// README.md and the docs/ tree point at LICENSE, hk.pkl, flake.nix and
-  /// each other, so a link can break with no markdown touched at all --
-  /// renaming a config file is enough.
-  ///
-  /// `--offline` is not a speed choice. This crate reaches the network
-  /// nowhere, and a gate step that fetches every external URL on every
-  /// commit would make that false in the one place a developer meets most
-  /// often. A dead external link is a documentation problem; a gate that
-  /// needs a network is a gate that goes soft on a plane.
+  // RELATIVE LINKS, across every tracked file rather than only markdown.
+  // README.md and the docs/ tree point at LICENSE, hk.pkl, flake.nix and
+  // each other, so a link can break with no markdown touched at all --
+  // renaming a config file is enough.
+  //
+  // `--offline` is not a speed choice. This crate reaches the network
+  // nowhere, and a gate step that fetches every external URL on every
+  // commit would make that false in the one place a developer meets most
+  // often. A dead external link is a documentation problem; a gate that
+  // needs a network is a gate that goes soft on a plane.
   ["links"] {
     glob = List("**/*")
-    /// Absence before findings: `lychee: command not found` is also a
-    /// non-zero exit, and reporting it as a broken link sends the reader
-    /// hunting for a bad path that does not exist. MEASURED in a sibling,
-    /// where exactly that message cost a push.
+    // Absence before findings: `lychee: command not found` is also a
+    // non-zero exit, and reporting it as a broken link sends the reader
+    // hunting for a bad path that does not exist. MEASURED in a sibling,
+    // where exactly that message cost a push.
     check = """
       command -v lychee >/dev/null 2>&1 || { echo "hk: SKIPPED links -- lychee is not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a broken link. Enter the dev shell to run it." >&2; exit 0; }
       lychee --offline --no-progress . || { echo 'hk: a relative link does not resolve. Fix the path, or the file it points at.' >&2; exit 1; }
       """
   }
 
-  /// THE SUPPLY CHAIN. Five direct dependencies and 26 in the tree, so
-  /// "there is nothing to scan" -- the honest answer in a zero-dependency
-  /// sibling -- is not available here.
-  ///
-  /// `advisories` is NOT in this step: it fetches the RustSec database, and
-  /// this set runs on every commit. This crate's whole claim is that it
-  /// never reaches the network, so the one check that does lives in the
-  /// push set, in `deny-advisories` below.
+  // THE SUPPLY CHAIN. Five direct dependencies and 26 in the tree, so
+  // "there is nothing to scan" -- the honest answer in a zero-dependency
+  // sibling -- is not available here.
+  //
+  // `advisories` is NOT in this step: it fetches the RustSec database, and
+  // this set runs on every commit. This crate's whole claim is that it
+  // never reaches the network, so the one check that does lives in the
+  // push set, in `deny-advisories` below.
   ["deny"] {
     glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
-    /// Absence before findings: `no such command: deny` is also a non-zero
-    /// exit, and reporting it as a rejected dependency tree names the wrong
-    /// cause entirely.
+    // Absence before findings: `no such command: deny` is also a non-zero
+    // exit, and reporting it as a rejected dependency tree names the wrong
+    // cause entirely.
     check = """
       cargo deny --version >/dev/null 2>&1 || { echo "hk: SKIPPED cargo-deny -- not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a clean dependency tree. Enter the dev shell to run it." >&2; exit 0; }
       cargo deny check bans licenses sources || { echo 'hk: cargo-deny rejected the dependency tree. A NEW DEPENDENCY is a decision, not a detail, and a new LICENCE is permission granted to everything downstream forever. Both belong in deny.toml as a deliberate edit, with the argument beside them.' >&2; exit 1; }
@@ -721,14 +721,14 @@ local all = (fast) {
     fix = "cargo run --quiet --package rekall-dev -- readme"
   }
 
-  /// Doc examples are TESTS. The one on `config::merge` pins the union
-  /// rule -- the single asymmetry in the merge -- so the behaviour that is
-  /// easiest to "simplify" away is asserted by the documentation that
-  /// explains it.
-  ///
-  /// Absent from commit one because the crate was bin-only and `cargo test
-  /// --doc` errors with "no library targets found". A step that cannot pass
-  /// is not a gate, it is a red nobody can clear (T32).
+  // Doc examples are TESTS. The one on `config::merge` pins the union
+  // rule -- the single asymmetry in the merge -- so the behaviour that is
+  // easiest to "simplify" away is asserted by the documentation that
+  // explains it.
+  //
+  // Absent from commit one because the crate was bin-only and `cargo test
+  // --doc` errors with "no library targets found". A step that cannot pass
+  // is not a gate, it is a red nobody can clear (T32).
   ["doctest"] {
     glob = List("**/*.rs")
     depends = List("test")
@@ -745,8 +745,8 @@ local all = (fast) {
       """
   }
 
-  /// The crate must build with no default features, because a consumer may
-  /// take it that way and nothing else here would notice.
+  // The crate must build with no default features, because a consumer may
+  // take it that way and nothing else here would notice.
   ["no-default-features"] {
     glob = List("**/*.rs", "Cargo.toml")
     depends = List("rustdoc")
@@ -755,18 +755,18 @@ local all = (fast) {
       """
   }
 
-  /// Publishing does not ship the REPO, it ships a tarball whose file set is
-  /// DERIVED -- git-tracked, minus `exclude`. That is a second file set
-  /// nothing else in this repo examines.
-  /// the right files, and only the first was ever asked here. `.crate-files`
-  /// records the second answer so a change to it lands in a DIFF a reviewer
-  /// reads, rather than being discovered by a consumer at publish time.
-  ///
-  /// MEASURED, which is why this step exists: the crate shipped a generated
-  /// skill from `.claude/skills/` while excluding the `.rekall/` ledger that
-  /// records it -- an orphan artifact, the state `check` exits 1 on, inside
-  /// the tarball of the tool that refuses it. `cargo package` was green
-  /// throughout, because a tarball with a wrong file set still builds.
+  // Publishing does not ship the REPO, it ships a tarball whose file set is
+  // DERIVED -- git-tracked, minus `exclude`. That is a second file set
+  // nothing else in this repo examines.
+  // the right files, and only the first was ever asked here. `.crate-files`
+  // records the second answer so a change to it lands in a DIFF a reviewer
+  // reads, rather than being discovered by a consumer at publish time.
+  //
+  // MEASURED, which is why this step exists: the crate shipped a generated
+  // skill from `.claude/skills/` while excluding the `.rekall/` ledger that
+  // records it -- an orphan artifact, the state `check` exits 1 on, inside
+  // the tarball of the tool that refuses it. `cargo package` was green
+  // throughout, because a tarball with a wrong file set still builds.
   ["package"] {
     glob = List("**/*.rs", "Cargo.toml", ".crate-files")
     depends = List("no-default-features")
@@ -776,43 +776,43 @@ local all = (fast) {
       cargo package --list --allow-dirty 2>/dev/null | sort > target/crate-files.txt || { echo 'hk: `cargo package --list` failed, so what the tarball would ship could not be read at all.' >&2; exit 1; }
       diff -q .crate-files target/crate-files.txt >/dev/null || { echo 'hk: what the .crate SHIPS changed. The lines below are the difference between the recorded file set and the one this tree would publish. If it is intended, run `hk fix -S package` to record it. If it is not, something was added, deleted or excluded by accident.' >&2; diff .crate-files target/crate-files.txt >&2; exit 1; }
       """
-    /// Records rather than judges. The point is never that a change is
-    /// wrong -- it is that a change is SEEN, in a diff, by whoever is about
-    /// to publish.
+    // Records rather than judges. The point is never that a change is
+    // wrong -- it is that a change is SEEN, in a diff, by whoever is about
+    // to publish.
     fix = """
       mkdir -p target
       cargo package --list --allow-dirty 2>/dev/null | sort > .crate-files || { echo 'hk: `cargo package --list` failed, so there is nothing to record.' >&2; exit 1; }
       """
   }
 
-  /// THE RATCHET (V27). The floor may RISE, never fall, and it MUST rise
-  /// when coverage does. `.coverage` carries the number.
-  ///
-  /// Two margins, and they are not symmetric on purpose. A fall of up to
-  /// 0.3 is tolerated as measurement jitter. A rise of more than 0.5 is a
-  /// FAILURE, cleared by `hk fix --all`, which records it.
-  ///
-  /// That second half was missing and the gate was quietly broken by it.
-  /// hk runs a step's `fix` only when its `check` FAILS, so a rise -- which
-  /// passed -- never reached the code that records it, and the printed
-  /// advice named a command (`hk run fix`) that does not exist. The floor
-  /// would have drifted further below reality with every well-tested
-  /// commit, protecting less and less while reporting green.
-  ///
-  /// Failing on a stale floor is the same shape as `cargo fmt --check`
-  /// failing on an unformatted file: not a complaint about the work, just
-  /// a record that has not caught up. One command fixes it.
-  ///
-  /// It starts at the scaffold's own figure rather than at an aspirational
-  /// one: a floor nobody can pay gates every commit red for weeks, and the
-  /// first thing anyone does with a gate they cannot pay is bypass it.
+  // THE RATCHET (V27). The floor may RISE, never fall, and it MUST rise
+  // when coverage does. `.coverage` carries the number.
+  //
+  // Two margins, and they are not symmetric on purpose. A fall of up to
+  // 0.3 is tolerated as measurement jitter. A rise of more than 0.5 is a
+  // FAILURE, cleared by `hk fix --all`, which records it.
+  //
+  // That second half was missing and the gate was quietly broken by it.
+  // hk runs a step's `fix` only when its `check` FAILS, so a rise -- which
+  // passed -- never reached the code that records it, and the printed
+  // advice named a command (`hk run fix`) that does not exist. The floor
+  // would have drifted further below reality with every well-tested
+  // commit, protecting less and less while reporting green.
+  //
+  // Failing on a stale floor is the same shape as `cargo fmt --check`
+  // failing on an unformatted file: not a complaint about the work, just
+  // a record that has not caught up. One command fixes it.
+  //
+  // It starts at the scaffold's own figure rather than at an aspirational
+  // one: a floor nobody can pay gates every commit red for weeks, and the
+  // first thing anyone does with a gate they cannot pay is bypass it.
   ["coverage"] {
     glob = List("**/*.rs", ".coverage")
     depends = List("package")
     check = "sh .rekall/rules/the-coverage-floor-only-ever-rises.sh"
-    /// `fix` may only RAISE. A ratchet that writes down whatever it measures
-    /// is not a ratchet -- it files down its own teeth on exactly the commit
-    /// it existed to refuse (V27).
+    // `fix` may only RAISE. A ratchet that writes down whatever it measures
+    // is not a ratchet -- it files down its own teeth on exactly the commit
+    // it existed to refuse (V27).
     fix = """
       out=$(cargo llvm-cov --summary-only 2>&1) || { echo "$out" >&2; exit 1; }
       now=$(printf '%s' "$out" | awk '/^TOTAL/{gsub("%","",$10); print $10}')
@@ -824,18 +824,18 @@ local all = (fast) {
       """
   }
 
-  /// THE ONE NETWORK STEP IN THE WHOLE GATE. It fetches the RustSec
-  /// advisory database, so it sits with the expensive axes rather than on
-  /// every commit -- this crate reaches the network nowhere, and the gate
-  /// should not quietly make a developer do so on every `git commit`.
-  ///
-  /// Paired with `deny` in the fast set, which is what keeps the tree small
-  /// enough for this to mean something.
+  // THE ONE NETWORK STEP IN THE WHOLE GATE. It fetches the RustSec
+  // advisory database, so it sits with the expensive axes rather than on
+  // every commit -- this crate reaches the network nowhere, and the gate
+  // should not quietly make a developer do so on every `git commit`.
+  //
+  // Paired with `deny` in the fast set, which is what keeps the tree small
+  // enough for this to mean something.
   ["deny-advisories"] {
     glob = List("Cargo.toml", "Cargo.lock", "deny.toml")
     depends = List("coverage")
-    /// Absence before findings, as in `deny`: a missing tool is not a clean
-    /// bill of health.
+    // Absence before findings, as in `deny`: a missing tool is not a clean
+    // bill of health.
     check = """
       cargo deny --version >/dev/null 2>&1 || { echo "hk: SKIPPED cargo-deny -- not on PATH. Optional third-party tool, so this is a skip and not a failure (V26) -- and NOT a clean dependency tree. Enter the dev shell to run it." >&2; exit 0; }
       cargo deny check advisories || { echo 'hk: a dependency carries a security advisory or has been yanked. Bump it, or record why it is not reachable from this crate in deny.toml.' >&2; exit 1; }
@@ -844,9 +844,9 @@ local all = (fast) {
 }
 
 hooks {
-  /// `stash = "git"` is correctness, not speed -- without it a partially
-  /// staged file (`git add -p`) is checked as it looks in the WORKTREE,
-  /// giving a verdict about code you are not committing.
+  // `stash = "git"` is correctness, not speed -- without it a partially
+  // staged file (`git add -p`) is checked as it looks in the WORKTREE,
+  // giving a verdict about code you are not committing.
   ["pre-commit"] {
     fix = true
     stash = "git"
@@ -857,9 +857,9 @@ hooks {
     steps = all
   }
 
-  /// What `hk check` runs -- the entry point for CI and for a by-hand full
-  /// run. ONE definition, many callers (V23): CI calls this, it does not
-  /// copy the step list into a workflow file.
+  // What `hk check` runs -- the entry point for CI and for a by-hand full
+  // run. ONE definition, many callers (V23): CI calls this, it does not
+  // copy the step list into a workflow file.
   ["check"] {
     steps = all
   }
