@@ -532,7 +532,10 @@ local fast = new Mapping<String, Step> {
       [ -n "$files" ] || { echo 'hk: mdformat found no Markdown files to check. Restore the tracked document set before retrying.' >&2; exit 1; }
       mdformat --check $files
       """
-    fix = "mdformat $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')"
+    fix = """
+      command -v mdformat >/dev/null 2>&1 || { echo "hk: SKIPPED mdformat -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell or install the Python tool to run it." >&2; exit 0; }
+      mdformat $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')
+      """
   }
 
   ["dprint-markdown"] {
@@ -543,7 +546,10 @@ local fast = new Mapping<String, Step> {
       [ -n "$files" ] || { echo 'hk: dprint found no Markdown files to check. Restore the tracked document set before retrying.' >&2; exit 1; }
       dprint check $files
       """
-    fix = "dprint fmt $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')"
+    fix = """
+      command -v dprint >/dev/null 2>&1 || { echo "hk: SKIPPED dprint -- not on PATH. Optional third-party tool, so this is a skip, not a failure (V26). Enter the dev shell or install the formatter to run it." >&2; exit 0; }
+      dprint fmt $(git ls-files '*.md' | grep -v '^AGENTS[.]md$')
+      """
   }
 
   // Secrets. hk's `detect-private-key` builtin does exactly what its name
@@ -866,6 +872,7 @@ hooks {
 
   ["fix"] {
     fix = true
+    stage = true
     steps = all
   }
 }
