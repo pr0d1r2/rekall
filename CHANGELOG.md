@@ -42,13 +42,15 @@ tag was still on `v0.4.0` -- and `v0.4.0` does not evaluate on
   add `..` to their struct literals (or use `Situation::default()`), and may
   not rely on the set of fields staying fixed. This breaking API change ships
   in 1.0.0.
-- `nix build` works on `x86_64-darwin`. The flake always listed it, but the
-  package build needs `itok`, and the `itok` rev pinned at `v0.4.0` (and until
-  now on `main`) had no `x86_64-darwin` package, so evaluation stopped with
-  "attribute 'x86_64-darwin' missing". The pin now names an `itok` that lists
-  all four systems. The `x86_64-darwin` dev shell still does not evaluate,
-  because its `microlith` input has the same gap; that is the gate's
-  toolchain, not what a consumer installs.
+- The package evaluates on `x86_64-darwin`. The flake always listed it, but
+  the package build needs `itok`, and the `itok` rev pinned at `v0.4.0` (and
+  until now on `main`) had no `x86_64-darwin` package, so evaluation stopped
+  with "attribute 'x86_64-darwin' missing". The pin now names an `itok` that
+  lists all four systems. CI has no `x86_64-darwin` runner, so this is checked
+  with `nix eval .#packages.x86_64-darwin.default.drvPath`, not with a build.
+  The `x86_64-darwin` dev shell still does not evaluate, because its
+  `microlith` input has the same gap; that is the gate's toolchain, not what a
+  consumer installs.
 - `rekall recall` says what a match buys rather than only that it matched: a
   matched `S` says its payload is injected, a matched `M` says the rule runs
   there and speaks only if it fails. The verdict column is unchanged (B28,
