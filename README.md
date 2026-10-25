@@ -480,9 +480,10 @@ and how to report something.
 
 ## Status
 
-**0.4.0 is the handover rung, and it is claimed rather than assumed.** 0.1.0
-guaranteed a reproducible build and a running gate; 0.2.0, that every verb does
-its job; 0.3.0, the second way in, `catch` reading a transcript.
+**1.0.0 is the contract rung**: the CLI surface, the JSON anatomy, the trigger
+format and the ledger schema are frozen, so a break from here moves the major.
+0.1.0 guaranteed a reproducible build and a running gate; 0.2.0, that every verb
+does its job; 0.3.0, the second way in, `catch` reading a transcript.
 
 0.4 is the **handover**: `rekall issue` moves a proven extraction to the
 registry that tends it with no window where the rule is enforced by nothing,

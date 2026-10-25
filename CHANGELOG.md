@@ -28,7 +28,12 @@ through `/spec`.
 
 `0.4.0` is the first version published to crates.io.
 
-## [1.0.0] — 2026-10-01
+## [1.0.0] — 2026-10-25
+
+**The contract rung, and the first tag since 0.4.0.** The number was decided on
+2026-10-01 and then sat in `Cargo.toml` untagged, so every consumer pinning a
+tag was still on `v0.4.0` -- and `v0.4.0` does not evaluate on
+`x86_64-darwin`. This entry is dated by the tag, not by the decision.
 
 ### Changed
 
@@ -37,6 +42,36 @@ through `/spec`.
   add `..` to their struct literals (or use `Situation::default()`), and may
   not rely on the set of fields staying fixed. This breaking API change ships
   in 1.0.0.
+- `nix build` works on `x86_64-darwin`. The flake always listed it, but the
+  package build needs `itok`, and the `itok` rev pinned at `v0.4.0` (and until
+  now on `main`) had no `x86_64-darwin` package, so evaluation stopped with
+  "attribute 'x86_64-darwin' missing". The pin now names an `itok` that lists
+  all four systems. The `x86_64-darwin` dev shell still does not evaluate,
+  because its `microlith` input has the same gap; that is the gate's
+  toolchain, not what a consumer installs.
+- `rekall recall` says what a match buys rather than only that it matched: a
+  matched `S` says its payload is injected, a matched `M` says the rule runs
+  there and speaks only if it fails. The verdict column is unchanged (B28,
+  V70).
+- `rekall plan` and `rekall apply` say when an extraction would leave a file
+  holding only a heading and a pointer, at `plan` and again at `apply` before
+  the consent prompt. The note is computed per file from the whole corpus; the
+  file is still left in place (B29, V71).
+
+### Added
+
+- Ready-to-copy `set-and-setting` gate fragments for lefthook and `hk`, in
+  `docs/set-and-setting/`, both running the same pinned `rekall check`. The
+  repository gate checks both fragments and the example corpus pin, so the
+  snippet cannot drift from what was tested (T20).
+
+### Fixed
+
+- `rekall scan <path>` answered `unknown flag`. Section I has documented
+  `rekall scan [<path>...]` since commit one, and the argument parser had no
+  path field. A positional is now a filter over what `rekall.toml` already
+  reaches, never a second root, and a path the corpus never reached is a usage
+  error rather than an empty table (B27, V69).
 
 ## [0.4.0] — 2026-09-06
 

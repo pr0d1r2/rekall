@@ -11,6 +11,10 @@ name = "rekall"
 # scaffold rung (builds reproducibly, gate runs, no verb works); 0.2.0 was
 # the working rung (every verb but `catch`).
 #
+# 1.0.0 is the CONTRACT rung: the CLI surface, the JSON anatomy, the trigger
+# format and the ledger schema are frozen, and a break moves the major. The
+# `trigger::Situation` break (`#[non_exhaustive]`) ships with it.
+#
 # 0.4.0 is the HANDOVER rung, CLAIMED rather than assumed: `issue` moves a
 # proven extraction to the registry that tends it with no window where the
 # rule is enforced by nothing, and `check` refuses a skill nothing can load.
