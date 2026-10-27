@@ -227,10 +227,10 @@
             itok.packages.${pkgs.stdenv.hostPlatform.system}.default
             # `sherd check` and `sherd validate` are the runners for the
             # federation this spec declares -- the cross-file half microlith
-            # does not do.
-          ]
-          ++ pkgs.lib.optional (hasPkg sherd pkgs) (gatePkg sherd pkgs)
-          ++ [
+            # does not do. Unguarded, like `itok`: it publishes all four
+            # systems, and `runners` demands it, so a shell without it would
+            # only move the failure from evaluation to every commit.
+            sherd.packages.${pkgs.stdenv.hostPlatform.system}.default
             pkgs.rustc
             pkgs.cargo
             pkgs.clippy
@@ -298,9 +298,6 @@
               echo "rekall(shell): no Cargo.toml in $PWD -- \`rekall\` shim disabled" >&2
             fi
 
-            ${pkgs.lib.optionalString (!hasPkg sherd pkgs) ''
-              echo "rekall(shell): sherd has no ${pkgs.stdenv.hostPlatform.system} package -- \`sherd\` is NOT in this shell, so the federation check cannot run here (V26)" >&2
-            ''}
             rekall_hooks="$(git rev-parse --git-path hooks 2>/dev/null || true)"
             if [ -n "$rekall_hooks" ] && [ -d "$rekall_hooks" ]; then
               install -m 755 ${gitHook pkgs "pre-commit"} "$rekall_hooks/pre-commit"
