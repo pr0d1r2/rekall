@@ -91,6 +91,9 @@
       # is a no-op when fresh and rebuilds only on change -- so the shim
       # always matches the source you are editing, which is the point of
       # dogfooding at all.
+      hasPkg = input: pkgs: input.packages ? ${pkgs.stdenv.hostPlatform.system};
+      gatePkg = input: pkgs: input.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
       rekallShim =
         pkgs:
         pkgs.writeShellScriptBin "rekall" ''
@@ -199,14 +202,22 @@
             # cargo-run shim: this repo does not own that source, so the
             # right shape is a pinned package. `mth fmt --check` and `mth
             # check` gate SPEC.md's format (§C).
-            microlith.packages.${pkgs.stdenv.hostPlatform.system}.default
+            # Absent on a system the input does not build for, which is
+            # `x86_64-darwin` today: an unguarded lookup is an EVALUATION
+            # error a consumer cannot catch, so the shell omits the tool.
+            # `shellHook` says so, which keeps the skip loud (V26).
+          ]
+          ++ pkgs.lib.optional (hasPkg microlith pkgs) (gatePkg microlith pkgs)
+          ++ [
             # Token counts are DELEGATED, never reimplemented here (V8).
             # `itok check` is the runner for `.context-limits` (T2, V22).
             itok.packages.${pkgs.stdenv.hostPlatform.system}.default
             # `sherd check` and `sherd validate` are the runners for the
             # federation this spec declares -- the cross-file half microlith
             # does not do.
-            sherd.packages.${pkgs.stdenv.hostPlatform.system}.default
+          ]
+          ++ pkgs.lib.optional (hasPkg sherd pkgs) (gatePkg sherd pkgs)
+          ++ [
             pkgs.rustc
             pkgs.cargo
             pkgs.clippy
@@ -274,6 +285,12 @@
               echo "rekall(shell): no Cargo.toml in $PWD -- \`rekall\` shim disabled" >&2
             fi
 
+            ${pkgs.lib.optionalString (!hasPkg microlith pkgs) ''
+              echo "rekall(shell): microlith has no ${pkgs.stdenv.hostPlatform.system} package -- \`mth\` is NOT in this shell, so the SPEC.md format check cannot run here (V26)" >&2
+            ''}
+            ${pkgs.lib.optionalString (!hasPkg sherd pkgs) ''
+              echo "rekall(shell): sherd has no ${pkgs.stdenv.hostPlatform.system} package -- \`sherd\` is NOT in this shell, so the federation check cannot run here (V26)" >&2
+            ''}
             rekall_hooks="$(git rev-parse --git-path hooks 2>/dev/null || true)"
             if [ -n "$rekall_hooks" ] && [ -d "$rekall_hooks" ]; then
               install -m 755 ${gitHook pkgs "pre-commit"} "$rekall_hooks/pre-commit"
