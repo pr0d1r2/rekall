@@ -49,10 +49,11 @@ tag was still on `v0.4.0` -- and `v0.4.0` does not evaluate on
   lists all four systems. CI has no `x86_64-darwin` runner, so this is checked
   with `nix eval .#packages.x86_64-darwin.default.drvPath`, not with a build.
   The `x86_64-darwin` dev shell evaluates too: `microlith` has no package for
-  that system, so the shell leaves `mth` out there and says so on entry (V26)
-  instead of failing evaluation. `sherd` does list the system, so its
-  federation checks still run. That shell cannot run the SPEC.md format check
-  until `microlith` lists the system.
+  that system, so the shell builds `mth` from the pinned `microlith` source
+  there instead of failing evaluation or leaving it out, which would have
+  failed every commit and push at the `runners` presence gate (V26). `sherd`
+  does list the system, so its federation checks run. The `mth` build is
+  checked with `nix eval`, not built, since CI has no `x86_64-darwin` runner.
 - `rekall recall` says what a match buys rather than only that it matched: a
   matched `S` says its payload is injected, a matched `M` says the rule runs
   there and speaks only if it fails. The verdict column is unchanged (B28,
