@@ -94,6 +94,22 @@
       hasPkg = input: pkgs: input.packages ? ${pkgs.stdenv.hostPlatform.system};
       gatePkg = input: pkgs: input.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
+      # `mth` where microlith publishes no package for the system (today
+      # `x86_64-darwin`). Built from the SAME pinned source the input locks,
+      # so there is still one rev. `runners` demands `mth` on every commit
+      # and push, so omitting it would block both (V26).
+      mthFromSource =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "microlith";
+          version = (builtins.fromTOML (builtins.readFile "${microlith}/Cargo.toml")).package.version;
+          src = microlith;
+          cargoLock.lockFile = "${microlith}/Cargo.lock";
+          doCheck = false;
+          meta.mainProgram = "mth";
+        };
+      mthPkg = pkgs: if hasPkg microlith pkgs then gatePkg microlith pkgs else mthFromSource pkgs;
+
       rekallShim =
         pkgs:
         pkgs.writeShellScriptBin "rekall" ''
@@ -202,13 +218,10 @@
             # cargo-run shim: this repo does not own that source, so the
             # right shape is a pinned package. `mth fmt --check` and `mth
             # check` gate SPEC.md's format (§C).
-            # Absent on a system the input does not build for, which is
-            # `x86_64-darwin` today: an unguarded lookup is an EVALUATION
-            # error a consumer cannot catch, so the shell omits the tool.
-            # `shellHook` says so, which keeps the skip loud (V26).
-          ]
-          ++ pkgs.lib.optional (hasPkg microlith pkgs) (gatePkg microlith pkgs)
-          ++ [
+            # The input has no package for `x86_64-darwin` today, and an
+            # unguarded lookup is an EVALUATION error, so `mthPkg` builds it
+            # from the pinned source there instead of leaving it out.
+            (mthPkg pkgs)
             # Token counts are DELEGATED, never reimplemented here (V8).
             # `itok check` is the runner for `.context-limits` (T2, V22).
             itok.packages.${pkgs.stdenv.hostPlatform.system}.default
@@ -285,9 +298,6 @@
               echo "rekall(shell): no Cargo.toml in $PWD -- \`rekall\` shim disabled" >&2
             fi
 
-            ${pkgs.lib.optionalString (!hasPkg microlith pkgs) ''
-              echo "rekall(shell): microlith has no ${pkgs.stdenv.hostPlatform.system} package -- \`mth\` is NOT in this shell, so the SPEC.md format check cannot run here (V26)" >&2
-            ''}
             ${pkgs.lib.optionalString (!hasPkg sherd pkgs) ''
               echo "rekall(shell): sherd has no ${pkgs.stdenv.hostPlatform.system} package -- \`sherd\` is NOT in this shell, so the federation check cannot run here (V26)" >&2
             ''}
