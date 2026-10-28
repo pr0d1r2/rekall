@@ -258,8 +258,6 @@ bypassed hook is worse than none.
 
 Named rather than left implicit:
 
-- **`x86_64-darwin` is supported and not built in CI.** There is no free
-  x86_64 macOS runner; it is exercised locally.
 - **The fire counter is per-checkout.** `.rekall/fires` is untracked by design,
   so `--dead` answers for your working copy and not for your team. Aggregating
   it is not solved.

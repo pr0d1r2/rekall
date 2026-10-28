@@ -64,8 +64,7 @@ env {
 /// The PLATFORM and `built with` badges stay LITERAL, deliberately. flake.nix
 /// declares four systems and the block shows four platform badges, but the
 /// correspondence is editorial: `intel linux` and `amd linux` are one system,
-/// and `x86_64-darwin` is supported with no badge at all -- the same gap
-/// ci.yml names out loud. Deriving them would invent a mapping that is not
+/// and `x86_64-darwin` is built in CI with no badge at all. Deriving them would invent a mapping that is not
 /// there, which is worse than writing the four lines down.
 ///
 /// A source that reads EMPTY or ZERO aborts the render. A generator that
