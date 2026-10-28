@@ -87,7 +87,7 @@ Entering the dev shell (`nix develop`, or `direnv allow`) installs
 against one definition of the gate in [`hk.pkl`](https://github.com/pr0d1r2/rekall/blob/main/hk.pkl): **32 steps on
 commit, 38 on push**, the slow half adding doctests, rustdoc, the
 no-default-features build, the packaged tarball and coverage.
-[`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) calls that same definition on three
+[`ci.yml`](https://github.com/pr0d1r2/rekall/blob/main/.github/workflows/ci.yml) calls that same definition on four
 platforms, so a laptop and a runner cannot disagree.
 
 Some numbers, current as of the commit that carries this file:

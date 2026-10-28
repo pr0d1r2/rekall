@@ -226,7 +226,7 @@ jobs:
 
       - run: nix build .#default
 
-  # The cheap check on `x86_64-darwin`, which needs no Intel runner: evaluation. Every
+  # The cheap check on `x86_64-darwin`, ahead of the Intel runner: evaluation. Every
   # flake input is a per-system lookup, and a sibling that drops a system
   # becomes "attribute 'x86_64-darwin' missing" -- which is how both the
   # package and the dev shell were broken there before (#42). Evaluating the

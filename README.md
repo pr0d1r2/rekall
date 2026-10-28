@@ -516,10 +516,10 @@ someone else's gate.
 Supported: `aarch64-darwin`, `x86_64-darwin`, `x86_64-linux`, `aarch64-linux`
 — the fleet's `nixpkgs-lock` set.
 
-**`x86_64-darwin` is supported but NOT built in CI.** GitHub offers no free
-x86_64 macOS runner, so that target is exercised locally and not on every
-push. Said plainly rather than left implicit: an untested platform claim is
-worse than an absent one only when nobody says it is untested.
+CI builds and gates all four on every push, `x86_64-darwin` on
+`macos-15-intel`. Its package and dev shell are also evaluated on linux, so a
+sibling input that drops the system fails in seconds rather than after the
+Intel job queues.
 
 ## Changelog
 
