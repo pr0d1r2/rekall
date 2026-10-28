@@ -46,15 +46,16 @@ tag was still on `v0.4.0` -- and `v0.4.0` does not evaluate on
   the package build needs `itok`, and the `itok` rev pinned at `v0.4.0` (and
   until now on `main`) had no `x86_64-darwin` package, so evaluation stopped
   with "attribute 'x86_64-darwin' missing". The pin now names an `itok` that
-  lists all four systems. CI has no `x86_64-darwin` runner, so the
-  `eval-x86_64-darwin` job checks this with
-  `nix eval .#packages.x86_64-darwin.default.drvPath`, not with a build.
+  lists all four systems. CI builds `x86_64-darwin` on `macos-15-intel`, and
+  the `eval-x86_64-darwin` job also checks it quickly with
+  `nix eval .#packages.x86_64-darwin.default.drvPath`.
   The `x86_64-darwin` dev shell evaluates too: `microlith` has no package for
   that system, so the shell builds `mth` from the pinned `microlith` source
   there instead of failing evaluation or leaving it out, which would have
   failed every commit and push at the `runners` presence gate (V26). `sherd`
   does list the system, so its federation checks run. The same job evaluates
-  the dev shell, so the `mth` fallback is checked with `nix eval`, not built.
+  the dev shell, so the `mth` fallback is checked with `nix eval`, and the
+  `gate` job on `macos-15-intel` builds it.
 - `rekall recall` says what a match buys rather than only that it matched: a
   matched `S` says its payload is injected, a matched `M` says the rule runs
   there and speaks only if it fails. The verdict column is unchanged (B28,

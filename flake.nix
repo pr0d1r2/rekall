@@ -65,9 +65,9 @@
     }:
     let
       # `nixpkgs-lock`'s supportedSystems, all four. SUPPORT and CI COVERAGE
-      # are different sets: GitHub offers no free x86_64 macOS runner, so
-      # `x86_64-darwin` is supported here and unbuilt in CI, and ci.yml says
-      # so rather than leaving the gap silent (SPEC.md §C, R12).
+      # are different sets, and ci.yml names the runner for each, `x86_64-darwin`
+      # on `macos-15-intel` included, rather than leaving a gap silent
+      # (SPEC.md §C, R12).
       systems = [
         "aarch64-darwin"
         "x86_64-darwin"
