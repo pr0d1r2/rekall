@@ -186,13 +186,14 @@ fn push_memory(value: &serde_json::Value, turns: &mut Vec<Turn>) {
     if str_of("kind") != Some("user-prompt-submit") || text.trim().is_empty() {
         return;
     }
+    let timestamp = value.get("ts").and_then(serde_json::Value::as_u64);
+    let (Some(reference), Some(timestamp)) = (str_of("ref"), timestamp) else {
+        return;
+    };
     turns.push(Turn {
         text: text.to_owned(),
-        src: str_of("ref").map(str::to_owned),
-        at: value
-            .get("ts")
-            .and_then(serde_json::Value::as_u64)
-            .map(|ms| ms / 1000),
+        src: Some(reference.to_owned()),
+        at: Some(timestamp / 1000),
     });
 }
 
