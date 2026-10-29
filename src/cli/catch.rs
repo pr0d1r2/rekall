@@ -169,7 +169,7 @@ fn candidate_of(found: &catch::Caught, when: u64) -> ledger::Candidate {
         id: found.id.clone(),
         src: found.src.clone(),
         text: found.text.clone(),
-        at: when,
+        at: found.at.unwrap_or(when),
     }
 }
 

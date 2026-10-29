@@ -28,6 +28,15 @@ through `/spec`.
 
 `0.4.0` is the first version published to crates.io.
 
+## [Unreleased]
+
+### Added
+
+- `rekall catch` reads a `chert export` JSONL file (agent-memory observations).
+  The dialect is sniffed from the first line (`kind`, `ref` starting `chert:`,
+  `ts`). Only `user-prompt-submit` rows are read, since tool events are the
+  agent's; each candidate's `src` is the row's `ref` (V72).
+
 ## [1.0.0] — 2026-10-25
 
 **The contract rung, and the first tag since 0.4.0.** The number was decided on

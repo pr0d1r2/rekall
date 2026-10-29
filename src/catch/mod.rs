@@ -35,6 +35,37 @@ pub struct Caught {
     pub sharpness: Option<u8>,
     pub label: String,
     pub signals: Vec<String>,
+    /// When it was said, in seconds since the epoch, where the dialect
+    /// records it. A transcript line carries no time; a memory export does.
+    pub at: Option<u64>,
+}
+
+impl Caught {
+    fn of(
+        said: statement::Statement,
+        src: &str,
+        verdict: &classify::Verdict,
+        at: Option<u64>,
+    ) -> Self {
+        Self {
+            id: said.id,
+            src: src.to_owned(),
+            text: said.text,
+            class: verdict.class.to_string(),
+            sharpness: verdict.sharpness,
+            label: verdict.label(),
+            signals: verdict.names(),
+            at,
+        }
+    }
+}
+
+/// One human turn, with whatever provenance its dialect gives it.
+struct Turn {
+    text: String,
+    /// A row-level pointer to the evidence. Absent = the file is the source.
+    src: Option<String>,
+    at: Option<u64>,
 }
 
 /// What one pass over a transcript found, and what it could not read.
@@ -57,7 +88,8 @@ pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
     let (turns, skipped) = user_turns(jsonl);
     let mut caught = Vec::new();
     for turn in &turns {
-        collect(turn, src, weights, &mut caught);
+        let from = turn.src.as_deref().unwrap_or(src);
+        collect(turn, from, weights, &mut caught);
     }
     Report {
         caught,
@@ -80,45 +112,88 @@ pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
 /// section I's "classed like any other" taken literally: `U` is already the
 /// answer for a request, so a transcript's ordinary "could you look at the
 /// parser?" falls out without a second rule to describe it.
-fn collect(turn: &str, src: &str, weights: &Weights, out: &mut Vec<Caught>) {
-    for said in statement::split(turn, src) {
+fn collect(turn: &Turn, src: &str, weights: &Weights, out: &mut Vec<Caught>) {
+    for said in statement::split(&turn.text, src) {
         let verdict = classify::classify(&said.text, Form::ListItem, weights);
         if verdict.class == classify::Class::U {
             continue;
         }
-        out.push(Caught {
-            id: said.id,
-            src: src.to_owned(),
-            text: said.text,
-            class: verdict.class.to_string(),
-            sharpness: verdict.sharpness,
-            label: verdict.label(),
-            signals: verdict.names(),
-        });
+        out.push(Caught::of(said, src, &verdict, turn.at));
     }
 }
 
 /// The user's turns, and how many lines could not be read.
-fn user_turns(jsonl: &str) -> (Vec<String>, usize) {
+fn user_turns(jsonl: &str) -> (Vec<Turn>, usize) {
     let mut turns = Vec::new();
     let mut skipped: usize = 0;
+    let mut memory: Option<bool> = None;
     for line in jsonl.lines().filter(|l| !l.trim().is_empty()) {
         match serde_json::from_str::<serde_json::Value>(line) {
-            Ok(value) => push_user(&value, &mut turns),
+            Ok(value) => push_row(&value, &mut memory, &mut turns),
             Err(_) => skipped = skipped.saturating_add(1),
         }
     }
     (turns, skipped)
 }
 
-fn push_user(value: &serde_json::Value, turns: &mut Vec<String>) {
+/// Sniffed once, from the FIRST readable line: a file is one dialect, and a
+/// mixed file is not a thing a tool writes.
+fn push_row(
+    value: &serde_json::Value,
+    memory: &mut Option<bool>,
+    turns: &mut Vec<Turn>,
+) {
+    if *memory.get_or_insert_with(|| is_memory(value)) {
+        push_memory(value, turns);
+    } else {
+        push_user(value, turns);
+    }
+}
+
+fn push_user(value: &serde_json::Value, turns: &mut Vec<Turn>) {
     if role_of(value) != Some("user") {
         return;
     }
     let text = text_of(value);
     if !text.trim().is_empty() {
-        turns.push(text);
+        turns.push(Turn {
+            text,
+            src: None,
+            at: None,
+        });
     }
+}
+
+/// The agent-memory export dialect (`chert export`): `kind`, a `ref`
+/// starting `chert:`, and `ts`. No transcript dialect has a `ref` field, so
+/// this rests on a PRESENT marker rather than on an absence (`src:V47`).
+fn is_memory(value: &serde_json::Value) -> bool {
+    value.get("kind").is_some_and(serde_json::Value::is_string)
+        && value
+            .get("ref")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|r| r.starts_with("chert:"))
+        && value.get("ts").is_some_and(serde_json::Value::is_u64)
+}
+
+/// Only `user-prompt-submit` rows are the human speaking (V44). Tool
+/// events and failures are what the AGENT did or was given; mining them
+/// would mint rules nobody wrote. The row's `ref` becomes the source, so a
+/// candidate points back at its evidence.
+fn push_memory(value: &serde_json::Value, turns: &mut Vec<Turn>) {
+    let str_of = |key| value.get(key).and_then(serde_json::Value::as_str);
+    let text = str_of("body").unwrap_or_default();
+    if str_of("kind") != Some("user-prompt-submit") || text.trim().is_empty() {
+        return;
+    }
+    turns.push(Turn {
+        text: text.to_owned(),
+        src: str_of("ref").map(str::to_owned),
+        at: value
+            .get("ts")
+            .and_then(serde_json::Value::as_u64)
+            .map(|ms| ms / 1000),
+    });
 }
 
 /// Who spoke, read from whichever of three spellings the payload uses.
@@ -346,6 +421,45 @@ mod tests {
     /// no text this can read. Unknown shapes are IGNORED rather than
     /// refused (V46) -- a harness is free to add a field, and a reader
     /// that dies on one is a reader that stops working on an upgrade.
+    const PROMPT: &str = concat!(
+        r#"{"body":"Never commit a .env file.","kind":"user-prompt-submit","#,
+        r#""project":"p-0","ref":"chert:01M5RRSRH","session":"s","#,
+        r#""ts":1792906420794}"#
+    );
+    const FAILURE: &str = concat!(
+        r#"{"body":"Bash\n{}\nNever commit a .env file.","#,
+        r#""kind":"post-tool-use-failure","ref":"chert:01M5RRSRJ","#,
+        r#""ts":1792906420900}"#
+    );
+
+    #[test]
+    fn a_memory_export_prompt_is_a_candidate_sourced_by_its_ref() {
+        let out = caught(&format!("{FAILURE}\n{PROMPT}"));
+        assert_eq!(out.turns, 1, "only the human's prompt is a turn");
+        let seen: Vec<_> =
+            out.caught.iter().map(|c| (c.src.as_str(), c.at)).collect();
+        assert_eq!(seen, vec![("chert:01M5RRSRH", Some(1_792_906_420))]);
+    }
+
+    /// V44: a tool failure is the agent's, however rule-shaped its text.
+    #[test]
+    fn a_memory_export_tool_event_is_not_evidence() {
+        assert_eq!(caught(FAILURE).turns, 0);
+        assert!(caught(FAILURE).caught.is_empty());
+    }
+
+    #[test]
+    fn a_ref_without_the_chert_prefix_is_not_the_memory_dialect() {
+        let other = PROMPT.replace("chert:", "other:");
+        assert_eq!(caught(&other).turns, 0);
+    }
+
+    #[test]
+    fn a_transcript_row_carries_no_time() {
+        let out = caught(CORRECTION);
+        assert_eq!(out.caught.first().map(|c| c.at), Some(None));
+    }
+
     #[test]
     fn a_content_shape_it_does_not_know_reads_as_empty() {
         let odd = "{\"type\":\"user\",\"message\":{\"content\":42}}\n";
