@@ -18,7 +18,7 @@
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
 [![gate steps 32 commit / 38 push](https://img.shields.io/badge/gate_steps-32_commit_%2F_38_push-6E4AFF)][hk]
 [![coverage floor 99.33%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.33%25-brightgreen)](.coverage)
-[![invariants 71](https://img.shields.io/badge/invariants-71-6E4AFF)](SPEC.md)
+[![invariants 72](https://img.shields.io/badge/invariants-72-6E4AFF)](SPEC.md)
 [![bugs logged 29](https://img.shields.io/badge/bugs_logged-29-6E4AFF)](SPEC.md)
 [![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
@@ -496,9 +496,9 @@ its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
 and why the root is a route rather than a reading.
 
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
-truth — 71 invariants, each carrying the reasoning it stands on; 29 recorded
+truth — 72 invariants, each carrying the reasoning it stands on; 29 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
-what is decided and what is still open, at 36 landed and 7 remaining.
+what is decided and what is still open, at 37 landed and 7 remaining.
 
 ## Development
 
