@@ -385,6 +385,29 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    const MEMORY_PROMPT: &str = concat!(
+        r#"{"body":"Never commit a .env file.","#,
+        r#""kind":"user-prompt-submit","ref":"chert:01M5RRSRH","#,
+        r#""ts":1792906420794}"#
+    );
+
+    /// V72: a memory export says WHEN, and the ledger row keeps that time
+    /// rather than the time `catch` happened to run.
+    #[test]
+    fn a_memory_prompt_reaches_the_ledger_with_its_ref_and_time() {
+        let dir = project("memory");
+        let _ = std::fs::write(dir.join("session.jsonl"), MEMORY_PROMPT);
+        let _ = run(&dir, &[]);
+        let held = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        let seen: Vec<_> = held
+            .candidates
+            .iter()
+            .map(|c| (c.src.as_str(), c.at))
+            .collect();
+        assert_eq!(seen, vec![("chert:01M5RRSRH", 1_792_906_420)]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Re-reading a transcript must not grow the file. The ledger refuses
     /// the duplicate id; this proves the verb reports that honestly.
     #[test]

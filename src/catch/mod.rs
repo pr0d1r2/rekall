@@ -418,10 +418,9 @@ mod tests {
         assert_eq!(out.skipped, 0);
     }
 
-    /// A turn whose content is neither a string nor a block list carries
-    /// no text this can read. Unknown shapes are IGNORED rather than
-    /// refused (V46) -- a harness is free to add a field, and a reader
-    /// that dies on one is a reader that stops working on an upgrade.
+    /// The `chert export` shape (V72): one observation per line, the
+    /// human's words in `body`, the evidence pointer in `ref`, and `ts` in
+    /// milliseconds.
     const PROMPT: &str = concat!(
         r#"{"body":"Never commit a .env file.","kind":"user-prompt-submit","#,
         r#""project":"p-0","ref":"chert:01M5RRSRH","session":"s","#,
@@ -455,12 +454,36 @@ mod tests {
         assert_eq!(caught(&other).turns, 0);
     }
 
+    /// The sniff is the FIRST READABLE line: a corrupt first line is
+    /// skipped and counted, and must not decide the dialect.
+    #[test]
+    fn an_unreadable_first_line_does_not_decide_the_dialect() {
+        let out = caught(&format!("{{oh dear\n{PROMPT}"));
+        assert_eq!(out.skipped, 1);
+        let seen: Vec<_> = out.caught.iter().map(|c| c.src.as_str()).collect();
+        assert_eq!(seen, vec!["chert:01M5RRSRH"]);
+    }
+
+    /// T87: a prompt row with no usable `ref` or `ts` has no evidence to
+    /// point at, so it is dropped rather than credited to the export file.
+    #[test]
+    fn a_memory_prompt_without_ref_or_ts_is_not_a_turn() {
+        let no_ref = PROMPT.replace(r#""ref":"chert:01M5RRSRH","#, "");
+        let text_ts = PROMPT.replace("1792906420794", r#""1792906420794""#);
+        let out = caught(&format!("{FAILURE}\n{no_ref}\n{text_ts}"));
+        assert_eq!(out.turns, 0, "{out:?}");
+    }
+
     #[test]
     fn a_transcript_row_carries_no_time() {
         let out = caught(CORRECTION);
         assert_eq!(out.caught.first().map(|c| c.at), Some(None));
     }
 
+    /// A turn whose content is neither a string nor a block list carries
+    /// no text this can read. Unknown shapes are IGNORED rather than
+    /// refused (V46) -- a harness is free to add a field, and a reader
+    /// that dies on one is a reader that stops working on an upgrade.
     #[test]
     fn a_content_shape_it_does_not_know_reads_as_empty() {
         let odd = "{\"type\":\"user\",\"message\":{\"content\":42}}\n";

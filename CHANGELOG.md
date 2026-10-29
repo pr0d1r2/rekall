@@ -35,7 +35,10 @@ through `/spec`.
 - `rekall catch` reads a `chert export` JSONL file (agent-memory observations).
   The dialect is sniffed from the first line (`kind`, `ref` starting `chert:`,
   `ts`). Only `user-prompt-submit` rows are read, since tool events are the
-  agent's; each candidate's `src` is the row's `ref` (V72).
+  agent's; each candidate's `src` is the row's `ref` (V72), and its ledger
+  `at` is the row's `ts` in seconds rather than the time `catch` ran. The
+  public `catch::Caught` gained an `at: Option<u64>` field to carry it; a
+  caller that builds `Caught` with a struct literal must set it.
 
 ## [1.0.0] — 2026-10-25
 
