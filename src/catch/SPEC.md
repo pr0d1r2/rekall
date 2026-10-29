@@ -39,6 +39,8 @@ V46: a transcript is SOMEONE ELSE'S DOCUMENT on its own release cadence ∴ READ
 
 V51: an INSTRUCTION turn is ⊥ a violation, & excluding it CUTS A LOOP rather than tidying one. MEASURED 2026-09-05 over 20 real Codex rollouts (R16): the human speaks as `payload.role` = `user`, 40 turns, while `developer` appears EXACTLY ONCE PER SESSION -- 20 turns over 20 files -- & is the injected `AGENTS.md`. Reading `developer` as the human, which the only public writeup of that format says to do, MISSES every real turn & proposes the agent's OWN RULES FILE back as candidates: the tool mining what it already extracted, non-empty & confident & wrong. ∴ the human slot is NAMED per agent & the instruction slot is NAMED beside it -- a role this crate does ⊥ know is ⊥ a human by default. V44 & this are ONE rule at two doors: ⊥ evidence is anything the AGENT was GIVEN or the AGENT SAID.
 
+V72: a MEMORY EXPORT is a THIRD dialect of the SAME intake, & only its HUMAN rows are evidence. `chert export` writes one JSON observation per line; the file is that dialect when its FIRST readable line has a string `kind`, a `ref` starting `chert:` & a numeric `ts` -- a PRESENT marker no transcript dialect carries, ⊥ the absence-based sniffing `src:V47` rejects. Of the kinds, ONLY `user-prompt-submit` is a turn (V44): `post-tool-use`, `post-tool-use-failure` & the session markers are what the AGENT did or was given, & a tool failure quoting a rule is the agent's text. A candidate keeps the ROW'S `ref` as `src` ∴ it points at its evidence rather than at the export, & `at` is `ts` in seconds; the id stays minted by the SAME classifier path (`apply:V1`), ⊥ a second store. REJECTED: reading failures as corrections (CIRCULAR: the agent apologising to itself) · a `v` field required before reading (the dialect is the exporter's to version; unknown fields are IGNORED, V46) · a `--for rekall` exporter variant (the plain export already carries every field read). REVERSES on an exporter that marks a human correction STRUCTURALLY.
+
 ## §T TASKS
 
 id|status|task|cites
@@ -46,6 +48,7 @@ T18|x|`rekall catch` transcript intake|§I,`.:V10`,V44,V45,V46
 T29|x|CHOSEN: `catch` persists CANDIDATE rows to the LEDGER; report-only is about the CORPUS, ⊥ the disk|`.:V7`,V45,`.:T3`
 
 T64|x|`catch` ITERATES every known transcript root; the CODEX adapter reads `payload.role`, human is `user`, text at `payload.content[].text`, & `developer` is EXCLUDED|`src:V47`,V51,V46
+T87|x|`catch` sniffs the `chert export` memory dialect: `user-prompt-submit` rows only, `src` = the row `ref`, `at` = `ts`|V72,V44,V46
 
 ## §B BUGS
 
