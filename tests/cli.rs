@@ -457,7 +457,10 @@ fn hk_pkl_has_no_doc_comment_inside_an_object() {
     let nested: Vec<usize> = text
         .lines()
         .enumerate()
-        .filter(|(_, l)| l.starts_with(char::is_whitespace) && l.trim_start().starts_with("///"))
+        .filter(|(_, l)| {
+            l.starts_with(char::is_whitespace)
+                && l.trim_start().starts_with("///")
+        })
         .map(|(i, _)| i + 1)
         .collect();
     assert!(!text.is_empty(), "hk.pkl unreadable");
