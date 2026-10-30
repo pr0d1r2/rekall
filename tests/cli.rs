@@ -458,15 +458,19 @@ fn hk_pkl_has_no_doc_comment_inside_an_object() {
         return;
     }
     let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let nested: Vec<usize> = text
-        .lines()
-        .enumerate()
-        .filter(|(_, l)| {
+    assert!(!text.is_empty(), "hk.pkl unreadable");
+    let nested = indented_doc_lines(&text);
+    assert!(nested.is_empty(), "nested `///` on lines {nested:?}");
+}
+
+/// 1-based line numbers of every indented `///` line in `text`.
+fn indented_doc_lines(text: &str) -> Vec<usize> {
+    text.lines()
+        .zip(1..)
+        .filter(|(l, _)| {
             l.starts_with(char::is_whitespace)
                 && l.trim_start().starts_with("///")
         })
-        .map(|(i, _)| i + 1)
-        .collect();
-    assert!(!text.is_empty(), "hk.pkl unreadable");
-    assert!(nested.is_empty(), "nested `///` on lines {nested:?}");
+        .map(|(_, n)| n)
+        .collect()
 }
