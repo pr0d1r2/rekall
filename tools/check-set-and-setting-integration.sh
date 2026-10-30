@@ -15,3 +15,9 @@ grep -q 'rekall check ||' docs/set-and-setting/hk.pkl || {
   echo 'hk: the set-and-setting hk fragment must run the pinned `rekall check`.' >&2
   exit 1
 }
+# The fragment is pasted into an object, where Pkl refuses a doc comment and
+# the host's hk stops loading. Column 0 here is still inside that object.
+! grep -q '^[[:space:]]*///' docs/set-and-setting/hk.pkl || {
+  echo 'hk: the set-and-setting hk fragment lands inside an object, where Pkl refuses `///`. Write `//`.' >&2
+  exit 1
+}

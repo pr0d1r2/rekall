@@ -447,10 +447,12 @@ const FIRES_BLOCK: &str =
 const REFUSES_BLOCK: &str = "path = [\"db/migrate/**_test.sql\"]";
 const EDIT_PAYLOAD: &[u8] = br#"{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"db/migrate/003_orders.sql"}}"#;
 
-/// Pkl allows a `///` doc comment only on a module-level member, never
-/// inside an object body; hk 2.x and Pkl 0.31 stop loading `hk.pkl` at the
-/// first one. Indented `///` is always inside an object, so none may exist.
-/// `hk.pkl` is excluded from the published crate, so a packaged tree skips it.
+/// Pkl allows a `///` doc comment on a module or class member, never inside
+/// an object body; hk 2.x and Pkl 0.31 stop loading `hk.pkl` at the first
+/// one. `hk.pkl` declares no class, so an indented `///` is inside an object
+/// and none may exist. One at column 0 inside an object is out of this scan's
+/// reach, and hk itself refuses it. `hk.pkl` is excluded from the published
+/// crate, so a packaged tree skips it.
 #[test]
 fn hk_pkl_has_no_doc_comment_inside_an_object() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("hk.pkl");
@@ -460,7 +462,10 @@ fn hk_pkl_has_no_doc_comment_inside_an_object() {
     let text = std::fs::read_to_string(&path).unwrap_or_default();
     assert!(!text.is_empty(), "hk.pkl unreadable");
     let nested = indented_doc_lines(&text);
-    assert!(nested.is_empty(), "nested `///` on lines {nested:?}");
+    assert!(
+        nested.is_empty(),
+        "`///` inside an object on lines {nested:?}: write `//`"
+    );
 }
 
 /// 1-based line numbers of every indented `///` line in `text`.
