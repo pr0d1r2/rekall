@@ -450,9 +450,13 @@ const EDIT_PAYLOAD: &[u8] = br#"{"hook_event_name":"PreToolUse","tool_name":"Edi
 /// Pkl allows a `///` doc comment only on a module-level member, never
 /// inside an object body; hk 2.x and Pkl 0.31 stop loading `hk.pkl` at the
 /// first one. Indented `///` is always inside an object, so none may exist.
+/// `hk.pkl` is excluded from the published crate, so a packaged tree skips it.
 #[test]
 fn hk_pkl_has_no_doc_comment_inside_an_object() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("hk.pkl");
+    if !path.exists() {
+        return;
+    }
     let text = std::fs::read_to_string(&path).unwrap_or_default();
     let nested: Vec<usize> = text
         .lines()
