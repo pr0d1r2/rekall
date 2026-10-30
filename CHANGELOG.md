@@ -28,6 +28,15 @@ through `/spec`.
 
 `0.4.0` is the first version published to crates.io.
 
+## [Unreleased]
+
+### Fixed
+
+- The ready-to-copy `docs/set-and-setting/hk.pkl` fragment opened with `///`
+  doc comments. Pasted into a host's `steps` object, as `docs/INTEGRATION.md`
+  says to, they stopped hk loading the host's whole gate. They are `//` now,
+  and the gate refuses `///` in that fragment.
+
 ## [1.0.0] — 2026-10-25
 
 **The contract rung, and the first tag since 0.4.0.** The number was decided on
