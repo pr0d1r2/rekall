@@ -446,3 +446,20 @@ const FIRES_BLOCK: &str =
     "tool = [\"Edit\", \"Write\"]\npath = [\"db/migrate/**\"]";
 const REFUSES_BLOCK: &str = "path = [\"db/migrate/**_test.sql\"]";
 const EDIT_PAYLOAD: &[u8] = br#"{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"db/migrate/003_orders.sql"}}"#;
+
+/// Pkl allows a `///` doc comment only on a module-level member, never
+/// inside an object body; hk 2.x and Pkl 0.31 stop loading `hk.pkl` at the
+/// first one. Indented `///` is always inside an object, so none may exist.
+#[test]
+fn hk_pkl_has_no_doc_comment_inside_an_object() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("hk.pkl");
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let nested: Vec<usize> = text
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.starts_with(char::is_whitespace) && l.trim_start().starts_with("///"))
+        .map(|(i, _)| i + 1)
+        .collect();
+    assert!(!text.is_empty(), "hk.pkl unreadable");
+    assert!(nested.is_empty(), "nested `///` on lines {nested:?}");
+}
