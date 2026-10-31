@@ -455,18 +455,29 @@ const EDIT_PAYLOAD: &[u8] = br#"{"hook_event_name":"PreToolUse","tool_name":"Edi
 /// crate, so a packaged tree skips it.
 #[test]
 fn hk_pkl_has_no_doc_comment_inside_an_object() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("hk.pkl");
-    let text = match std::fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
-        Err(e) => panic!("hk.pkl unreadable: {e}"),
-    };
+    let Some(text) = read_hk_pkl() else { return };
     assert!(!text.is_empty(), "hk.pkl empty");
     let nested = indented_doc_lines(&text);
     assert!(
         nested.is_empty(),
         "`///` inside an object on lines {nested:?}: write `//`"
     );
+}
+
+/// `hk.pkl` text, or `None` when the file is absent from a packaged tree.
+/// Any other read failure fails the test.
+fn read_hk_pkl() -> Option<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("hk.pkl");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Some(text),
+        Err(e) => {
+            assert!(
+                e.kind() == std::io::ErrorKind::NotFound,
+                "hk.pkl unreadable: {e}"
+            );
+            None
+        }
+    }
 }
 
 /// 1-based line numbers of every indented `///` line in `text`.
