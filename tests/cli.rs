@@ -464,6 +464,14 @@ fn hk_pkl_has_no_doc_comment_inside_an_object() {
     );
 }
 
+/// The scan on its own. `hk.pkl` is clean, so the test above never sees a hit
+/// and a scan that stopped matching anything would stay green for good.
+#[test]
+fn indented_doc_lines_names_each_indented_doc_comment() {
+    let text = "/// module\n  // plain\n  /// spaces\n\t/// tab\n/// edge\n";
+    assert_eq!(indented_doc_lines(text), [3, 4]);
+}
+
 /// `hk.pkl` text, or `None` when the file is absent from a packaged tree.
 /// Any other read failure fails the test.
 fn read_hk_pkl() -> Option<String> {
