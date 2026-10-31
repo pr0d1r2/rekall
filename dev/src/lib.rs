@@ -3,6 +3,9 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod prose;
+pub use prose::{check_prose, shipped_links};
+
 pub type External<'a> = dyn FnMut(&str) -> Result<String, String> + 'a;
 
 /// Run `command` through `sh -c`, returning its stdout. A non-zero exit is an
@@ -273,6 +276,76 @@ fn unix_date(seconds: &str) -> String {
         .map_or(12, |index| index + 1);
     format!("{year:04}-{month:02}-{:02}", days + 1)
 }
+/// The numbers the README states, read ONCE from the specs and hk's plan.
+/// The badge renderer and the prose checks both take them from here, so a
+/// sentence and the badge beside it cannot disagree.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Facts {
+    pub invariants: usize,
+    pub bugs: usize,
+    pub landed: usize,
+    pub open: usize,
+    pub commit_steps: usize,
+    pub push_steps: usize,
+}
+
+impl Facts {
+    pub fn gather(
+        root: &Path,
+        external: &mut External<'_>,
+    ) -> Result<Self, String> {
+        let mut steps = |hook: &str| {
+            external(&format!("hk run {hook} --plan --json -a < /dev/null"))
+                .map_err(|e| format!("missing hk: {e}"))
+                .map(|plan| {
+                    plan.lines().filter(|l| l.contains("orderIndex")).count()
+                })
+        };
+        let commit_steps = steps("pre-commit")?;
+        let push_steps = steps("pre-push")?;
+        let specs: Vec<String> = walk_specs(root)
+            .iter()
+            .flat_map(|p| fs::read_to_string(p).ok())
+            .collect();
+        Ok(Self::from_specs(&specs, commit_steps, push_steps))
+    }
+
+    /// Pure core: spec texts and the two plan sizes in, facts out.
+    pub fn from_specs(
+        specs: &[String],
+        commit_steps: usize,
+        push_steps: usize,
+    ) -> Self {
+        let lines = || specs.iter().flat_map(|s| s.lines());
+        let unique = |prefix: char, key: fn(&str) -> &str| {
+            lines()
+                .filter_map(|l| l.strip_prefix(prefix).map(key))
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+        };
+        let task = |mark: &str| {
+            lines()
+                .filter(|l| {
+                    l.strip_prefix('T').is_some_and(|rest| {
+                        rest.trim_start_matches(|c: char| c.is_ascii_digit())
+                            .starts_with(mark)
+                    })
+                })
+                .count()
+        };
+        Self {
+            invariants: unique('V', |x| {
+                x.split_whitespace().next().unwrap_or_default()
+            }),
+            bugs: unique('B', |x| x.split('|').next().unwrap_or_default()),
+            landed: task("|x|"),
+            open: task("|.|"),
+            commit_steps,
+            push_steps,
+        }
+    }
+}
+
 fn rows(root: &Path, prefix: &str) -> usize {
     walk_specs(root)
         .iter()
@@ -325,45 +398,20 @@ fn render(root: &Path, external: &mut External<'_>) -> Result<String, String> {
     let nixrev = rev.chars().take(7).collect::<String>();
     let when = unix_date(&value(node, "\"lastModified\":").unwrap_or_default());
     let when_url = when.replace('-', "--");
-    let com = external("hk run pre-commit --plan --json -a < /dev/null")
-        .map_err(|e| format!("missing hk: {e}"))?
-        .lines()
-        .filter(|l| l.contains("orderIndex"))
-        .count();
-    let pus = external("hk run pre-push --plan --json -a < /dev/null")
-        .map_err(|e| format!("missing hk: {e}"))?
-        .lines()
-        .filter(|l| l.contains("orderIndex"))
-        .count();
+    let facts = Facts::gather(root, external)?;
     if dependency_count(&cargo) == 0
-        || com == 0
-        || pus == 0
+        || facts.commit_steps == 0
+        || facts.push_steps == 0
         || rows(root, "V") == 0
     {
         return Err("a badge source is empty or zero".into());
     }
-    let inv = walk_specs(root)
-        .iter()
-        .flat_map(|p| fs::read_to_string(p).ok())
-        .flat_map(|s| s.lines().map(str::to_owned).collect::<Vec<_>>())
-        .filter_map(|l| {
-            l.strip_prefix('V')
-                .and_then(|x| x.split_whitespace().next())
-                .map(str::to_owned)
-        })
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
-    let bug = walk_specs(root)
-        .iter()
-        .flat_map(|p| fs::read_to_string(p).ok())
-        .flat_map(|s| s.lines().map(str::to_owned).collect::<Vec<_>>())
-        .filter_map(|line| {
-            line.strip_prefix('B')
-                .and_then(|rest| rest.split('|').next())
-                .map(str::to_owned)
-        })
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
+    let (com, pus, inv, bug) = (
+        facts.commit_steps,
+        facts.push_steps,
+        facts.invariants,
+        facts.bugs,
+    );
     let nod = walk_specs(root).len();
     let cov = value(
         &fs::read_to_string(root.join(".coverage"))
@@ -471,14 +519,17 @@ pub fn run(
     let Some(verb) = args.first().map(String::as_str) else {
         let _ = writeln!(
             err,
-            "usage: rekall-dev <readme|notices> [--check] [<path>...]"
+            "usage: rekall-dev <readme|notices|prose> [--check] [<path>...]"
         );
         return 2;
     };
+    if verb == "prose" {
+        return prose::run(root, args, external, err);
+    }
     if verb != "readme" && verb != "notices" {
         let _ = writeln!(
             err,
-            "usage: rekall-dev <readme|notices> [--check] [<path>...]"
+            "usage: rekall-dev <readme|notices|prose> [--check] [<path>...]"
         );
         return 2;
     }
