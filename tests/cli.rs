@@ -456,11 +456,12 @@ const EDIT_PAYLOAD: &[u8] = br#"{"hook_event_name":"PreToolUse","tool_name":"Edi
 #[test]
 fn hk_pkl_has_no_doc_comment_inside_an_object() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("hk.pkl");
-    if !path.exists() {
-        return;
-    }
-    let text = std::fs::read_to_string(&path).unwrap_or_default();
-    assert!(!text.is_empty(), "hk.pkl unreadable");
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
+        Err(e) => panic!("hk.pkl unreadable: {e}"),
+    };
+    assert!(!text.is_empty(), "hk.pkl empty");
     let nested = indented_doc_lines(&text);
     assert!(
         nested.is_empty(),
