@@ -65,9 +65,9 @@
     }:
     let
       # `nixpkgs-lock`'s supportedSystems, all four. SUPPORT and CI COVERAGE
-      # are different sets: GitHub offers no free x86_64 macOS runner, so
-      # `x86_64-darwin` is supported here and unbuilt in CI, and ci.yml says
-      # so rather than leaving the gap silent (SPEC.md §C, R12).
+      # are different sets, and ci.yml names the runner for each, `x86_64-darwin`
+      # on `macos-15-intel` included, rather than leaving a gap silent
+      # (SPEC.md §C, R12).
       systems = [
         "aarch64-darwin"
         "x86_64-darwin"
@@ -91,6 +91,25 @@
       # is a no-op when fresh and rebuilds only on change -- so the shim
       # always matches the source you are editing, which is the point of
       # dogfooding at all.
+      hasPkg = input: pkgs: input.packages ? ${pkgs.stdenv.hostPlatform.system};
+      gatePkg = input: pkgs: input.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
+      # `mth` where microlith publishes no package for the system (today
+      # `x86_64-darwin`). Built from the SAME pinned source the input locks,
+      # so there is still one rev. `runners` demands `mth` on every commit
+      # and push, so omitting it would block both (V26).
+      mthFromSource =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "microlith";
+          version = (builtins.fromTOML (builtins.readFile "${microlith}/Cargo.toml")).package.version;
+          src = microlith;
+          cargoLock.lockFile = "${microlith}/Cargo.lock";
+          doCheck = false;
+          meta.mainProgram = "mth";
+        };
+      mthPkg = pkgs: if hasPkg microlith pkgs then gatePkg microlith pkgs else mthFromSource pkgs;
+
       rekallShim =
         pkgs:
         pkgs.writeShellScriptBin "rekall" ''
@@ -199,13 +218,18 @@
             # cargo-run shim: this repo does not own that source, so the
             # right shape is a pinned package. `mth fmt --check` and `mth
             # check` gate SPEC.md's format (§C).
-            microlith.packages.${pkgs.stdenv.hostPlatform.system}.default
+            # The input has no package for `x86_64-darwin` today, and an
+            # unguarded lookup is an EVALUATION error, so `mthPkg` builds it
+            # from the pinned source there instead of leaving it out.
+            (mthPkg pkgs)
             # Token counts are DELEGATED, never reimplemented here (V8).
             # `itok check` is the runner for `.context-limits` (T2, V22).
             itok.packages.${pkgs.stdenv.hostPlatform.system}.default
             # `sherd check` and `sherd validate` are the runners for the
             # federation this spec declares -- the cross-file half microlith
-            # does not do.
+            # does not do. Unguarded, like `itok`: it publishes all four
+            # systems, and `runners` demands it, so a shell without it would
+            # only move the failure from evaluation to every commit.
             sherd.packages.${pkgs.stdenv.hostPlatform.system}.default
             pkgs.rustc
             pkgs.cargo

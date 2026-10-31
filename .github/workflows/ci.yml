@@ -9,12 +9,11 @@
 # list into this file would create the second rule set V23 forbids -- and the
 # copy is the one that rots, because the local one is the one anybody runs.
 #
-# PLATFORM GAP, named rather than silently absent (SPEC.md §C, R12, V26):
-# flake.nix declares FOUR supported systems and this matrix builds THREE.
-# `x86_64-darwin` is supported and NOT exercised here, because GitHub offers
-# no free x86_64 macOS runner. It is built locally instead. An untested
-# platform claim is worse than an absent one only when nobody says it is
-# untested -- so this says it.
+# PLATFORM COVERAGE (SPEC.md §C, R12, V26): flake.nix declares FOUR supported
+# systems and this matrix builds all four. `x86_64-darwin` is built on
+# `macos-15-intel`, a GitHub-hosted runner for public repositories. It is also
+# EVALUATED (`eval-x86_64-darwin`), which answers in seconds on linux, so a
+# lookup that system lacks fails CI before the slower build job starts.
 #
 # PENDING, listed for the same reason:
 #   * release automation and publish
@@ -62,9 +61,9 @@ jobs:
       #   ubuntu-latest    x86_64-linux
       #   ubuntu-24.04-arm aarch64-linux
       #   macos-latest     aarch64-darwin
-      #   (x86_64-darwin   supported, no free runner -- see the note above)
+      #   macos-15-intel   x86_64-darwin
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
     # The coverage step compiles the suite with instrumentation, which is the
     # slowest thing here by some way. Generous, but bounded: a hung job that
     # burns an hour is worse than one that fails.
@@ -189,7 +188,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -226,3 +225,22 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - run: nix build .#default
+
+  # The cheap check on `x86_64-darwin`, ahead of the Intel runner: evaluation. Every
+  # flake input is a per-system lookup, and a sibling that drops a system
+  # becomes "attribute 'x86_64-darwin' missing" -- which is how both the
+  # package and the dev shell were broken there before (#42). Evaluating the
+  # drvPath builds nothing, so a linux runner answers it in seconds.
+  eval-x86_64-darwin:
+    # Stated for the reason given at `gate` above, and equal to the id for the
+    # same reason.
+    name: eval-x86_64-darwin
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+      - run: nix eval --raw .#packages.x86_64-darwin.default.drvPath
+      - run: nix eval --raw .#devShells.x86_64-darwin.default.drvPath
