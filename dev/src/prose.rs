@@ -182,8 +182,9 @@ fn link_targets(text: &str) -> Vec<&str> {
         .filter_map(|rest| {
             let end = rest.find(')')?;
             let target = rest.get(..end)?;
-            (!target.is_empty()
-                && target
+            let path = target.split('#').next().unwrap_or_default();
+            (!path.is_empty()
+                && path
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || "_./-".contains(c)))
             .then_some(target)
@@ -367,6 +368,15 @@ mod tests {
         assert_eq!(
             shipped_links("README.md", readme, CRATE),
             ["  README.md -> hk.pkl", "  README.md -> nope.md"]
+        );
+    }
+
+    #[test]
+    fn shipped_links_checks_the_file_part_of_fragment_links() {
+        let readme = "[m](missing.md#section) [ok](SPEC.md#top) [f](#only)";
+        assert_eq!(
+            shipped_links("README.md", readme, CRATE),
+            ["  README.md -> missing.md"]
         );
     }
 
