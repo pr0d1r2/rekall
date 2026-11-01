@@ -229,13 +229,6 @@ pub(crate) fn run(
             return 1;
         }
     };
-    let facts = match Facts::gather(root, external) {
-        Ok(f) => f,
-        Err(e) => {
-            let _ = writeln!(err, "{e}");
-            return 1;
-        }
-    };
     let mut docs: Vec<(String, String)> = fs::read_dir(root.join("docs"))
         .into_iter()
         .flatten()
@@ -253,12 +246,18 @@ pub(crate) fn run(
             .is_none_or(|selected| selected == part)
     };
     let mut failed = false;
-    for finding in check_prose(&facts, &readme, &docs)
-        .into_iter()
-        .filter(|_| only("counts"))
-    {
-        failed = true;
-        let _ = writeln!(err, "{finding}");
+    if only("counts") {
+        let facts = match Facts::gather(root, external) {
+            Ok(f) => f,
+            Err(e) => {
+                let _ = writeln!(err, "{e}");
+                return 1;
+            }
+        };
+        for finding in check_prose(&facts, &readme, &docs) {
+            failed = true;
+            let _ = writeln!(err, "{finding}");
+        }
     }
     let mut dead = shipped_links("README.md", &readme, &crate_files);
     for (name, text) in &docs {
