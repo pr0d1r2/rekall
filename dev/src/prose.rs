@@ -203,8 +203,15 @@ pub fn shipped_links(doc: &str, text: &str, crate_files: &str) -> Vec<String> {
                 return None;
             }
             let resolved = if doc.starts_with("docs/") {
-                path.strip_prefix("../")
-                    .map_or_else(|| format!("docs/{path}"), str::to_owned)
+                let mut dir: Vec<&str> = doc.split('/').collect();
+                dir.pop();
+                let mut rest = path;
+                while let Some(up) = rest.strip_prefix("../") {
+                    dir.pop();
+                    rest = up;
+                }
+                dir.push(rest);
+                dir.join("/")
             } else {
                 path.to_owned()
             };
@@ -212,6 +219,24 @@ pub fn shipped_links(doc: &str, text: &str, crate_files: &str) -> Vec<String> {
                 .then(|| format!("  {doc} -> {path}"))
         })
         .collect()
+}
+
+/// Every `.md` under `root/dir`, as (repository-relative path, text).
+fn collect_docs(root: &Path, dir: &str, out: &mut Vec<(String, String)>) {
+    for entry in fs::read_dir(root.join(dir)).into_iter().flatten().flatten() {
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        let rel = format!("{dir}/{name}");
+        let path = entry.path();
+        if path.is_dir() {
+            collect_docs(root, &rel, out);
+        } else if path.extension().is_some_and(|x| x == "md")
+            && let Ok(text) = fs::read_to_string(&path)
+        {
+            out.push((rel, text));
+        }
+    }
 }
 
 pub(crate) fn run(
@@ -229,16 +254,8 @@ pub(crate) fn run(
             return 1;
         }
     };
-    let mut docs: Vec<(String, String)> = fs::read_dir(root.join("docs"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|e| e.path().extension().is_some_and(|x| x == "md"))
-        .filter_map(|e| {
-            let name = format!("docs/{}", e.file_name().to_str()?);
-            Some((name, fs::read_to_string(e.path()).ok()?))
-        })
-        .collect();
+    let mut docs = Vec::new();
+    collect_docs(root, "docs", &mut docs);
     docs.sort();
     let only = |part: &str| {
         args.iter()
