@@ -323,16 +323,7 @@ impl Facts {
                 .collect::<std::collections::BTreeSet<_>>()
                 .len()
         };
-        let task = |mark: &str| {
-            lines()
-                .filter(|l| {
-                    l.strip_prefix('T').is_some_and(|rest| {
-                        rest.trim_start_matches(|c: char| c.is_ascii_digit())
-                            .starts_with(mark)
-                    })
-                })
-                .count()
-        };
+        let task = |mark: &str| lines().filter(|l| is_task(l, mark)).count();
         Self {
             invariants: unique('V', |x| {
                 x.split_whitespace().next().unwrap_or_default()
@@ -344,6 +335,13 @@ impl Facts {
             push_steps,
         }
     }
+}
+
+fn is_task(line: &str, mark: &str) -> bool {
+    line.strip_prefix('T').is_some_and(|rest| {
+        rest.trim_start_matches(|c: char| c.is_ascii_digit())
+            .starts_with(mark)
+    })
 }
 
 fn rows(root: &Path, prefix: &str) -> usize {
