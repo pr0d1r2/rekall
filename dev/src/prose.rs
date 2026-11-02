@@ -206,16 +206,17 @@ pub fn shipped_links(doc: &str, text: &str, crate_files: &str) -> Vec<String> {
                 let mut dir: Vec<&str> = doc.split('/').collect();
                 dir.pop();
                 let mut rest = path;
+                let mut escaped = false;
                 while let Some(up) = rest.strip_prefix("../") {
-                    dir.pop();
+                    escaped |= dir.pop().is_none();
                     rest = up;
                 }
                 dir.push(rest);
-                dir.join("/")
+                (!escaped).then(|| dir.join("/"))
             } else {
-                path.to_owned()
+                Some(path.to_owned())
             };
-            (!crate_files.lines().any(|l| l == resolved))
+            (!resolved.is_some_and(|r| crate_files.lines().any(|l| l == r)))
                 .then(|| format!("  {doc} -> {path}"))
         })
         .collect()
@@ -403,6 +404,15 @@ mod tests {
         assert_eq!(
             shipped_links("docs/A.md", doc, CRATE),
             ["  docs/A.md -> ../flake.nix", "  docs/A.md -> C.md"]
+        );
+    }
+
+    #[test]
+    fn shipped_links_rejects_paths_escaping_the_crate_root() {
+        let doc = "[x](../../SPEC.md)";
+        assert_eq!(
+            shipped_links("docs/A.md", doc, CRATE),
+            ["  docs/A.md -> ../../SPEC.md"]
         );
     }
 }
