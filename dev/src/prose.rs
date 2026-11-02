@@ -17,9 +17,7 @@ fn number(
     let mut start = 0;
     while start < text.len() {
         let rest = text.get(start..)?;
-        let Some(offset) = rest.find(|c: char| c.is_ascii_digit()) else {
-            return None;
-        };
+        let offset = rest.find(|c: char| c.is_ascii_digit())?;
         let from = start + offset;
         let tail = text.get(from..)?;
         let len = tail
