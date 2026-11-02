@@ -257,11 +257,12 @@ pub(crate) fn run(
     let mut docs = Vec::new();
     collect_docs(root, "docs", &mut docs);
     docs.sort();
-    let only = |part: &str| {
-        args.iter()
-            .find_map(|a| a.strip_prefix("--only="))
-            .is_none_or(|selected| selected == part)
-    };
+    let selected = args.iter().find_map(|a| a.strip_prefix("--only="));
+    if selected.is_some_and(|s| s != "counts" && s != "links") {
+        let _ = writeln!(err, "usage: rekall-dev prose [--only=counts|links]");
+        return 2;
+    }
+    let only = |part: &str| selected.is_none_or(|s| s == part);
     let mut failed = false;
     if only("counts") {
         let facts = match Facts::gather(root, external) {
@@ -443,6 +444,15 @@ mod run_tests {
         assert!(links == 1 && !text.contains("tasks landed"));
         let (counts, text) = verb(&root, "--only=counts");
         assert!(counts == 1 && !text.contains("gone.md"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn unknown_only_value_is_a_usage_error() {
+        let root = repo("at 9 landed");
+        let (code, text) = verb(&root, "--only=bogus");
+        assert_eq!(code, 2);
+        assert!(text.contains("usage: rekall-dev prose"));
         let _ = fs::remove_dir_all(root);
     }
 }
