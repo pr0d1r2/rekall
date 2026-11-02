@@ -222,22 +222,30 @@ pub fn shipped_links(doc: &str, text: &str, crate_files: &str) -> Vec<String> {
         .collect()
 }
 
-/// Every `.md` under `root/dir`, as (repository-relative path, text).
-fn collect_docs(root: &Path, dir: &str, out: &mut Vec<(String, String)>) {
-    for entry in fs::read_dir(root.join(dir)).into_iter().flatten().flatten() {
+/// Every `.md` under `root/dir`, as (repository-relative path, text). A
+/// directory or file that cannot be read is an error, never a silent skip.
+fn collect_docs(
+    root: &Path,
+    dir: &str,
+    out: &mut Vec<(String, String)>,
+) -> std::io::Result<()> {
+    for entry in fs::read_dir(root.join(dir))? {
+        let entry = entry?;
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
         let rel = format!("{dir}/{name}");
         let path = entry.path();
         if path.is_dir() {
-            collect_docs(root, &rel, out);
-        } else if path.extension().is_some_and(|x| x == "md")
-            && let Ok(text) = fs::read_to_string(&path)
-        {
+            collect_docs(root, &rel, out)?;
+        } else if path.extension().is_some_and(|x| x == "md") {
+            let text = fs::read_to_string(&path).map_err(|e| {
+                std::io::Error::new(e.kind(), format!("{rel}: {e}"))
+            })?;
             out.push((rel, text));
         }
     }
+    Ok(())
 }
 
 pub(crate) fn run(
@@ -256,7 +264,12 @@ pub(crate) fn run(
         }
     };
     let mut docs = Vec::new();
-    collect_docs(root, "docs", &mut docs);
+    if let Err(e) = collect_docs(root, "docs", &mut docs)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        let _ = writeln!(err, "hk: cannot read docs: {e}");
+        return 1;
+    }
     docs.sort();
     let selected = args.iter().find_map(|a| a.strip_prefix("--only="));
     if selected.is_some_and(|s| s != "counts" && s != "links") {
