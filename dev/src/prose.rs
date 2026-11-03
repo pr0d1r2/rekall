@@ -173,19 +173,19 @@ pub fn check_prose(
     out
 }
 
-/// Targets of `](path)` links, `path` restricted to `[A-Za-z0-9_./-]`.
-fn link_targets(text: &str) -> Vec<&str> {
+/// File parts of `](path#fragment)` links, `path` non-empty and restricted
+/// to `[A-Za-z0-9_./-]`.
+fn link_paths(text: &str) -> Vec<&str> {
     text.split("](")
         .skip(1)
         .filter_map(|rest| {
             let end = rest.find(')')?;
-            let target = rest.get(..end)?;
-            let path = target.split('#').next().unwrap_or_default();
+            let path = rest.get(..end)?.split('#').next().unwrap_or_default();
             (!path.is_empty()
                 && path
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || "_./-".contains(c)))
-            .then_some(target)
+            .then_some(path)
         })
         .collect()
 }
@@ -193,13 +193,9 @@ fn link_targets(text: &str) -> Vec<&str> {
 /// `  <doc> -> <target>` for every link in `text` (at repo path `doc`) that
 /// does not resolve to a line of `crate_files`.
 pub fn shipped_links(doc: &str, text: &str, crate_files: &str) -> Vec<String> {
-    link_targets(text)
+    link_paths(text)
         .into_iter()
-        .filter_map(|target| {
-            let path = target.split('#').next().unwrap_or_default();
-            if path.is_empty() {
-                return None;
-            }
+        .filter_map(|path| {
             let resolved = if doc.starts_with("docs/") {
                 let mut dir: Vec<&str> = doc.split('/').collect();
                 dir.pop();
@@ -253,10 +249,9 @@ pub(crate) fn run(
     err: &mut dyn Write,
 ) -> u8 {
     let read = |name: &str| fs::read_to_string(root.join(name));
-    let (readme, crate_files) = match (read("README.md"), read(".crate-files"))
-    {
-        (Ok(r), Ok(c)) => (r, c),
-        (Err(e), _) | (_, Err(e)) => {
+    let readme = match read("README.md") {
+        Ok(r) => r,
+        Err(e) => {
             let _ = writeln!(err, "{e}");
             return 1;
         }
@@ -289,11 +284,21 @@ pub(crate) fn run(
             let _ = writeln!(err, "{finding}");
         }
     }
+    if !only("links") {
+        return u8::from(failed);
+    }
+    let crate_files = match read(".crate-files") {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = writeln!(err, "{e}");
+            return 1;
+        }
+    };
     let mut dead = shipped_links("README.md", &readme, &crate_files);
     for (name, text) in &docs {
         dead.extend(shipped_links(name, text, &crate_files));
     }
-    if only("links") && !dead.is_empty() {
+    if !dead.is_empty() {
         failed = true;
         let _ = writeln!(
             err,
@@ -481,6 +486,18 @@ mod run_tests {
         assert_eq!(calls, 0, "--only=links must not call the external hook");
         let (counts, text) = verb(&root, "--only=counts");
         assert!(counts == 1 && !text.contains("gone.md"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn only_counts_does_not_read_the_crate_file_list() {
+        let root = repo("at 9 landed [dead](gone.md) only counts");
+        let _ = fs::remove_file(root.join(".crate-files"));
+        let (counts, text) = verb(&root, "--only=counts");
+        assert_eq!(counts, 1);
+        assert!(text.contains("tasks landed") && !text.contains("os error"));
+        let (links, text) = verb(&root, "--only=links");
+        assert!(links == 1 && text.contains("os error"), "{text}");
         let _ = fs::remove_dir_all(root);
     }
 

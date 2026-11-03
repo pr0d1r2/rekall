@@ -230,7 +230,7 @@ local fast = new Mapping<String, Step> {
     // real 25 and 31 -- the badge was regenerated on every touch and the
     // prose beside it was gated by nothing (V22). The numbers now come from
     // the same `Facts` struct the badges render from, so they cannot disagree.
-    glob = List("README.md", "docs/*.md", "SPEC.md", "src/**/SPEC.md", "hk.pkl", "dev/**")
+    glob = List("README.md", "docs/**/*.md", "SPEC.md", "src/**/SPEC.md", "hk.pkl", "dev/**")
     check = "cargo run --quiet --package rekall-dev -- prose --only=counts"
   }
 
