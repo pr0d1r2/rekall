@@ -163,13 +163,11 @@ fn chert_turn(value: &serde_json::Value) -> Option<Turn> {
     {
         return None;
     }
+    let ts = value.get("ts").and_then(serde_json::Value::as_u64)?;
     Some(Turn {
         text: body.to_owned(),
         src: src.to_owned(),
-        at: value
-            .get("ts")
-            .and_then(serde_json::Value::as_u64)
-            .map(|ms| ms / 1000),
+        at: Some(ts / 1000),
     })
 }
 
