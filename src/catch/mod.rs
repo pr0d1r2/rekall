@@ -475,6 +475,23 @@ mod tests {
         }
     }
 
+    /// V52's `src` = `ref`. A prompt with no `ref` has nothing to point
+    /// back at, so it is dropped rather than stamped with the export's
+    /// own path -- a candidate whose `src` names a file of thousands of
+    /// observations points at none of them.
+    #[test]
+    fn a_chert_prompt_without_a_ref_is_dropped() {
+        let head = chert("stop", "");
+        let bare = serde_json::json!({
+            "body": "Never commit a .env file.",
+            "kind": "user-prompt-submit",
+            "ts": 1_792_906_420_794_u64,
+        });
+        let out = caught(&format!("{head}\n{bare}\n"));
+        assert_eq!((out.turns, out.skipped), (0, 0), "{out:?}");
+        assert!(out.caught.is_empty(), "{out:?}");
+    }
+
     #[test]
     fn a_chert_export_counts_unreadable_lines() {
         let said = format!(
