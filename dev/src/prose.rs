@@ -447,11 +447,25 @@ mod run_tests {
     }
 
     fn verb(root: &Path, only: &str) -> (u8, String) {
+        let (code, text, _) = counted(root, only);
+        (code, text)
+    }
+
+    /// Like `verb`, also returning how often the external hook was invoked.
+    fn counted(root: &Path, only: &str) -> (u8, String, usize) {
         let args = vec!["prose".to_owned(), only.to_owned()];
-        let mut plan = |_: &str| Ok("\"orderIndex\"\n".to_owned());
+        let calls = std::cell::Cell::new(0);
+        let mut plan = |_: &str| {
+            calls.set(calls.get() + 1);
+            Ok("\"orderIndex\"\n".to_owned())
+        };
         let mut err = Vec::new();
         let code = run(root, &args, &mut plan, &mut err);
-        (code, String::from_utf8_lossy(&err).into_owned())
+        (
+            code,
+            String::from_utf8_lossy(&err).into_owned(),
+            calls.get(),
+        )
     }
 
     #[test]
@@ -461,8 +475,10 @@ mod run_tests {
         let (both, text) = verb(&root, "--check");
         assert_eq!(both, 1);
         assert!(text.contains("tasks landed") && text.contains("gone.md"));
-        let (links, text) = verb(&root, "--only=links");
-        assert!(links == 1 && !text.contains("tasks landed"));
+        let (links, text, calls) = counted(&root, "--only=links");
+        assert!(links == 1 && text.contains("gone.md"));
+        assert!(!text.contains("tasks landed"));
+        assert_eq!(calls, 0, "--only=links must not call the external hook");
         let (counts, text) = verb(&root, "--only=counts");
         assert!(counts == 1 && !text.contains("gone.md"));
         let _ = fs::remove_dir_all(root);
