@@ -58,7 +58,7 @@ pub struct Report {
 #[must_use]
 pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
     let (turns, skipped) = if is_chert(jsonl) {
-        chert_turns(jsonl, src)
+        chert_turns(jsonl)
     } else {
         user_turns(jsonl, src)
     };
@@ -143,20 +143,21 @@ fn str_field<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
 /// evidence (V44): tool bodies are the agent's actions and the tool's
 /// output, and `stop` and the session edges carry no human words. `src` is
 /// the row's `ref`, so a candidate points back at its evidence.
-fn chert_turns(jsonl: &str, fallback: &str) -> (Vec<Turn>, usize) {
+fn chert_turns(jsonl: &str) -> (Vec<Turn>, usize) {
     let mut turns = Vec::new();
     let mut skipped: usize = 0;
     for line in jsonl.lines().filter(|l| !l.trim().is_empty()) {
         match serde_json::from_str::<serde_json::Value>(line) {
-            Ok(value) => turns.extend(chert_turn(&value, fallback)),
+            Ok(value) => turns.extend(chert_turn(&value)),
             Err(_) => skipped = skipped.saturating_add(1),
         }
     }
     (turns, skipped)
 }
 
-fn chert_turn(value: &serde_json::Value, fallback: &str) -> Option<Turn> {
+fn chert_turn(value: &serde_json::Value) -> Option<Turn> {
     let body = str_field(value, "body").unwrap_or_default();
+    let src = str_field(value, "ref")?;
     if str_field(value, "kind") != Some("user-prompt-submit")
         || body.trim().is_empty()
     {
@@ -164,7 +165,7 @@ fn chert_turn(value: &serde_json::Value, fallback: &str) -> Option<Turn> {
     }
     Some(Turn {
         text: body.to_owned(),
-        src: str_field(value, "ref").unwrap_or(fallback).to_owned(),
+        src: src.to_owned(),
         at: value
             .get("ts")
             .and_then(serde_json::Value::as_u64)
