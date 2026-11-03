@@ -35,6 +35,9 @@ pub struct Caught {
     pub sharpness: Option<u8>,
     pub label: String,
     pub signals: Vec<String>,
+    /// Unix seconds the evidence was captured, where the dialect carries
+    /// one. A transcript line does not, so the caller stamps its own.
+    pub at: Option<u64>,
 }
 
 /// What one pass over a transcript found, and what it could not read.
@@ -54,10 +57,14 @@ pub struct Report {
 /// a rule.
 #[must_use]
 pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
-    let (turns, skipped) = user_turns(jsonl);
+    let (turns, skipped) = if is_chert(jsonl) {
+        chert_turns(jsonl, src)
+    } else {
+        user_turns(jsonl, src)
+    };
     let mut caught = Vec::new();
     for turn in &turns {
-        collect(turn, src, weights, &mut caught);
+        collect(turn, weights, &mut caught);
     }
     Report {
         caught,
@@ -80,44 +87,115 @@ pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
 /// section I's "classed like any other" taken literally: `U` is already the
 /// answer for a request, so a transcript's ordinary "could you look at the
 /// parser?" falls out without a second rule to describe it.
-fn collect(turn: &str, src: &str, weights: &Weights, out: &mut Vec<Caught>) {
-    for said in statement::split(turn, src) {
+fn collect(turn: &Turn, weights: &Weights, out: &mut Vec<Caught>) {
+    for said in statement::split(&turn.text, &turn.src) {
         let verdict = classify::classify(&said.text, Form::ListItem, weights);
-        if verdict.class == classify::Class::U {
-            continue;
+        if verdict.class != classify::Class::U {
+            out.push(caught_of(said, &verdict, turn));
         }
-        out.push(Caught {
-            id: said.id,
-            src: src.to_owned(),
-            text: said.text,
-            class: verdict.class.to_string(),
-            sharpness: verdict.sharpness,
-            label: verdict.label(),
-            signals: verdict.names(),
-        });
     }
 }
 
-/// The user's turns, and how many lines could not be read.
-fn user_turns(jsonl: &str) -> (Vec<String>, usize) {
+fn caught_of(
+    said: statement::Statement,
+    verdict: &classify::Verdict,
+    turn: &Turn,
+) -> Caught {
+    Caught {
+        id: said.id,
+        src: turn.src.clone(),
+        text: said.text,
+        class: verdict.class.to_string(),
+        sharpness: verdict.sharpness,
+        label: verdict.label(),
+        signals: verdict.names(),
+        at: turn.at,
+    }
+}
+
+/// One human turn, and where it points back to.
+struct Turn {
+    text: String,
+    src: String,
+    at: Option<u64>,
+}
+
+/// A `chert export` is sniffed from its FIRST line: an object with `kind`,
+/// a `ref` starting `chert:`, and `ts`. No transcript dialect has a `ref`
+/// field, so the test does not rest on an absence a release could change.
+fn is_chert(jsonl: &str) -> bool {
+    jsonl
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .and_then(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .is_some_and(|v| {
+            v.get("kind").is_some()
+                && v.get("ts").is_some()
+                && str_field(&v, "ref").is_some_and(|r| r.starts_with("chert:"))
+        })
+}
+
+fn str_field<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
+    value.get(key).and_then(serde_json::Value::as_str)
+}
+
+/// The human's prompts in a memory export. Only `user-prompt-submit` is
+/// evidence (V44): tool bodies are the agent's actions and the tool's
+/// output, and `stop` and the session edges carry no human words. `src` is
+/// the row's `ref`, so a candidate points back at its evidence.
+fn chert_turns(jsonl: &str, fallback: &str) -> (Vec<Turn>, usize) {
     let mut turns = Vec::new();
     let mut skipped: usize = 0;
     for line in jsonl.lines().filter(|l| !l.trim().is_empty()) {
         match serde_json::from_str::<serde_json::Value>(line) {
-            Ok(value) => push_user(&value, &mut turns),
+            Ok(value) => turns.extend(chert_turn(&value, fallback)),
             Err(_) => skipped = skipped.saturating_add(1),
         }
     }
     (turns, skipped)
 }
 
-fn push_user(value: &serde_json::Value, turns: &mut Vec<String>) {
+fn chert_turn(value: &serde_json::Value, fallback: &str) -> Option<Turn> {
+    let body = str_field(value, "body").unwrap_or_default();
+    if str_field(value, "kind") != Some("user-prompt-submit")
+        || body.trim().is_empty()
+    {
+        return None;
+    }
+    Some(Turn {
+        text: body.to_owned(),
+        src: str_field(value, "ref").unwrap_or(fallback).to_owned(),
+        at: value
+            .get("ts")
+            .and_then(serde_json::Value::as_u64)
+            .map(|ms| ms / 1000),
+    })
+}
+
+/// The user's turns, and how many lines could not be read.
+fn user_turns(jsonl: &str, src: &str) -> (Vec<Turn>, usize) {
+    let mut turns = Vec::new();
+    let mut skipped: usize = 0;
+    for line in jsonl.lines().filter(|l| !l.trim().is_empty()) {
+        match serde_json::from_str::<serde_json::Value>(line) {
+            Ok(value) => push_user(&value, src, &mut turns),
+            Err(_) => skipped = skipped.saturating_add(1),
+        }
+    }
+    (turns, skipped)
+}
+
+fn push_user(value: &serde_json::Value, src: &str, turns: &mut Vec<Turn>) {
     if role_of(value) != Some("user") {
         return;
     }
     let text = text_of(value);
     if !text.trim().is_empty() {
-        turns.push(text);
+        turns.push(Turn {
+            text,
+            src: src.to_owned(),
+            at: None,
+        });
     }
 }
 
@@ -352,5 +430,67 @@ mod tests {
         let out = caught(odd);
         assert!(out.caught.is_empty(), "{out:?}");
         assert_eq!(out.skipped, 0, "a shape it can parse is not unreadable");
+    }
+
+    fn chert(kind: &str, body: &str) -> String {
+        serde_json::json!({
+            "body": body,
+            "id": "01M5RRSRHT17CXQDXAWNVC00FS",
+            "ide": "claude-code",
+            "kind": kind,
+            "project": "p-0",
+            "ref": "chert:01M5RRSRH",
+            "session": "s",
+            "ts": 1_792_906_420_794_u64,
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn a_chert_prompt_becomes_a_candidate_pointing_at_its_ref() {
+        let said = chert("user-prompt-submit", "Never commit a .env file.");
+        let out = caught(&said);
+        assert_eq!(out.caught.len(), 1, "{out:?}");
+        let shape: Vec<(String, Option<u64>)> =
+            out.caught.iter().map(|c| (c.src.clone(), c.at)).collect();
+        let want = ("chert:01M5RRSRH".to_string(), Some(1_792_906_420));
+        assert_eq!(shape, vec![want]);
+    }
+
+    /// Tool bodies are the agent's actions, not the human's words (V44).
+    #[test]
+    fn chert_tool_and_edge_events_are_not_evidence() {
+        let body = "Never commit a .env file.";
+        for kind in [
+            "post-tool-use",
+            "post-tool-use-failure",
+            "stop",
+            "session-start",
+            "session-end",
+        ] {
+            let out = caught(&chert(kind, body));
+            assert!(out.caught.is_empty(), "{kind}: {out:?}");
+            assert_eq!(out.turns, 0, "{kind}");
+        }
+    }
+
+    #[test]
+    fn a_chert_export_counts_unreadable_lines() {
+        let said = format!(
+            "{}\nnot json\n",
+            chert("user-prompt-submit", "Never commit a .env file.")
+        );
+        let out = caught(&said);
+        assert_eq!((out.caught.len(), out.skipped), (1, 1));
+    }
+
+    /// The sniff needs `kind`, a `chert:` ref and `ts`; a transcript line
+    /// is never read as an export.
+    #[test]
+    fn a_transcript_is_not_sniffed_as_chert() {
+        assert!(!is_chert(CORRECTION));
+        assert!(!is_chert(r#"{"kind":"x","ref":"other:1","ts":1}"#));
+        assert!(!is_chert(r#"{"kind":"x","ref":"chert:1"}"#));
+        assert!(is_chert(&chert("stop", "")));
     }
 }
