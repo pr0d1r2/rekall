@@ -30,6 +30,15 @@ through `/spec`.
 
 ## [Unreleased]
 
+### Added
+
+- `catch` reads a `chert export` JSONL. The dialect is sniffed from the first
+  line, not chosen by a flag. Only `user-prompt-submit` rows count as evidence,
+  and each candidate's `src` is the row's `ref` and its `at` is the row's `ts`
+  in seconds. A prompt with no `ref` is dropped, because it has no evidence to
+  point back at. In `catch --format json` a row's `at` is `null` for a
+  transcript, which carries no timestamp (V52, T65).
+
 ### Fixed
 
 - The ready-to-copy `docs/set-and-setting/hk.pkl` fragment opened with `///`

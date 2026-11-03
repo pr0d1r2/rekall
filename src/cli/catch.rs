@@ -399,6 +399,36 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// One `chert export` prompt, written over the fixture's transcript.
+    fn chert_project(name: &str) -> PathBuf {
+        let dir = project(name);
+        let export = serde_json::json!({
+            "body": "Never commit a .env file.",
+            "kind": "user-prompt-submit",
+            "ref": "chert:01M5RRSRH",
+            "ts": 1_792_906_420_794_u64,
+        });
+        let _ =
+            std::fs::write(dir.join("session.jsonl"), format!("{export}\n"));
+        dir
+    }
+
+    /// V52 at the LEDGER: a chert candidate's row points at its `ref` and
+    /// is dated by the export's `ts`, not by the moment `catch` ran.
+    #[test]
+    fn a_chert_candidate_reaches_the_ledger_dated_by_its_ts() {
+        let dir = chert_project("chert");
+        let _ = run(&dir, &[]);
+        let held = ledger::load(&ledger::path_in(&dir)).unwrap_or_default();
+        let rows: Vec<(&str, u64)> = held
+            .candidates
+            .iter()
+            .map(|c| (c.src.as_str(), c.at))
+            .collect();
+        assert_eq!(rows, vec![("chert:01M5RRSRH", 1_792_906_420)]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn an_explicit_session_wins_over_the_configured_root() {
         let args = CatchArgs {
