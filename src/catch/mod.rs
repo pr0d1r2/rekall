@@ -35,9 +35,6 @@ pub struct Caught {
     pub sharpness: Option<u8>,
     pub label: String,
     pub signals: Vec<String>,
-    /// Unix seconds the evidence was captured, where the dialect carries
-    /// one. A transcript line does not, so the caller stamps its own.
-    pub at: Option<u64>,
 }
 
 /// What one pass over a transcript found, and what it could not read.
@@ -53,23 +50,52 @@ pub struct Report {
     pub skipped: usize,
 }
 
+/// A [`Report`] with WHEN each row's evidence was captured.
+///
+/// `at[i]` belongs to `report.caught[i]`: Unix seconds where the dialect
+/// carries a time (V52), `None` for a transcript line, which does not, so
+/// the caller stamps its own. Beside [`Caught`] rather than inside it:
+/// `Caught` is built by struct literal outside this crate, and a field
+/// added there breaks every such caller on a minor release.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Dated {
+    pub report: Report,
+    pub at: Vec<Option<u64>>,
+}
+
 /// Read a transcript and propose every user statement that classifies as
 /// a rule.
 #[must_use]
 pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
-    let (turns, skipped) = if is_chert(jsonl) {
+    catch_dated(jsonl, src, weights).report
+}
+
+/// [`catch`], with each row's capture time beside it.
+#[must_use]
+pub fn catch_dated(jsonl: &str, src: &str, weights: &Weights) -> Dated {
+    let (turns, skipped) = turns_of(jsonl, src);
+    let mut found = Vec::new();
+    for turn in &turns {
+        collect(turn, weights, &mut found);
+    }
+    let (caught, at) = found.into_iter().unzip();
+    Dated {
+        report: Report {
+            caught,
+            turns: turns.len(),
+            skipped,
+        },
+        at,
+    }
+}
+
+/// The human turns in whichever dialect the file declares (V52).
+fn turns_of(jsonl: &str, src: &str) -> (Vec<Turn>, usize) {
+    if is_chert(jsonl) {
         chert_turns(jsonl)
     } else {
         user_turns(jsonl, src)
-    };
-    let mut caught = Vec::new();
-    for turn in &turns {
-        collect(turn, weights, &mut caught);
-    }
-    Report {
-        caught,
-        turns: turns.len(),
-        skipped,
     }
 }
 
@@ -87,11 +113,15 @@ pub fn catch(jsonl: &str, src: &str, weights: &Weights) -> Report {
 /// section I's "classed like any other" taken literally: `U` is already the
 /// answer for a request, so a transcript's ordinary "could you look at the
 /// parser?" falls out without a second rule to describe it.
-fn collect(turn: &Turn, weights: &Weights, out: &mut Vec<Caught>) {
+fn collect(
+    turn: &Turn,
+    weights: &Weights,
+    out: &mut Vec<(Caught, Option<u64>)>,
+) {
     for said in statement::split(&turn.text, &turn.src) {
         let verdict = classify::classify(&said.text, Form::ListItem, weights);
         if verdict.class != classify::Class::U {
-            out.push(caught_of(said, &verdict, turn));
+            out.push((caught_of(said, &verdict, turn), turn.at));
         }
     }
 }
@@ -109,7 +139,6 @@ fn caught_of(
         sharpness: verdict.sharpness,
         label: verdict.label(),
         signals: verdict.names(),
-        at: turn.at,
     }
 }
 
@@ -120,7 +149,7 @@ struct Turn {
     at: Option<u64>,
 }
 
-/// A `chert export` is sniffed from its FIRST line: an object with `kind`,
+/// A `chert export` is sniffed from its FIRST non-empty line: an object with `kind`,
 /// a `ref` starting `chert:`, and `ts`. No transcript dialect has a `ref`
 /// field, so the test does not rest on an absence a release could change.
 fn is_chert(jsonl: &str) -> bool {
@@ -448,12 +477,24 @@ mod tests {
     #[test]
     fn a_chert_prompt_becomes_a_candidate_pointing_at_its_ref() {
         let said = chert("user-prompt-submit", "Never commit a .env file.");
-        let out = caught(&said);
-        assert_eq!(out.caught.len(), 1, "{out:?}");
-        let shape: Vec<(String, Option<u64>)> =
-            out.caught.iter().map(|c| (c.src.clone(), c.at)).collect();
-        let want = ("chert:01M5RRSRH".to_string(), Some(1_792_906_420));
-        assert_eq!(shape, vec![want]);
+        let out = catch_dated(&said, "session.jsonl", &Weights::default());
+        let shape: Vec<(&str, Option<u64>)> = out
+            .report
+            .caught
+            .iter()
+            .map(|c| c.src.as_str())
+            .zip(out.at.iter().copied())
+            .collect();
+        assert_eq!(shape, vec![("chert:01M5RRSRH", Some(1_792_906_420))]);
+    }
+
+    /// A transcript carries no time, so its rows are undated -- one `None`
+    /// per caught row, `at` aligned with `caught`.
+    #[test]
+    fn a_transcript_row_is_undated() {
+        let said = format!("{CORRECTION}\n{CORRECTION}");
+        let out = catch_dated(&said, "session.jsonl", &Weights::default());
+        assert_eq!(out.at, vec![None, None], "{out:?}");
     }
 
     /// Tool bodies are the agent's actions, not the human's words (V44).
@@ -508,5 +549,12 @@ mod tests {
         assert!(!is_chert(r#"{"kind":"x","ref":"other:1","ts":1}"#));
         assert!(!is_chert(r#"{"kind":"x","ref":"chert:1"}"#));
         assert!(is_chert(&chert("stop", "")));
+    }
+
+    /// V52 sniffs the FIRST NON-EMPTY line: a leading blank line does not
+    /// turn an export into a transcript.
+    #[test]
+    fn a_leading_blank_line_does_not_hide_an_export() {
+        assert!(is_chert(&format!("\n  \n{}", chert("stop", ""))));
     }
 }

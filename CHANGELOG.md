@@ -33,11 +33,15 @@ through `/spec`.
 ### Added
 
 - `catch` reads a `chert export` JSONL. The dialect is sniffed from the first
-  line, not chosen by a flag. Only `user-prompt-submit` rows count as evidence,
-  and each candidate's `src` is the row's `ref` and its `at` is the row's `ts`
-  in seconds. A prompt with no `ref` is dropped, because it has no evidence to
-  point back at. In `catch --format json` a row's `at` is `null` for a
-  transcript, which carries no timestamp (V52, T65).
+  non-empty line, not chosen by a flag. Only `user-prompt-submit` rows count as
+  evidence, and each candidate's `src` is the row's `ref` and its `at` is the
+  row's `ts` in seconds. A prompt with no `ref` is dropped, because it has no
+  evidence to point back at. In `catch --format json` a row's `at` is `null`
+  for a transcript, which carries no timestamp (V52, T65).
+- `catch::catch_dated` returns a `#[non_exhaustive]` `catch::Dated`: the same
+  `Report` that `catch::catch` returns, plus each caught row's `at`. The
+  timestamp sits beside `Caught`, not in it, so code that builds a `Caught`
+  with a struct literal still compiles.
 
 ### Fixed
 

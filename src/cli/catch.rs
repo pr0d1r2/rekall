@@ -52,9 +52,9 @@ pub fn catch_command(flags: &[String], env: &Env) -> Result<Output, String> {
     // tuned a word tunes it for both intakes, and V44's "same classifier"
     // is a shared call rather than a shared intention.
     let weights = resolve_config(&base)?.weights;
-    let report = catch::catch(&text, &path.to_string_lossy(), &weights);
-    let proposed = record(&base, &report)?;
-    render(&report, proposed, &path, args.json)
+    let dated = catch::catch_dated(&text, &path.to_string_lossy(), &weights);
+    let proposed = record(&base, &dated)?;
+    render(&dated, proposed, &path, args.json)
 }
 
 /// Which transcript to read.
@@ -150,13 +150,13 @@ fn newest(root: &Path) -> Option<PathBuf> {
 /// Write the candidates. V45: this is the LEDGER, not the corpus, so it is
 /// not a breach of report-only -- and no source file and no artifact is
 /// touched here.
-fn record(base: &Path, report: &catch::Report) -> Result<usize, String> {
+fn record(base: &Path, dated: &catch::Dated) -> Result<usize, String> {
     let at = ledger::path_in(base);
     let mut held = ledger::load(&at).map_err(|why| why.to_string())?;
     let when = super::apply::now();
     let mut added = 0usize;
-    for found in &report.caught {
-        if held.propose(candidate_of(found, when)) {
+    for (found, seen) in dated.report.caught.iter().zip(&dated.at) {
+        if held.propose(candidate_of(found, seen.unwrap_or(when))) {
             added = added.saturating_add(1);
         }
     }
@@ -164,25 +164,25 @@ fn record(base: &Path, report: &catch::Report) -> Result<usize, String> {
     Ok(added)
 }
 
-fn candidate_of(found: &catch::Caught, when: u64) -> ledger::Candidate {
+fn candidate_of(found: &catch::Caught, at: u64) -> ledger::Candidate {
     ledger::Candidate {
         id: found.id.clone(),
         src: found.src.clone(),
         text: found.text.clone(),
-        at: found.at.unwrap_or(when),
+        at,
     }
 }
 
 fn render(
-    report: &catch::Report,
+    dated: &catch::Dated,
     proposed: usize,
     path: &Path,
     json: bool,
 ) -> Result<Output, String> {
     let text = if json {
-        as_json(report, proposed, path)?
+        as_json(dated, proposed, path)?
     } else {
-        as_human(report, proposed)
+        as_human(&dated.report, proposed)
     };
     Ok(Output {
         text,
@@ -225,12 +225,17 @@ fn first_line(text: &str) -> &str {
 }
 
 fn as_json(
-    report: &catch::Report,
+    dated: &catch::Dated,
     proposed: usize,
     path: &Path,
 ) -> Result<String, String> {
-    let rows: Vec<serde_json::Value> =
-        report.caught.iter().map(row_json).collect();
+    let report = &dated.report;
+    let rows: Vec<serde_json::Value> = report
+        .caught
+        .iter()
+        .zip(&dated.at)
+        .map(|(found, at)| row_json(found, *at))
+        .collect();
     let body = serde_json::json!({
         "session": path.to_string_lossy(),
         "turns": report.turns,
@@ -243,7 +248,7 @@ fn as_json(
 
 /// One caught row, with the same anatomy `scan` prints -- `class` and
 /// `sharpness` reachable without string-surgery on the label (V17).
-fn row_json(found: &catch::Caught) -> serde_json::Value {
+fn row_json(found: &catch::Caught, at: Option<u64>) -> serde_json::Value {
     serde_json::json!({
         "id": found.id,
         "src": found.src,
@@ -252,7 +257,7 @@ fn row_json(found: &catch::Caught) -> serde_json::Value {
         "sharpness": found.sharpness,
         "label": found.label,
         "signals": found.signals,
-        "at": found.at,
+        "at": at,
     })
 }
 
@@ -427,6 +432,20 @@ mod tests {
             .collect();
         assert_eq!(rows, vec![("chert:01M5RRSRH", 1_792_906_420)]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The JSON row carries `at`: the export's seconds for chert, `null`
+    /// for a transcript, which has no time of its own.
+    #[test]
+    fn the_json_row_carries_at_or_null() {
+        let chert = chert_project("json-chert");
+        let plain = project("json-plain");
+        let dated = run(&chert, &["--format", "json"]);
+        let undated = run(&plain, &["--format", "json"]);
+        assert!(dated.contains("\"at\": 1792906420"), "{dated}");
+        assert!(undated.contains("\"at\": null"), "{undated}");
+        let _ = std::fs::remove_dir_all(&chert);
+        let _ = std::fs::remove_dir_all(&plain);
     }
 
     #[test]
