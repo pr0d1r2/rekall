@@ -317,18 +317,21 @@ impl Facts {
         push_steps: usize,
     ) -> Self {
         let lines = || specs.iter().flat_map(|s| s.lines());
-        let unique = |prefix: char, key: fn(&str) -> &str| {
+        // ROWS, not distinct ids: every node numbers its own, so `V64` and
+        // `B27` each name more than one row.
+        let rows = |prefix: char| {
             lines()
-                .filter_map(|l| l.strip_prefix(prefix).map(key))
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
+                .filter(|l| {
+                    l.strip_prefix(prefix).is_some_and(|r| {
+                        r.starts_with(|c: char| c.is_ascii_digit())
+                    })
+                })
+                .count()
         };
         let task = |mark: &str| lines().filter(|l| is_task(l, mark)).count();
         Self {
-            invariants: unique('V', |x| {
-                x.split_whitespace().next().unwrap_or_default()
-            }),
-            bugs: unique('B', |x| x.split('|').next().unwrap_or_default()),
+            invariants: rows('V'),
+            bugs: rows('B'),
             landed: task("|x|"),
             open: task("|.|"),
             commit_steps,

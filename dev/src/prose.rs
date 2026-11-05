@@ -377,15 +377,15 @@ mod tests {
     }
 
     #[test]
-    fn facts_count_unique_rows_from_spec_text() {
-        let spec = "V1 a\nV1 again\nV2 b\nB1|x\nB2|y\nT1|x|a\nT2|x|b\nT3|.|c\nTx|x|d\n";
+    fn facts_count_rows_not_distinct_ids() {
+        let spec = "V1 a\nV1 again\nV2 b\nB1|x\nB1|y\nB2|z\nVx not a row\nT1|x|a\nT2|x|b\nT3|.|c\nTx|x|d\n";
         let f =
             Facts::from_specs(&[spec.to_owned(), "V3 c\n".to_owned()], 2, 3);
         assert_eq!(
             f,
             Facts {
-                invariants: 3,
-                bugs: 2,
+                invariants: 4,
+                bugs: 3,
                 landed: 2,
                 open: 1,
                 commit_steps: 2,
