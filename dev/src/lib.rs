@@ -319,15 +319,7 @@ impl Facts {
         let lines = || specs.iter().flat_map(|s| s.lines());
         // ROWS, not distinct ids: every node numbers its own, so `V64` and
         // `B27` each name more than one row.
-        let rows = |prefix: char| {
-            lines()
-                .filter(|l| {
-                    l.strip_prefix(prefix).is_some_and(|r| {
-                        r.starts_with(|c: char| c.is_ascii_digit())
-                    })
-                })
-                .count()
-        };
+        let rows = |prefix: char| lines().filter(|l| is_row(l, prefix)).count();
         let task = |mark: &str| lines().filter(|l| is_task(l, mark)).count();
         Self {
             invariants: rows('V'),
@@ -340,6 +332,11 @@ impl Facts {
     }
 }
 
+fn is_row(line: &str, prefix: char) -> bool {
+    line.strip_prefix(prefix)
+        .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+}
+
 fn is_task(line: &str, mark: &str) -> bool {
     line.strip_prefix('T').is_some_and(|rest| {
         rest.trim_start_matches(|c: char| c.is_ascii_digit())
@@ -347,14 +344,6 @@ fn is_task(line: &str, mark: &str) -> bool {
     })
 }
 
-fn rows(root: &Path, prefix: &str) -> usize {
-    walk_specs(root)
-        .iter()
-        .flat_map(|p| fs::read_to_string(p).ok())
-        .flat_map(|s| s.lines().map(str::to_owned).collect::<Vec<_>>())
-        .filter(|l| l.starts_with(prefix))
-        .count()
-}
 #[allow(clippy::excessive_nesting)]
 fn walk_specs(root: &Path) -> Vec<PathBuf> {
     walkdir::WalkDir::new(root)
@@ -403,7 +392,7 @@ fn render(root: &Path, external: &mut External<'_>) -> Result<String, String> {
     if dependency_count(&cargo) == 0
         || facts.commit_steps == 0
         || facts.push_steps == 0
-        || rows(root, "V") == 0
+        || facts.invariants == 0
     {
         return Err("a badge source is empty or zero".into());
     }
