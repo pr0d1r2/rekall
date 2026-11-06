@@ -76,6 +76,7 @@ src/log/mod.rs
 src/main.rs
 src/plan/SPEC.md
 src/plan/mod.rs
+src/plan/stale.rs
 src/recall/SPEC.md
 src/recall/mod.rs
 src/revert/SPEC.md
