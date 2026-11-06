@@ -46,7 +46,7 @@ V61: memory LEAVES only by a HUMAN's word, twice. FIRST whether: a `feedback_*` 
 ## §T TASKS
 
 id|status|task|cites
-T47|.|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|`.:V2`
+T47|x|runner AUTHORING: `apply` ships an example per class, ⊥ a bare `exit 1`|`.:V2`
 T50|.|slug ⊥ truncates mid-phrase|§I
 
 T62|x|DONE, folded: artifacts under `.rekall/` published by symlink & the link verified; the head carries `disable-model-invocation` & written artifacts REISSUED. What each row DID is in `git log`; what it DECIDED is in the invariants beside it|V48,V52,V1,`src:V43`,`src/revert:V9`,`src/trigger:V4`
