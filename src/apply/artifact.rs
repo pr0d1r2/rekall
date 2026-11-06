@@ -425,6 +425,29 @@ mod tests {
         }
     }
 
+    /// T47, V42: a rule's example lands in a SCRIPT that `hook` runs, so
+    /// one uncommented line of it is a command -- and an example's own
+    /// `exit 0` would turn the stub green. The only lines that execute are
+    /// the shebang and the two that announce the stub and fail it.
+    #[test]
+    fn every_rule_example_stays_commented() {
+        for label in ["M1", "M2", "M3"] {
+            let script = text(&step("abc1234", 1, 1, label));
+            let live: Vec<&str> = script
+                .lines()
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .collect();
+            assert_eq!(
+                live,
+                [
+                    "echo 'rekall: .rekall/rules/no-main.sh is not implemented yet' >&2",
+                    "exit 1",
+                ],
+                "{label}: {script}"
+            );
+        }
+    }
+
     fn blocks_stay_empty(out: &str) -> bool {
         [FIRES, NOT_FIRES].iter().all(|heading| {
             crate::trigger::parse_block(out, heading)
