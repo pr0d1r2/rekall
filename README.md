@@ -498,7 +498,7 @@ and why the root is a route rather than a reading.
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
 truth — 73 invariants, each carrying the reasoning it stands on; 31 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
-what is decided and what is still open, at 37 landed and 7 remaining.
+what is decided and what is still open, at 38 landed and 6 remaining.
 
 ## Development
 

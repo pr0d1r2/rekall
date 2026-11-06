@@ -117,6 +117,93 @@ fn summary_of(text: &str) -> String {
 /// Long enough for a rule, short enough for a listing.
 const SUMMARY_LEN: usize = 160;
 
+/// The worked example for a class x sharpness; no digit means the sharpest
+/// (T47).
+///
+/// A bare `exit 1` says the runner is missing and nothing about what one of
+/// THIS kind looks like. The digit predicts the shape of the work (`M1`
+/// deterministic, `M2` one human-set parameter, `M3` detects without
+/// resolving; `S1` exact trigger, `S2` words, `S3` semantic), so the example
+/// follows it. Every example is INERT (V42): commented in a script that
+/// runs, and in a `toml` fence in a skill, where only `rekall` fences are
+/// the trigger (V29).
+fn example_for(label: &str) -> &'static str {
+    let rule = label.starts_with('M');
+    match (rule, label.chars().nth(1)) {
+        (true, Some('2')) => RULE_EXAMPLE_2,
+        (true, Some('3')) => RULE_EXAMPLE_3,
+        (true, _) => RULE_EXAMPLE_1,
+        (false, Some('2')) => SKILL_EXAMPLE_2,
+        (false, Some('3')) => SKILL_EXAMPLE_3,
+        (false, _) => SKILL_EXAMPLE_1,
+    }
+}
+
+const RULE_EXAMPLE_1: &str = "\
+# EXAMPLE (M1, deterministic: the runner decides, no judgment). Replace
+# the echo/exit below with a check like:
+#
+#   if git diff --cached --name-only | grep -q '^forbidden/'; then
+#       echo 'rekall: forbidden/ is staged' >&2
+#       exit 1
+#   fi
+#   exit 0
+";
+
+const RULE_EXAMPLE_2: &str = "\
+# EXAMPLE (M2, one human-set parameter). The statement left a limit open;
+# keep it in ONE variable so setting it is the only edit:
+#
+#   LIMIT=500
+#   lines=$(wc -l < src/main.rs)
+#   if [ \"$lines\" -gt \"$LIMIT\" ]; then
+#       echo \"rekall: src/main.rs is $lines lines, over $LIMIT\" >&2
+#       exit 1
+#   fi
+#   exit 0
+";
+
+const RULE_EXAMPLE_3: &str = "\
+# EXAMPLE (M3, detects but does not resolve). The runner finds candidates;
+# deciding is a human's. Print them and exit 0 so the rule ADVISES:
+#
+#   hits=$(grep -rn 'TODO' src/ || true)
+#   if [ -n \"$hits\" ]; then
+#       echo \"rekall: review these:\" >&2
+#       echo \"$hits\" >&2
+#   fi
+#   exit 0
+";
+
+const SKILL_EXAMPLE_1: &str = "\
+S1, exact trigger (a tool, a path, an extension). Shown in a `toml` fence,
+which the matcher ignores; write the real one in the `rekall` block below:
+
+```toml
+tool = [\"Edit\", \"Write\"]
+path = [\"**/*.sql\"]
+```
+";
+
+const SKILL_EXAMPLE_2: &str = "\
+S2, a class of situations matched by words. Shown in a `toml` fence, which
+the matcher ignores; write the real one in the `rekall` block below:
+
+```toml
+word = [\"migration\", \"schema change\"]
+```
+";
+
+const SKILL_EXAMPLE_3: &str = "\
+S3, semantic: only a model would notice this situation, so the honest
+trigger is the EMPTY block below and the skill may never fire. If a word
+reliably marks it, narrow it to S2:
+
+```toml
+word = []
+```
+";
+
 /// Templates are CONSTS, not inline format walls. The generated artifact is
 /// the thing a human edits next, so its text should be readable and
 /// editable here rather than reassembled from fragments.
@@ -125,6 +212,7 @@ fn fill(template: &str, step: &plan::Step) -> String {
         .replace("{RUNNER_NOTE}\n", &runner_note(step))
         .replace("{SLUG}", &slug_of(&step.artifact))
         .replace("{SUMMARY}", &summary_of(&step.text))
+        .replace("{EXAMPLE}\n", example_for(&step.label))
         .replace("{TEXT_SH}", &commented(&step.text))
         .replace("{ID}", &step.id)
         .replace("{SRC}", &step.src)
@@ -244,6 +332,9 @@ const RULE_TEMPLATE: &str = "\
 # path = []
 # word = []
 # ```
+#
+{EXAMPLE}
+#
 echo 'rekall: {ARTIFACT} is not implemented yet' >&2
 exit 1
 ";
@@ -262,6 +353,10 @@ Extracted by rekall from {SRC}:{START}-{END} (id {ID}).
 <!-- rekall:payload -->
 {TEXT}
 <!-- rekall:/payload -->
+
+## Example
+
+{EXAMPLE}
 
 ## Fires when
 
@@ -312,6 +407,31 @@ mod tests {
             "the rule is missing: {text}"
         );
     }
+    /// T47: each sharpness gets its own worked example, and a skill's
+    /// example never becomes a second trigger block.
+    #[test]
+    fn every_class_ships_its_own_example() {
+        for (label, mark) in [
+            ("M1", "EXAMPLE (M1"),
+            ("M2", "EXAMPLE (M2"),
+            ("M3", "EXAMPLE (M3"),
+            ("S1", "S1, exact"),
+            ("S2", "S2, a class"),
+            ("S3", "S3, semantic"),
+        ] {
+            let out = text(&step("abc1234", 1, 1, label));
+            assert!(out.contains(mark), "{label}: {out}");
+            assert!(blocks_stay_empty(&out), "{label}: {out}");
+        }
+    }
+
+    fn blocks_stay_empty(out: &str) -> bool {
+        [FIRES, NOT_FIRES].iter().all(|heading| {
+            crate::trigger::parse_block(out, heading)
+                .is_ok_and(|held| held.is_empty())
+        })
+    }
+
     /// V37, DISCOVERABLE. T39 shipped `M`-rule firing and the generated
     /// artifact said nothing about it, so the feature could only be found
     /// by reading the spec. Both blocks are now emitted, EMPTY -- which is
