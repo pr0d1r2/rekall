@@ -699,8 +699,8 @@ local all = (fast) {
 
   // Publishing does not ship the REPO, it ships a tarball whose file set is
   // DERIVED -- git-tracked, minus `exclude`. That is a second file set
-  // nothing else in this repo examines.
-  // the right files, and only the first was ever asked here. `.crate-files`
+  // nothing else in this repo examines. A crate must build the right code
+  // AND ship the right files, and only the first was ever asked here. `.crate-files`
   // records the second answer so a change to it lands in a DIFF a reviewer
   // reads, rather than being discovered by a consumer at publish time.
   //
@@ -709,21 +709,37 @@ local all = (fast) {
   // records it -- an orphan artifact, the state `check` exits 1 on, inside
   // the tarball of the tool that refuses it. `cargo package` was green
   // throughout, because a tarball with a wrong file set still builds.
+  //
+  // TRACKED FILES ONLY. `--allow-dirty` lists more than a publish ships: it
+  // adds every UNTRACKED, unignored file in the tree, and `cargo publish`
+  // refuses such a tree outright, so that file can never reach a tarball.
+  // Listed raw, one tool's scratch file at the repo root turned this step
+  // red on work that changed nothing it ships (B30). The listing is cut to
+  // `git ls-files` plus the two entries cargo GENERATES, and is written ONCE
+  // so check and fix cannot list two different sets (V23). The sort is
+  // pinned to LC_ALL=C: `.crate-files` is recorded in byte order, and a
+  // UTF-8 locale folds the leading dots, which reorders an unchanged set
+  // into a red diff.
   ["package"] {
+    local listing = """
+      mkdir -p target
+      cargo package --list --allow-dirty > target/crate-files.all 2>/dev/null || { echo 'hk: `cargo package --list` failed, so what the tarball would ship could not be read at all.' >&2; exit 1; }
+      { git ls-files && echo .cargo_vcs_info.json && echo Cargo.toml.orig; } > target/crate-files.git || { echo 'hk: `git ls-files` failed, so which listed files are tracked could not be read.' >&2; exit 1; }
+      grep -Fx -f target/crate-files.git target/crate-files.all | LC_ALL=C sort > target/crate-files.txt
+      """
     glob = List("**/*.rs", "Cargo.toml", ".crate-files")
     depends = List("no-default-features")
     check = """
       cargo package --quiet --allow-dirty --target-dir target/package-verify || { echo 'hk: cargo package failed. It ships a DERIVED file set -- git-tracked minus exclude -- so this is usually a path the tarball needs and does not have, or an exclude in Cargo.toml that took too much.' >&2; exit 1; }
-      mkdir -p target
-      cargo package --list --allow-dirty 2>/dev/null | sort > target/crate-files.txt || { echo 'hk: `cargo package --list` failed, so what the tarball would ship could not be read at all.' >&2; exit 1; }
+      \(listing)
       diff -q .crate-files target/crate-files.txt >/dev/null || { echo 'hk: what the .crate SHIPS changed. The lines below are the difference between the recorded file set and the one this tree would publish. If it is intended, run `hk fix -S package` to record it. If it is not, something was added, deleted or excluded by accident.' >&2; diff .crate-files target/crate-files.txt >&2; exit 1; }
       """
     // Records rather than judges. The point is never that a change is
     // wrong -- it is that a change is SEEN, in a diff, by whoever is about
     // to publish.
     fix = """
-      mkdir -p target
-      cargo package --list --allow-dirty 2>/dev/null | sort > .crate-files || { echo 'hk: `cargo package --list` failed, so there is nothing to record.' >&2; exit 1; }
+      \(listing)
+      cp target/crate-files.txt .crate-files
       """
   }
 

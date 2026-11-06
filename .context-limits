@@ -409,7 +409,21 @@
 # for another is a spec that forgets in order to remember. 9350 leaves room
 # for the next few rows rather than making each one a ceiling debate.
 
-SPEC.md   9350
+
+# SPEC.md 9350 -> 9450, for ONE RECORDED BUG.
+#
+# The file sat at 9330, 20 tokens under. B30 is the `package` step judging
+# untracked files no publish can ship, which refused the loop's issue #40
+# twice. MEASURED: 60 tokens at o200k, the second draft; the first spent 110
+# retelling what the `hk.pkl` comment over the step now says, and the row
+# points there instead.
+#
+# A bug row is the third of the three things this file refuses to trim to
+# make room, and the fix lands in the same commit, so the row is not a wish.
+# 9450 leaves ~60 of slack: one more row, then the §I federation the 9000
+# entry above names is the move, not another raise.
+
+SPEC.md   9450
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.
