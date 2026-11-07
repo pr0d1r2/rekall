@@ -36,7 +36,8 @@ impl std::fmt::Display for Stale {
             }
             Self::Format(found) => write!(
                 f,
-                "this plan is format {found}, this build reads format {FORMAT}"
+                "this plan is format {found}, this build reads format \
+                 {FORMAT}. Re-run `rekall plan`"
             ),
         }
     }
@@ -171,6 +172,7 @@ mod tests {
         let now = vec![("CLAUDE.md".to_string(), Some(format!("{text}\n")))];
         assert_eq!(staleness(&plan, &now).len(), 1);
     }
+
     /// The messages a user meets when a plan will not apply. Never
     /// formatted until now, which is the usual fate of error text.
     #[test]
@@ -180,7 +182,9 @@ mod tests {
         assert!(changed.contains("rekall plan"), "{changed}");
         let gone = Stale::Vanished("CLAUDE.md".to_string()).to_string();
         assert!(gone.contains("no longer exists"), "{gone}");
+        assert!(gone.contains("rekall plan"), "{gone}");
         let format = Stale::Format(99).to_string();
         assert!(format.contains("format 99"), "{format}");
+        assert!(format.contains("rekall plan"), "{format}");
     }
 }
