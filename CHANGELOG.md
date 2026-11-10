@@ -32,11 +32,14 @@ through `/spec`.
 
 ## [1.1.0] — 2026-11-10
 
-**Additive on the 1.0 contract.** A caller who changes nothing keeps the same
-CLI surface, JSON anatomy, trigger format and ledger schema, and
-`cargo semver-checks` against `v1.0.0` finds no public-API break. What a caller
-can observe: `catch` accepts a second input dialect, its JSON rows carry an
-`at` field, `catch::catch_dated` sits beside `catch::catch`, the runner stubs
+**Additive on the 1.0 contract.** The CLI surface, trigger format and ledger
+schema are unchanged, and `cargo semver-checks` against `v1.0.0` finds no
+public-API break. The JSON anatomy only grows: every `catch --format json` row
+now carries an `at` field (`null` when the input has no timestamp), so a
+caller that rejects unknown fields must accept it; no field is removed or
+renamed. What a caller can observe: `catch` accepts
+a second input dialect, its JSON rows carry `at`, `catch::catch_dated` sits
+beside `catch::catch`, the runner stubs
 `apply` writes and the stale-plan errors it gives say what to do next, and the
 `x86_64-darwin` dev shell evaluates.
 
