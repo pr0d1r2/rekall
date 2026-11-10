@@ -30,6 +30,16 @@ through `/spec`.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-10
+
+**Additive on the 1.0 contract.** A caller who changes nothing keeps the same
+CLI surface, JSON anatomy, trigger format and ledger schema, and
+`cargo semver-checks` against `v1.0.0` finds no public-API break. What a caller
+can observe: `catch` accepts a second input dialect, its JSON rows carry an
+`at` field, `catch::catch_dated` sits beside `catch::catch`, the runner stubs
+`apply` writes and the stale-plan errors it gives say what to do next, and the
+`x86_64-darwin` dev shell evaluates.
+
 ### Added
 
 - `catch` reads a `chert export` JSONL. The dialect is sniffed from the first
@@ -49,6 +59,22 @@ through `/spec`.
   doc comments. Pasted into a host's `steps` object, as `docs/INTEGRATION.md`
   says to, they stopped hk loading the host's whole gate. They are `//` now,
   and the gate refuses `///` in that fragment.
+- `rekall apply` no longer writes a rule runner that is only a bare `exit 1`.
+  Each runner stub carries a commented example for its class -- `M1` a
+  deterministic check, `M2` one human-set parameter, `M3` a detector that
+  advises with `exit 0` -- and each skill a matching example for `S1`-`S3`.
+  The examples are inert, so a stub still fails until someone writes the
+  check (T47, V42).
+- Every reason `rekall apply` gives for refusing a stale plan now names the
+  fix, ``Re-run `rekall plan` ``. A plan written in another build's format used
+  to report only the format mismatch.
+- The `x86_64-darwin` dev shell evaluates. `microlith` has no package for that
+  system, so the shell builds `mth` from the pinned `microlith` source there
+  instead of failing evaluation, which would have failed every commit and push
+  at the `runners` presence gate (V26). `sherd` does list the system, so its
+  federation checks run. CI now builds `x86_64-darwin` on `macos-15-intel`, and
+  the `eval-x86_64-darwin` job checks the package and the dev shell with
+  `nix eval`.
 
 ## [1.0.0] — 2026-10-25
 
@@ -68,16 +94,11 @@ tag was still on `v0.4.0` -- and `v0.4.0` does not evaluate on
   the package build needs `itok`, and the `itok` rev pinned at `v0.4.0` (and
   until now on `main`) had no `x86_64-darwin` package, so evaluation stopped
   with "attribute 'x86_64-darwin' missing". The pin now names an `itok` that
-  lists all four systems. CI builds `x86_64-darwin` on `macos-15-intel`, and
-  the `eval-x86_64-darwin` job also checks it quickly with
-  `nix eval .#packages.x86_64-darwin.default.drvPath`.
-  The `x86_64-darwin` dev shell evaluates too: `microlith` has no package for
-  that system, so the shell builds `mth` from the pinned `microlith` source
-  there instead of failing evaluation or leaving it out, which would have
-  failed every commit and push at the `runners` presence gate (V26). `sherd`
-  does list the system, so its federation checks run. The same job evaluates
-  the dev shell, so the `mth` fallback is checked with `nix eval`, and the
-  `gate` job on `macos-15-intel` builds it.
+  lists all four systems. CI has no `x86_64-darwin` runner, so this is checked
+  with `nix eval .#packages.x86_64-darwin.default.drvPath`, not with a build.
+  The `x86_64-darwin` dev shell still does not evaluate, because its
+  `microlith` input has the same gap; that is the gate's toolchain, not what a
+  consumer installs.
 - `rekall recall` says what a match buys rather than only that it matched: a
   matched `S` says its payload is injected, a matched `M` says the rule runs
   there and speaks only if it fails. The verdict column is unchanged (B28,
@@ -346,6 +367,9 @@ unknown.
 - A clippy deny list with no allow-list and no lint-debt file — affordable
   exactly once, at zero lines of code.
 
+[1.1.0]: #110--2026-11-10
+[1.0.0]: #100--2026-10-25
+[0.4.0]: #040--2026-09-06
 [0.4.0-rc.1]: #040-rc1--2026-09-05
 [0.3.0]: #030--2026-09-05
 [0.2.0]: #020--2026-09-05
