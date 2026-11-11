@@ -52,12 +52,21 @@
     # an uncommitted sibling expires silently.
     sherd.url = "github:pr0d1r2/sherd";
     sherd.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
+    # A HOLD: cargo-release 1.1.6. nixos-26.05 ships 1.1.7, which needs
+    # rustc 1.97 while the channel has 1.95.0, so the channel's
+    # `pkgs.cargo-release` does not build. Its overlay makes
+    # `pkgs.cargo-release` the held build, cached on the substituter above.
+    # Drop the input once the channel's own cargo-release builds
+    # (`nix-cargo-release/T2`).
+    nix-cargo-release.url = "github:pr0d1r2/nix-cargo-release";
+    nix-cargo-release.inputs.nixpkgs-lock.follows = "nixpkgs-lock";
   };
 
   outputs =
     {
       nixpkgs,
       nix-hk,
+      nix-cargo-release,
       microlith,
       itok,
       sherd,
@@ -77,8 +86,16 @@
       # The overlay is what makes `pkgs.hk` below mean nix-hk's hk instead of
       # nixpkgs'. Applied as an OVERLAY rather than referenced through a
       # second lookup path, so there is exactly one `pkgs` in this file.
+      # nix-cargo-release's overlay does the same for `pkgs.cargo-release`.
       forAll =
-        f: nixpkgs.lib.genAttrs systems (s: f (nixpkgs.legacyPackages.${s}.extend nix-hk.overlays.default));
+        f:
+        nixpkgs.lib.genAttrs systems (
+          s:
+          f (
+            (nixpkgs.legacyPackages.${s}.extend nix-hk.overlays.default).extend
+              nix-cargo-release.overlays.default
+          )
+        );
 
       # rekall runs against its OWN corpus -- SPEC.md T19 makes this repo
       # consumer #0 -- so the shell must PROVIDE `rekall`, not merely the
@@ -267,7 +284,9 @@
             # only -- see the `links` step in hk.pkl.
             pkgs.lychee
             # The release, driven by config rather than a shell script that
-            # re-implements what this already does.
+            # re-implements what this already does. Held at 1.1.6 by the
+            # nix-cargo-release overlay, dropped when the channel's own
+            # cargo-release builds (`nix-cargo-release/T2`).
             pkgs.cargo-release
             # The supply chain. This crate has FIVE direct dependencies and
             # 26 in the tree, so "there is nothing to scan" is not available
