@@ -192,6 +192,13 @@ local fast = new Mapping<String, Step> {
   // human's sentences -- generating those would mean authoring them, and a
   // generator that writes prose is a generator nobody trusts to run.
   //
+  // The step's `fix` therefore moves DIGITS ONLY. It rewrites the number
+  // inside a sentence the check already found, and a sentence that is absent
+  // stays a finding. Without it, every task that landed moved the landed/open
+  // split, the check named the right number and the gate still refused
+  // the commit: `apply--T50` was refused on 38/6 against 39/5, its fix-up round
+  // added nothing, and the loop braked for 12 hours on one stale digit.
+  //
   // INLINE, and not a script under `.rekall/rules/`. That directory belongs
   // to EXTRACTED artifacts: every file in it is claimed by a ledger row that
   // records which statement it came from and how to undo it, and `rekall
@@ -231,6 +238,7 @@ local fast = new Mapping<String, Step> {
     // the same `Facts` struct the badges render from, so they cannot disagree.
     glob = List("README.md", "docs/**/*.md", "SPEC.md", "src/**/SPEC.md", "hk.pkl", "dev/**")
     check = "cargo run --quiet --package rekall-dev -- prose --only=counts"
+    fix = "cargo run --quiet --package rekall-dev -- prose --only=counts --fix"
   }
 
   ["failure-says-something"] {

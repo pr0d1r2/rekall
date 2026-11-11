@@ -7,13 +7,14 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-/// First number in `text` whose text before it satisfies `before` and whose
-/// text after it starts with something `after` accepts.
-fn number(
+/// Byte span and value of the first number in `text` whose text before it
+/// satisfies `before` and whose text after it starts with something `after`
+/// accepts.
+fn number_at(
     text: &str,
     before: &dyn Fn(&str) -> bool,
     after: &dyn Fn(&str) -> bool,
-) -> Option<usize> {
+) -> Option<(usize, usize, usize)> {
     let mut start = 0;
     while start < text.len() {
         let rest = text.get(start..)?;
@@ -28,11 +29,19 @@ fn number(
             && after(text.get(end..)?)
             && let Ok(n) = tail.get(..len)?.parse()
         {
-            return Some(n);
+            return Some((from, end, n));
         }
         start = end;
     }
     None
+}
+
+fn number(
+    text: &str,
+    before: &dyn Fn(&str) -> bool,
+    after: &dyn Fn(&str) -> bool,
+) -> Option<usize> {
+    number_at(text, before, after).map(|(_, _, n)| n)
 }
 
 /// `[0-9]+ .{0,4}V. invariants`
@@ -173,6 +182,60 @@ pub fn check_prose(
     out
 }
 
+/// `text` with each pattern's stated number replaced by the fact it counts.
+///
+/// ONLY THE DIGITS MOVE. The sentence a pattern finds stays the human's, word
+/// for word, and a pattern with no sentence in `text` writes nothing:
+/// inventing the sentence would be authoring prose. The rule the check exists
+/// for (V22, a declared figure is read) is untouched; what goes is the chore
+/// that turned it into a refusal. Every task that lands moves the landed/open
+/// split, and a gate that names the right number but will not write it made
+/// one stale digit end a trip as "needs a human".
+fn fix_numbers(facts: &Facts, text: &str, patterns: &[Pattern]) -> String {
+    let mut out = text.to_owned();
+    for p in patterns {
+        let want = (p.fact)(facts);
+        if let Some((from, end, said)) = number_at(&out, p.before, p.after)
+            && said != want
+        {
+            out.replace_range(from..end, &want.to_string());
+        }
+    }
+    out
+}
+
+/// The README and each doc, with every number `check_prose` would flag
+/// rewritten to the fact. A README sentence that is ABSENT stays a finding.
+pub fn fix_prose(
+    facts: &Facts,
+    readme: &str,
+    docs: &[(String, String)],
+) -> (String, Vec<(String, String)>) {
+    let readme = fix_numbers(facts, readme, &readme_patterns());
+    let docs = docs
+        .iter()
+        .map(|(name, text)| {
+            (name.clone(), fix_numbers(facts, text, &doc_patterns()))
+        })
+        .collect();
+    (readme, docs)
+}
+
+/// Write `new` to `root/name` only when it differs from `old`, so a fix with
+/// nothing to do touches no file.
+fn write_changed(
+    root: &Path,
+    name: &str,
+    old: &str,
+    new: &str,
+) -> std::io::Result<()> {
+    if old == new {
+        return Ok(());
+    }
+    fs::write(root.join(name), new)
+        .map_err(|e| std::io::Error::new(e.kind(), format!("{name}: {e}")))
+}
+
 /// File parts of `](path#fragment)` links, `path` non-empty and restricted
 /// to `[A-Za-z0-9_./-]`.
 fn link_paths(text: &str) -> Vec<&str> {
@@ -249,7 +312,7 @@ pub(crate) fn run(
     err: &mut dyn Write,
 ) -> u8 {
     let read = |name: &str| fs::read_to_string(root.join(name));
-    let readme = match read("README.md") {
+    let mut readme = match read("README.md") {
         Ok(r) => r,
         Err(e) => {
             let _ = writeln!(err, "{e}");
@@ -265,8 +328,14 @@ pub(crate) fn run(
     }
     docs.sort();
     let selected = args.iter().find_map(|a| a.strip_prefix("--only="));
-    if selected.is_some_and(|s| s != "counts" && s != "links") {
-        let _ = writeln!(err, "usage: rekall-dev prose [--only=counts|links]");
+    let fix = args.iter().any(|a| a == "--fix");
+    if selected.is_some_and(|s| s != "counts" && s != "links")
+        || (fix && selected != Some("counts"))
+    {
+        let _ = writeln!(
+            err,
+            "usage: rekall-dev prose [--only=counts|links] [--only=counts --fix]"
+        );
         return 2;
     }
     let only = |part: &str| selected.is_none_or(|s| s == part);
@@ -279,6 +348,20 @@ pub(crate) fn run(
                 return 1;
             }
         };
+        if fix {
+            let (fixed, fixed_docs) = fix_prose(&facts, &readme, &docs);
+            let mut written = write_changed(root, "README.md", &readme, &fixed);
+            for ((name, old), (_, new)) in docs.iter().zip(&fixed_docs) {
+                written =
+                    written.and_then(|()| write_changed(root, name, old, new));
+            }
+            if let Err(e) = written {
+                let _ = writeln!(err, "{e}");
+                return 1;
+            }
+            readme = fixed;
+            docs = fixed_docs;
+        }
         for finding in check_prose(&facts, &readme, &docs) {
             failed = true;
             let _ = writeln!(err, "{finding}");
@@ -374,6 +457,28 @@ mod tests {
         assert!(run("24 steps on commit")[0].contains("docs/A.md"));
         assert!(run("32 on push")[0].contains("push"));
         assert!(run("51 V* invariants")[0].contains("invariants"));
+    }
+
+    #[test]
+    fn fix_rewrites_only_the_stale_digits() {
+        // The T50 refusal: one task landed, so the split moved by one.
+        let stale = GOOD.replace("at 23 landed and 4", "at 22 landed and 5");
+        let doc = vec![(
+            "docs/A.md".to_owned(),
+            "24 steps on commit, then 7 more words".to_owned(),
+        )];
+        let (readme, docs) = fix_prose(&facts(), &stale, &doc);
+        assert_eq!(readme, GOOD);
+        assert_eq!(docs[0].1, "25 steps on commit, then 7 more words");
+        assert!(check_prose(&facts(), &readme, &docs).is_empty());
+    }
+
+    #[test]
+    fn fix_writes_no_sentence_that_is_absent() {
+        let (readme, docs) = fix_prose(&facts(), "nothing here", &[]);
+        assert_eq!(readme, "nothing here");
+        assert!(docs.is_empty());
+        assert_eq!(says(&readme).len(), 6);
     }
 
     #[test]
@@ -499,6 +604,42 @@ mod run_tests {
         let (links, text) = verb(&root, "--only=links");
         assert!(links == 1 && text.contains("os error"), "{text}");
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn fix_rewrites_the_readme_and_then_passes() {
+        let root = repo("at 9 landed and 9 remaining, fixed");
+        let (code, _) = fix(&root);
+        let readme =
+            fs::read_to_string(root.join("README.md")).unwrap_or_default();
+        assert_eq!(readme, "at 1 landed and 1 remaining, fixed");
+        // Only the task split is in this README, so the other four stay
+        // findings: a fix never invents the sentence it would correct.
+        assert_eq!(code, 1);
+        let (_, text) = verb(&root, "--only=counts");
+        assert!(!text.contains("tasks landed") && !text.contains("tasks open"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn fix_is_only_for_counts() {
+        let root = repo("at 9 landed, fix needs counts");
+        let args = ["prose", "--fix"].map(str::to_owned);
+        let mut plan = |_: &str| Ok(String::new());
+        let mut err = Vec::new();
+        assert_eq!(run(&root, &args, &mut plan, &mut err), 2);
+        let readme =
+            fs::read_to_string(root.join("README.md")).unwrap_or_default();
+        assert_eq!(readme, "at 9 landed, fix needs counts");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn fix(root: &Path) -> (u8, String) {
+        let args = ["prose", "--only=counts", "--fix"].map(str::to_owned);
+        let mut plan = |_: &str| Ok("\"orderIndex\"\n".to_owned());
+        let mut err = Vec::new();
+        let code = run(root, &args, &mut plan, &mut err);
+        (code, String::from_utf8_lossy(&err).into_owned())
     }
 
     #[test]
