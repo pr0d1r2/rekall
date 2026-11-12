@@ -409,7 +409,21 @@
 # for another is a spec that forgets in order to remember. 9350 leaves room
 # for the next few rows rather than making each one a ceiling debate.
 
-SPEC.md   9350
+# SPEC.md 9350 -> 9500, for ONE §B ROW.
+#
+# The file sat at 9330, so 20 tokens of headroom, and no row fits in that.
+# B29 records why the loop braked for 12 hours: `apply--T50` was refused on
+# `readme-counts` and its fix-up round could not run the step's own `--fix`,
+# because the trip sandbox cannot run the gate (hk not on PATH, cargo's
+# rustc-wrapper missing from the store). The cause belongs to the trip host
+# and not to this repo, so the row is the only record this repo can keep.
+#
+# MEASURED: the row costs 145 tokens at o200k after a compaction pass. The
+# first draft cost 200 and restated evidence the loop's log already holds.
+# Moving it down into a node is not available: the dev shell and the gate
+# belong to the root, and a bug lives in its owning node (§C).
+
+SPEC.md   9500
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.
