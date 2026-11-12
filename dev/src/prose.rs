@@ -607,12 +607,17 @@ mod run_tests {
     }
 
     #[test]
-    fn fix_rewrites_the_readme_and_then_passes() {
+    fn fix_rewrites_the_readme_and_docs_on_disk() {
         let root = repo("at 9 landed and 9 remaining, fixed");
+        let _ = fs::create_dir_all(root.join("docs/sub"));
+        let _ = fs::write(root.join("docs/sub/A.md"), "7 steps on commit");
         let (code, _) = fix(&root);
         let readme =
             fs::read_to_string(root.join("README.md")).unwrap_or_default();
         assert_eq!(readme, "at 1 landed and 1 remaining, fixed");
+        let doc =
+            fs::read_to_string(root.join("docs/sub/A.md")).unwrap_or_default();
+        assert_eq!(doc, "1 steps on commit");
         // Only the task split is in this README, so the other four stay
         // findings: a fix never invents the sentence it would correct.
         assert_eq!(code, 1);
@@ -640,6 +645,17 @@ mod run_tests {
         let mut err = Vec::new();
         let code = run(root, &args, &mut plan, &mut err);
         (code, String::from_utf8_lossy(&err).into_owned())
+    }
+
+    #[test]
+    fn write_changed_touches_nothing_unchanged_and_names_a_failed_file() {
+        let nowhere = std::env::temp_dir()
+            .join(format!("rekall-dev-prose-{}-absent", std::process::id()))
+            .join("no-such-dir");
+        assert!(write_changed(&nowhere, "README.md", "same", "same").is_ok());
+        let e = write_changed(&nowhere, "README.md", "old", "new")
+            .map_or_else(|e| e.to_string(), |()| String::new());
+        assert!(e.starts_with("README.md: "), "{e}");
     }
 
     #[test]
