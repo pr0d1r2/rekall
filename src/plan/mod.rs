@@ -145,16 +145,56 @@ pub fn digest_of(text: &str) -> String {
 /// extraction is that the artifact is legible where it lands.
 #[must_use]
 pub fn slug(text: &str) -> String {
-    let words: Vec<String> = statement::normalize(text)
-        .split_whitespace()
-        .take(6)
-        .map(clean_word)
+    let normalized = statement::normalize(text);
+    let tokens: Vec<&str> = normalized.split_whitespace().collect();
+    let words: Vec<String> = phrase(&tokens)
+        .iter()
+        .map(|word| clean_word(word))
         .filter(|word| !word.is_empty())
         .collect();
     if words.is_empty() {
         return "statement".to_string();
     }
     words.join("-")
+}
+
+/// Words a slug may take before it stops looking for a clause boundary.
+const SLUG_WORDS: usize = 6;
+/// A clause that ends within this many words is kept whole.
+const SLUG_CLAUSE_MAX: usize = 8;
+/// Words a phrase cannot sensibly end on.
+const DANGLING: &[&str] = &[
+    "a", "an", "the", "to", "of", "in", "on", "at", "by", "for", "with",
+    "from", "and", "or", "but", "if", "when", "that", "is", "are", "be", "not",
+    "as", "into", "than",
+];
+
+/// The leading tokens that form the slug: a whole clause when one ends early
+/// enough, else the word cap backed off any dangling connective, so the name
+/// never stops mid-phrase.
+fn phrase<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
+    let clause = tokens
+        .iter()
+        .take(SLUG_CLAUSE_MAX)
+        .position(|t| t.ends_with([',', ';', ':', '.', '!', '?']));
+    if let Some(i) = clause {
+        return tokens.iter().take(i.saturating_add(1)).copied().collect();
+    }
+    let mut kept: Vec<&str> = tokens.iter().take(SLUG_WORDS).copied().collect();
+    if tokens.len() > kept.len() {
+        trim_dangling(&mut kept);
+    }
+    kept
+}
+
+fn trim_dangling(words: &mut Vec<&str>) {
+    while words.len() > 1 && words.last().is_some_and(|w| is_dangling(w)) {
+        words.pop();
+    }
+}
+
+fn is_dangling(word: &str) -> bool {
+    DANGLING.contains(&clean_word(word).as_str())
 }
 
 fn clean_word(word: &str) -> String {
@@ -570,6 +610,22 @@ mod tests {
         let long =
             "- never ever under any circumstances at all commit to main branch";
         assert!(slug(long).split('-').count() <= 6, "{}", slug(long));
+    }
+
+    #[test]
+    fn a_slug_ends_at_a_clause_not_mid_phrase() {
+        assert_eq!(
+            slug("- Run tests before pushing, because CI is slow"),
+            "run-tests-before-pushing"
+        );
+    }
+
+    #[test]
+    fn a_slug_drops_dangling_connectives_at_the_cap() {
+        assert_eq!(
+            slug("- never push work straight to the shared main"),
+            "never-push-work-straight"
+        );
     }
 
     #[test]
