@@ -180,7 +180,7 @@ local fast = new Mapping<String, Step> {
   // The README's PROSE counts, against the specs they claim to count.
   //
   // Four numbers -- invariants, bug rows, and the landed/open task split --
-  // appear in SENTENCES in the README body, and every one of them drifted in
+  // appeared in SENTENCES in the README body, and every one of them drifted in
   // a single session while the gate stayed green: 54 against 58, 10 against
   // 18, 16 against 23. They are exactly V22's subject, a figure DECLARED
   // with nothing reading it, and the fix is a runner rather than a habit.
@@ -198,6 +198,14 @@ local fast = new Mapping<String, Step> {
   // split, the check named the right number and the gate still refused
   // the commit: `apply--T50` was refused on 38/6 against 39/5, its fix-up round
   // added nothing, and the loop braked for 12 hours on one stale digit.
+  //
+  // The fix was NOT ENOUGH, and the task split is no longer stated at all.
+  // A trip sandbox with no `hk` on PATH never runs a `fix`, so `apply--T50`
+  // was refused on the same 38/6 a second time (B29). The split is the one
+  // figure EVERY task moves, so it was the one sentence every task trip had
+  // to edit without having touched it. The README now names the task list
+  // and leaves the counting to SPEC.md, and the step reads only the figures
+  // that only move when someone edits a spec row or a gate step.
   //
   // INLINE, and not a script under `.rekall/rules/`. That directory belongs
   // to EXTRACTED artifacts: every file in it is claimed by a ledger row that
