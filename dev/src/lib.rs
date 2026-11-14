@@ -283,8 +283,6 @@ fn unix_date(seconds: &str) -> String {
 pub struct Facts {
     pub invariants: usize,
     pub bugs: usize,
-    pub landed: usize,
-    pub open: usize,
     pub commit_steps: usize,
     pub push_steps: usize,
 }
@@ -320,12 +318,9 @@ impl Facts {
         // ROWS, not distinct ids: every node numbers its own, so `V64` and
         // `B27` each name more than one row.
         let rows = |prefix: char| lines().filter(|l| is_row(l, prefix)).count();
-        let task = |mark: &str| lines().filter(|l| is_task(l, mark)).count();
         Self {
             invariants: rows('V'),
             bugs: rows('B'),
-            landed: task("|x|"),
-            open: task("|.|"),
             commit_steps,
             push_steps,
         }
@@ -335,13 +330,6 @@ impl Facts {
 fn is_row(line: &str, prefix: char) -> bool {
     line.strip_prefix(prefix)
         .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
-}
-
-fn is_task(line: &str, mark: &str) -> bool {
-    line.strip_prefix('T').is_some_and(|rest| {
-        rest.trim_start_matches(|c: char| c.is_ascii_digit())
-            .starts_with(mark)
-    })
 }
 
 #[allow(clippy::excessive_nesting)]
