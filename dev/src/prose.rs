@@ -83,20 +83,15 @@ struct Pattern {
     fact: fn(&Facts) -> usize,
 }
 
+/// NO TASK SPLIT. The README used to say "at N landed and M remaining", and
+/// that is the one figure EVERY task moves: a trip that lands one `§T` row
+/// changes it, so every task trip had to edit README prose it never touched.
+/// `apply--T50` was refused on 38/6 against 39/5 twice (B29), in a sandbox
+/// where neither `hk` nor the `--fix` below could run, and the loop braked
+/// 12 hours each time. The sentence no longer states the split, so nothing
+/// here reads it: a figure that is not declared needs no runner (V22).
 fn readme_patterns() -> Vec<Pattern> {
     vec![
-        Pattern {
-            what: "tasks landed",
-            before: &|h| h.ends_with("at "),
-            after: &|r| r.starts_with(" landed"),
-            fact: |f| f.landed,
-        },
-        Pattern {
-            what: "tasks open",
-            before: &|h| h.ends_with("and "),
-            after: &|r| r.starts_with(" remaining"),
-            fact: |f| f.open,
-        },
         Pattern {
             what: "invariants (prose)",
             before: &truth_before,
@@ -188,9 +183,8 @@ pub fn check_prose(
 /// for word, and a pattern with no sentence in `text` writes nothing:
 /// inventing the sentence would be authoring prose. The rule the check exists
 /// for (V22, a declared figure is read) is untouched; what goes is the chore
-/// that turned it into a refusal. Every task that lands moves the landed/open
-/// split, and a gate that names the right number but will not write it made
-/// one stale digit end a trip as "needs a human".
+/// that turned it into a refusal. A gate that names the right number but
+/// will not write it made one stale digit end a trip as "needs a human".
 fn fix_numbers(facts: &Facts, text: &str, patterns: &[Pattern]) -> String {
     let mut out = text.to_owned();
     for p in patterns {
@@ -400,8 +394,6 @@ mod tests {
         Facts {
             invariants: 67,
             bugs: 28,
-            landed: 23,
-            open: 4,
             commit_steps: 25,
             push_steps: 31,
         }
@@ -411,7 +403,7 @@ mod tests {
         check_prose(&facts(), readme, &[])
     }
 
-    const GOOD: &str = "at 23 landed and 4 remaining. truth \u{2014} 67 invariants; 28 recorded. 25 steps on commit, 31 on push";
+    const GOOD: &str = "truth \u{2014} 67 invariants; 28 recorded. 25 steps on commit, 31 on push";
 
     #[test]
     fn matching_prose_passes() {
@@ -420,10 +412,19 @@ mod tests {
     }
 
     #[test]
+    fn a_landed_task_never_refuses_the_readme() {
+        // B29: `apply--T50` landed one task and the README's 38/6 split was
+        // refused against 39/5. No task count is read, so none can go stale.
+        let readme = format!("{GOOD}, at 38 landed and 6 remaining.");
+        let all = says(&readme);
+        assert!(all.is_empty(), "{all:?}");
+        let (fixed, _) = fix_prose(&facts(), &readme, &[]);
+        assert_eq!(fixed, readme);
+    }
+
+    #[test]
     fn each_readme_pattern_is_checked_on_its_own() {
         for (old, new, what) in [
-            ("at 23 landed", "at 22 landed", "tasks landed"),
-            ("and 4 remaining", "and 5 remaining", "tasks open"),
             (
                 "truth \u{2014} 67",
                 "truth \u{2014} 66",
@@ -442,7 +443,7 @@ mod tests {
     #[test]
     fn a_missing_readme_sentence_is_a_finding() {
         let found = says("nothing here");
-        assert_eq!(found.len(), 6);
+        assert_eq!(found.len(), 4);
         assert!(found[0].contains("is absent"));
     }
 
@@ -461,8 +462,9 @@ mod tests {
 
     #[test]
     fn fix_rewrites_only_the_stale_digits() {
-        // The T50 refusal: one task landed, so the split moved by one.
-        let stale = GOOD.replace("at 23 landed and 4", "at 22 landed and 5");
+        // One step was added, so both plan sizes moved by one.
+        let stale =
+            GOOD.replace("25 steps on commit, 31", "24 steps on commit, 30");
         let doc = vec![(
             "docs/A.md".to_owned(),
             "24 steps on commit, then 7 more words".to_owned(),
@@ -478,7 +480,7 @@ mod tests {
         let (readme, docs) = fix_prose(&facts(), "nothing here", &[]);
         assert_eq!(readme, "nothing here");
         assert!(docs.is_empty());
-        assert_eq!(says(&readme).len(), 6);
+        assert_eq!(says(&readme).len(), 4);
     }
 
     #[test]
@@ -491,8 +493,6 @@ mod tests {
             Facts {
                 invariants: 4,
                 bugs: 3,
-                landed: 2,
-                open: 1,
                 commit_steps: 2,
                 push_steps: 3
             }
@@ -580,14 +580,14 @@ mod run_tests {
 
     #[test]
     fn only_selects_which_half_runs() {
-        let readme = "at 9 landed [dead](gone.md)";
+        let readme = "9 steps on commit [dead](gone.md)";
         let root = repo(readme);
         let (both, text) = verb(&root, "--check");
         assert_eq!(both, 1);
-        assert!(text.contains("tasks landed") && text.contains("gone.md"));
+        assert!(text.contains("steps on commit") && text.contains("gone.md"));
         let (links, text, calls) = counted(&root, "--only=links");
         assert!(links == 1 && text.contains("gone.md"));
-        assert!(!text.contains("tasks landed"));
+        assert!(!text.contains("steps on commit"));
         assert_eq!(calls, 0, "--only=links must not call the external hook");
         let (counts, text) = verb(&root, "--only=counts");
         assert!(counts == 1 && !text.contains("gone.md"));
@@ -596,11 +596,11 @@ mod run_tests {
 
     #[test]
     fn only_counts_does_not_read_the_crate_file_list() {
-        let root = repo("at 9 landed [dead](gone.md) only counts");
+        let root = repo("9 steps on commit [dead](gone.md) only counts");
         let _ = fs::remove_file(root.join(".crate-files"));
         let (counts, text) = verb(&root, "--only=counts");
         assert_eq!(counts, 1);
-        assert!(text.contains("tasks landed") && !text.contains("os error"));
+        assert!(text.contains("steps on commit") && !text.contains("os error"));
         let (links, text) = verb(&root, "--only=links");
         assert!(links == 1 && text.contains("os error"), "{text}");
         let _ = fs::remove_dir_all(root);
@@ -608,34 +608,34 @@ mod run_tests {
 
     #[test]
     fn fix_rewrites_the_readme_and_docs_on_disk() {
-        let root = repo("at 9 landed and 9 remaining, fixed");
+        let root = repo("9 steps on commit, 9 on push, fixed");
         let _ = fs::create_dir_all(root.join("docs/sub"));
         let _ = fs::write(root.join("docs/sub/A.md"), "7 steps on commit");
         let (code, _) = fix(&root);
         let readme =
             fs::read_to_string(root.join("README.md")).unwrap_or_default();
-        assert_eq!(readme, "at 1 landed and 1 remaining, fixed");
+        assert_eq!(readme, "1 steps on commit, 1 on push, fixed");
         let doc =
             fs::read_to_string(root.join("docs/sub/A.md")).unwrap_or_default();
         assert_eq!(doc, "1 steps on commit");
-        // Only the task split is in this README, so the other four stay
+        // Only the step counts are in this README, so the other two stay
         // findings: a fix never invents the sentence it would correct.
         assert_eq!(code, 1);
         let (_, text) = verb(&root, "--only=counts");
-        assert!(!text.contains("tasks landed") && !text.contains("tasks open"));
+        assert!(!text.contains("steps on commit") && !text.contains("on push"));
         let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn fix_is_only_for_counts() {
-        let root = repo("at 9 landed, fix needs counts");
+        let root = repo("9 steps on commit; fix needs counts too");
         let args = ["prose", "--fix"].map(str::to_owned);
         let mut plan = |_: &str| Ok(String::new());
         let mut err = Vec::new();
         assert_eq!(run(&root, &args, &mut plan, &mut err), 2);
         let readme =
             fs::read_to_string(root.join("README.md")).unwrap_or_default();
-        assert_eq!(readme, "at 9 landed, fix needs counts");
+        assert_eq!(readme, "9 steps on commit; fix needs counts too");
         let _ = fs::remove_dir_all(root);
     }
 
@@ -660,7 +660,7 @@ mod run_tests {
 
     #[test]
     fn unknown_only_value_is_a_usage_error() {
-        let root = repo("at 9 landed");
+        let root = repo("9 steps on commit");
         let (code, text) = verb(&root, "--only=bogus");
         assert_eq!(code, 2);
         assert!(text.contains("usage: rekall-dev prose"));
