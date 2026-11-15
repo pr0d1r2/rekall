@@ -176,7 +176,10 @@ fn phrase<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
     let clause = tokens
         .iter()
         .take(SLUG_CLAUSE_MAX)
-        .position(|t| t.ends_with([',', ';', ':', '.', '!', '?']));
+        .position(|t| {
+            t.trim_end_matches(['*', '_', '`'])
+                .ends_with([',', ';', ':', '.', '!', '?'])
+        });
     if let Some(i) = clause {
         return tokens.iter().take(i.saturating_add(1)).copied().collect();
     }
@@ -617,6 +620,10 @@ mod tests {
         assert_eq!(
             slug("- Run tests before pushing, because CI is slow"),
             "run-tests-before-pushing"
+        );
+        assert_eq!(
+            slug("- Run all tests before **pushing,** because CI is slow"),
+            "run-all-tests-before-pushing"
         );
     }
 
