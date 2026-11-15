@@ -173,13 +173,10 @@ const DANGLING: &[&str] = &[
 /// enough, else the word cap backed off any dangling connective, so the name
 /// never stops mid-phrase.
 fn phrase<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
-    let clause = tokens
-        .iter()
-        .take(SLUG_CLAUSE_MAX)
-        .position(|t| {
-            t.trim_end_matches(['*', '_', '`'])
-                .ends_with([',', ';', ':', '.', '!', '?'])
-        });
+    let clause = tokens.iter().take(SLUG_CLAUSE_MAX).position(|t| {
+        t.trim_end_matches(['*', '_', '`'])
+            .ends_with([',', ';', ':', '.', '!', '?'])
+    });
     if let Some(i) = clause {
         return tokens.iter().take(i.saturating_add(1)).copied().collect();
     }
