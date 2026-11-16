@@ -172,12 +172,16 @@ const DANGLING: &[&str] = &[
 /// The leading tokens that form the slug: a whole clause when one ends early
 /// enough, else the word cap backed off any dangling connective, so the name
 /// never stops mid-phrase.
+///
+/// A boundary on the FIRST word is a lead-in label (`**IMPORTANT:**`,
+/// `Note:`), not a clause: ending there would name every labelled
+/// statement alike, and two artifacts on one path is one overwritten.
 fn phrase<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
-    let clause = tokens.iter().take(SLUG_CLAUSE_MAX).position(|t| {
+    let clause = tokens.iter().take(SLUG_CLAUSE_MAX).skip(1).position(|t| {
         t.trim_end_matches(['*', '_', '`'])
             .ends_with([',', ';', ':', '.', '!', '?'])
     });
-    if let Some(i) = clause {
+    if let Some(i) = clause.map(|i| i.saturating_add(1)) {
         return tokens.iter().take(i.saturating_add(1)).copied().collect();
     }
     let mut kept: Vec<&str> = tokens.iter().take(SLUG_WORDS).copied().collect();
@@ -621,6 +625,18 @@ mod tests {
         assert_eq!(
             slug("- Run all tests before **pushing,** because CI is slow"),
             "run-all-tests-before-pushing"
+        );
+    }
+
+    #[test]
+    fn a_lead_in_label_is_not_the_clause_that_names_the_slug() {
+        assert_eq!(
+            slug("- **IMPORTANT:** never commit to main"),
+            "important-never-commit-to-main"
+        );
+        assert_ne!(
+            slug("- Note: run tests before pushing"),
+            slug("- Note: never force-push")
         );
     }
 
