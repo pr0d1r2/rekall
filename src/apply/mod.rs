@@ -342,7 +342,7 @@ mod tests {
     fn the_retire_command_gates_on_fires_and_a_human_word() {
         let path =
             concat!(env!("CARGO_MANIFEST_DIR"), "/.claude/commands/rekall.md");
-        let text = std::fs::read_to_string(path).expect("command file");
+        let text = std::fs::read_to_string(path).unwrap_or_default();
         assert!(text.contains("disable-model-invocation: true"));
         for needle in ["rekall log", "`fires` > 0", "confirm", "MEMORY.md"] {
             assert!(text.contains(needle), "missing {needle}");
