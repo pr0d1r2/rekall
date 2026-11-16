@@ -177,11 +177,14 @@ const DANGLING: &[&str] = &[
 /// `Note:`), not a clause: ending there would name every labelled
 /// statement alike, and two artifacts on one path is one overwritten.
 fn phrase<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
-    let clause = tokens.iter().take(SLUG_CLAUSE_MAX).skip(1).position(|t| {
-        t.trim_end_matches(['*', '_', '`'])
-            .ends_with([',', ';', ':', '.', '!', '?'])
-    });
-    if let Some(i) = clause.map(|i| i.saturating_add(1)) {
+    let label = lead_in_label_len(tokens);
+    let clause = tokens
+        .iter()
+        .take(SLUG_CLAUSE_MAX)
+        .skip(label)
+        .position(|t| ends_clause(t))
+        .map(|i| i.saturating_add(label));
+    if let Some(i) = clause {
         return tokens.iter().take(i.saturating_add(1)).copied().collect();
     }
     let mut kept: Vec<&str> = tokens.iter().take(SLUG_WORDS).copied().collect();
@@ -189,6 +192,23 @@ fn phrase<'a>(tokens: &[&'a str]) -> Vec<&'a str> {
         trim_dangling(&mut kept);
     }
     kept
+}
+
+/// How many leading words make up a lead-in label: an all-caps run through
+/// the first word that ends a clause (`**IMPORTANT NOTE:**` is two). At
+/// least one word, so a label never reaches the clause search.
+fn lead_in_label_len(tokens: &[&str]) -> usize {
+    tokens
+        .iter()
+        .take(SLUG_CLAUSE_MAX)
+        .take_while(|t| t.chars().all(|c| !c.is_ascii_lowercase()))
+        .position(|t| ends_clause(t))
+        .map_or(1, |i| i.saturating_add(1))
+}
+
+fn ends_clause(word: &str) -> bool {
+    word.trim_end_matches(['*', '_', '`'])
+        .ends_with([',', ';', ':', '.', '!', '?'])
 }
 
 fn trim_dangling(words: &mut Vec<&str>) {
@@ -633,6 +653,10 @@ mod tests {
         assert_eq!(
             slug("- **IMPORTANT:** never commit to main"),
             "important-never-commit-to-main"
+        );
+        assert_eq!(
+            slug("- **IMPORTANT NOTE:** never commit to main"),
+            "important-note-never-commit-to-main"
         );
         assert_ne!(
             slug("- Note: run tests before pushing"),
