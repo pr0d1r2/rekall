@@ -15,7 +15,9 @@ this separate act, and the JUDGMENT in it is yours and the user's.
 2. STOP, and say why, unless the row has `fires` > 0. `fires = 0` is not
    evidence the rule is safe to forget, and "unmeasured" is not "dead": a
    runner the gate executes every commit never records a fire.
-3. Run `rekall show <id>` and read the original text. Name the memory file
+3. Run `rekall show <full-id>`, using the `id` of the single log row that
+   matches `$ARGUMENTS` (not the prefix the user typed: a prefix can name a
+   live statement instead), and read the original text. Name the memory file
    (the source in the ledger row) and its `MEMORY.md` index line to the user.
    Say that deleting the file removes the pointer `rekall revert` needs, so
    the extraction stops being reversible in place.
