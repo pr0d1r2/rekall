@@ -52,7 +52,7 @@ T50|x|slug ⊥ truncates mid-phrase|§I
 T62|x|DONE, folded: artifacts under `.rekall/` published by symlink & the link verified; the head carries `disable-model-invocation` & written artifacts REISSUED. What each row DID is in `git log`; what it DECIDED is in the invariants beside it|V48,V52,V1,`src:V43`,`src/revert:V9`,`src/trigger:V4`
 T75|x|`apply` RESOLVES a `~`-prefixed or absolute source instead of joining it onto the base; what it cannot resolve is REFUSED by name. `plan` ⊥ prints a `delete` for a row `apply` cannot perform|V59,V16
 T76|x|REJECTED on measurement: the index hook is a SUMMARY, ⊥ a copy of the extracted rule, so there is ⊥ duplication to maintain away & rewriting it would be authoring. The destructive half became `statement:T78`|V60,`statement:V62`
-T77|.|STAGED memory retirement: extraction leaves the entry standing, `log` shows the fires, & a separate act removes entry+index. The JUDGMENT half is a `/rekall` slash command ∵ this crate has ⊥ a model (`.:V5`) & ! ⊥ grow one|V61,`log:V55`
+T77|x|STAGED memory retirement: extraction leaves the entry standing, `log` shows the fires, & a separate act removes entry+index. The JUDGMENT half is a `/rekall` slash command ∵ this crate has ⊥ a model (`.:V5`) & ! ⊥ grow one|V61,`log:V55`
 
 ## §B BUGS
 
