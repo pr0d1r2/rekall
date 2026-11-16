@@ -187,6 +187,15 @@
           # an input, so editing SPEC.md would rebuild the crate from
           # scratch -- which for a tool whose subject IS specs and prose
           # would be a rebuild on nearly every commit.
+          #
+          # "What the build reads" includes what the SUITE reads, because
+          # `buildRustPackage` runs it. `.claude/commands` is there for the
+          # `/rekall` slash command, which `src/apply` tests (T77); without
+          # it that test reads an empty file and fails on every system while
+          # the working-tree gate passes (`src:B30`). `maybeMissing` because the
+          # directory is optional, and a path literal that is absent is an
+          # EVALUATION error. `tools/check-package-fileset.sh` is the runner
+          # that keeps this list honest (V22).
           src = pkgs.lib.fileset.toSource {
             root = ./.;
             fileset = pkgs.lib.fileset.unions [
@@ -194,6 +203,7 @@
               ./dev
               ./Cargo.toml
               ./Cargo.lock
+              (pkgs.lib.fileset.maybeMissing ./.claude/commands)
             ];
           };
           cargoLock.lockFile = ./Cargo.lock;

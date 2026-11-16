@@ -270,6 +270,15 @@ local fast = new Mapping<String, Step> {
     check = "sh tools/check-set-and-setting-integration.sh"
   }
 
+  // The PACKAGE SANDBOX sees only flake.nix's fileset, the working tree
+  // sees everything, so a test that reads a file outside the fileset is
+  // green here and red in `nix build` on every system (`src:B30`, B28). Static
+  // and offline: it compares the paths tests read with the fileset roots.
+  ["package-fileset"] {
+    glob = List("**/*.rs", "flake.nix", "tools/check-package-fileset.sh")
+    check = "sh tools/check-package-fileset.sh"
+  }
+
   // EXTRACTED from CLAUDE.md by rekall (id 551a009). No glob: the branch
   // you are on is not something a file change announces.
   ["branch-not-main"] {

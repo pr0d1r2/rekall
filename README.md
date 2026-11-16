@@ -16,10 +16,10 @@
 [![network none](https://img.shields.io/badge/network-none-brightgreen)](docs/SECURITY.md)
 
 [![gate hk](https://img.shields.io/badge/gate-hk-6E4AFF)][hk]
-[![gate steps 32 commit / 38 push](https://img.shields.io/badge/gate_steps-32_commit_%2F_38_push-6E4AFF)][hk]
+[![gate steps 33 commit / 39 push](https://img.shields.io/badge/gate_steps-33_commit_%2F_39_push-6E4AFF)][hk]
 [![coverage floor 99.33%](https://img.shields.io/badge/coverage_floor-%E2%89%A599.33%25-brightgreen)](.coverage)
 [![invariants 73](https://img.shields.io/badge/invariants-73-6E4AFF)](SPEC.md)
-[![bugs logged 32](https://img.shields.io/badge/bugs_logged-32-6E4AFF)](SPEC.md)
+[![bugs logged 33](https://img.shields.io/badge/bugs_logged-33-6E4AFF)](SPEC.md)
 [![federated nodes 23](https://img.shields.io/badge/federated_nodes-23-6E4AFF)](docs/FEDERATION.md)
 
 [![nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)][flake]
@@ -496,7 +496,7 @@ its own directory. [`FEDERATION.md`](docs/FEDERATION.md) explains the shape,
 and why the root is a route rather than a reading.
 
 The design is settled and written down. [`SPEC.md`](SPEC.md) is the source of
-truth — 73 invariants, each carrying the reasoning it stands on; 32 recorded
+truth — 73 invariants, each carrying the reasoning it stands on; 33 recorded
 bugs, each naming the invariant that now catches it; and a task list that says
 what is decided and what is still open.
 
@@ -507,7 +507,7 @@ direnv allow      # or: nix develop
 hk check          # the whole gate, the same definition CI runs
 ```
 
-32 steps on commit, 38 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
+33 steps on commit, 39 on push. [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) is
 the loop; [`INTEGRATION.md`](docs/INTEGRATION.md) is how to put `rekall` in
 someone else's gate.
 
