@@ -95,4 +95,5 @@ src/tokens/mod.rs
 src/trigger/SPEC.md
 src/trigger/mod.rs
 tests/cli.rs
+tools/check-package-fileset.sh
 tools/check-set-and-setting-integration.sh
