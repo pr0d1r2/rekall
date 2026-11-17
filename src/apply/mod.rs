@@ -344,7 +344,13 @@ mod tests {
             concat!(env!("CARGO_MANIFEST_DIR"), "/.claude/commands/rekall.md");
         let text = std::fs::read_to_string(path).unwrap_or_default();
         assert!(text.contains("disable-model-invocation: true"));
-        for needle in ["rekall log", "`fires` > 0", "confirm", "MEMORY.md"] {
+        for needle in [
+            "rekall log",
+            "`fires` > 0",
+            "every row whose source is that same memory file",
+            "confirm",
+            "MEMORY.md",
+        ] {
             assert!(text.contains(needle), "missing {needle}");
         }
     }
