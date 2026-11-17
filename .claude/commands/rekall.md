@@ -18,7 +18,8 @@ this separate act, and the JUDGMENT in it is yours and the user's.
    Then find every row whose source is that same memory file: a file can
    hold more than one extracted statement, and deleting it takes them all.
    STOP unless each of those rows has `fires` > 0, and unless the file holds
-   nothing beyond their text -- anything else in it has no artifact yet.
+   nothing beyond their `<!-- rekall <id> -->` pointers (`apply` left one
+   where each statement stood) -- anything else in it has no artifact yet.
 3. Run `rekall show <full-id>`, using the `id` of the single log row that
    matches `$ARGUMENTS` (not the prefix the user typed: a prefix can name a
    live statement instead), and read the original text. Name the memory file
