@@ -338,26 +338,32 @@ mod tests {
     /// V61: retirement is a HUMAN's act, staged after the fires. The slash
     /// command is the judgment half, so it must keep its gates: it reads
     /// `log`, refuses on no fires, and asks before it deletes.
+    const RETIRE_NEEDLES: [&str; 5] = [
+        "rekall log",
+        "`fires` > 0",
+        "every row whose source is that same memory file",
+        "confirm",
+        "MEMORY.md",
+    ];
+
     #[test]
-    fn the_retire_command_gates_on_fires_and_a_human_word() {
-        let path =
-            concat!(env!("CARGO_MANIFEST_DIR"), "/.claude/commands/rekall.md");
+    fn the_retire_command_gates_on_fires_and_a_human_word()
+    -> std::io::Result<()> {
         // `.claude/` is excluded from the published crate, so an unpacked
         // tarball has no command file. The source checkout runs this gate
-        // (hk's `cargo test`), so only the packaged run skips it.
-        let Ok(text) = std::fs::read_to_string(path) else {
-            return;
-        };
+        // (hk's `cargo test`), so only the packaged run skips it. Any other
+        // read failure in a checkout must fail the gate, not pass it.
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/.claude");
+        if !std::path::Path::new(dir).exists() {
+            return Ok(());
+        }
+        let text =
+            std::fs::read_to_string(format!("{dir}/commands/rekall.md"))?;
         assert!(text.contains("disable-model-invocation: true"));
-        for needle in [
-            "rekall log",
-            "`fires` > 0",
-            "every row whose source is that same memory file",
-            "confirm",
-            "MEMORY.md",
-        ] {
+        for needle in RETIRE_NEEDLES {
             assert!(text.contains(needle), "missing {needle}");
         }
+        Ok(())
     }
 
     #[test]
