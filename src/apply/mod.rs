@@ -342,7 +342,12 @@ mod tests {
     fn the_retire_command_gates_on_fires_and_a_human_word() {
         let path =
             concat!(env!("CARGO_MANIFEST_DIR"), "/.claude/commands/rekall.md");
-        let text = std::fs::read_to_string(path).unwrap_or_default();
+        // `.claude/` is excluded from the published crate, so an unpacked
+        // tarball has no command file. The source checkout runs this gate
+        // (hk's `cargo test`), so only the packaged run skips it.
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return;
+        };
         assert!(text.contains("disable-model-invocation: true"));
         for needle in [
             "rekall log",
