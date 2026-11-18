@@ -337,12 +337,16 @@ mod tests {
 
     /// V61: retirement is a HUMAN's act, staged after the fires. The slash
     /// command is the judgment half, so it must keep its gates: it reads
-    /// `log`, refuses on no fires, and asks before it deletes.
-    const RETIRE_NEEDLES: [&str; 5] = [
+    /// `log`, refuses on no fires, refuses a file holding prose with no
+    /// artifact yet, and asks before it deletes -- then re-reads, since a
+    /// yes is for what it showed.
+    const RETIRE_NEEDLES: [&str; 7] = [
         "rekall log",
         "`fires` > 0",
         "every row whose source is that same memory file",
+        "nothing beyond their `<!-- rekall <id> -->` pointers",
         "confirm",
+        "If either changed",
         "MEMORY.md",
     ];
 
