@@ -70,12 +70,19 @@ missing=$(printf '%s\n' "$reads" | while IFS= read -r hit; do
   [ -n "$hit" ] || continue
   path=${hit##*:}
   path=${path#/}
+  path=${path#./}
   covered=no
-  for r in $roots; do
-    case $path in
-      "$r" | "$r"/*) covered=yes ;;
-    esac
-  done
+  # A `..` component can leave the root, so it is never provably inside.
+  case $path in
+    */../* | ../* | */.. | ..) ;;
+    *)
+      for r in $roots; do
+        case $path in
+          "$r" | "$r"/*) covered=yes ;;
+        esac
+      done
+      ;;
+  esac
   [ "$covered" = yes ] || echo "  $hit"
 done)
 
