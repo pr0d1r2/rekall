@@ -32,5 +32,8 @@ this separate act, and the JUDGMENT in it is yours and the user's.
 4. Ask the user to confirm that file and that index line, by name. A note
    about how someone wants to be talked to scores like one about hooks:
    class is a candidate, never a permission. No clear yes, no deletion.
-5. Only then delete the memory file and its one line in `MEMORY.md`, and
-   nothing else. Name each file touched, and report what was removed.
+5. Only then re-read the memory file and `MEMORY.md`. If either changed
+   since step 2, STOP: redo step 2 and ask again, since the yes was for what
+   you showed. Otherwise delete the memory file and its one line in
+   `MEMORY.md`, and nothing else. Name each file touched, and report what
+   was removed.
