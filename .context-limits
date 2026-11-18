@@ -423,7 +423,20 @@
 # Moving it down into a node is not available: the dev shell and the gate
 # belong to the root, and a bug lives in its owning node (§C).
 
-SPEC.md   9500
+# SPEC.md 9500 -> 9700, for ONE §B ROW.
+#
+# The file sat at 9493, so 7 tokens of headroom. B32 records why the loop
+# braked for 12 hours a second time: main went red on ONE platform with a
+# tree that had already passed on all four, and the loop neither opens a PR
+# onto a red base nor re-runs a job, so a single flake stops every trip. The
+# job log needs auth the trip does not have, so the row is the only record.
+#
+# MEASURED: the row costs 143 tokens at o200k, landing the file at 9636. The
+# first draft cost 163 and carried a literal `||` that split the row into six
+# fields. Moving it down is not available for B29's reason: the gate and CI
+# belong to the root.
+
+SPEC.md   9700
 src       10000
 # README.md RAISED 2026-09-05, 5700 -> 5900. The last entry said the next
 # raise has to argue against the FLEET figure rather than against a stub.
