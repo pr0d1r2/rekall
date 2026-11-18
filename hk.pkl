@@ -306,8 +306,10 @@ local fast = new Mapping<String, Step> {
     // A step's glob must name every INPUT its tests read, not just the
     // language they are written in. Cargo.toml is here because the version
     // and lint set live there; SPEC.md will join it the moment a test reads
-    // it, which T19 makes inevitable.
-    glob = List("**/*.rs", "Cargo.toml")
+    // it, which T19 makes inevitable. `.claude/commands/` is here because
+    // `src/apply`'s retire-command test reads the `/rekall` command, and an
+    // edit to that file alone would otherwise commit untested.
+    glob = List("**/*.rs", "Cargo.toml", ".claude/commands/*.md")
     depends = List("clippy")
     check = """
       cargo test || { echo 'hk: a test failed. Decide WHICH kind before editing: a code bug, or a spec gap. A gap goes through SPEC.md first -- append the cause to section B so the invariant that would have caught it exists before the fix does.' >&2; exit 1; }
