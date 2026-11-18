@@ -357,12 +357,11 @@ mod tests {
         // tarball has no command file. The source checkout runs this gate
         // (hk's `cargo test`), so only the packaged run skips it. Any other
         // read failure in a checkout must fail the gate, not pass it.
-        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/.claude");
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/.claude/commands");
         if !std::path::Path::new(dir).exists() {
             return Ok(());
         }
-        let text =
-            std::fs::read_to_string(format!("{dir}/commands/rekall.md"))?;
+        let text = std::fs::read_to_string(format!("{dir}/rekall.md"))?;
         assert!(text.contains("disable-model-invocation: true"));
         for needle in RETIRE_NEEDLES {
             assert!(text.contains(needle), "missing {needle}");
