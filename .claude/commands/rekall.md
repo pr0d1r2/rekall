@@ -22,10 +22,13 @@ this separate act, and the JUDGMENT in it is yours and the user's.
    where each statement stood) -- anything else in it has no artifact yet.
 3. Run `rekall show <full-id>`, using the `id` of the single log row that
    matches `$ARGUMENTS` (not the prefix the user typed: a prefix can name a
-   live statement instead), and read the original text. Name the memory file
+   live statement instead), and read the original text. Then run
+   `rekall show <full-id>` for every sibling row found in step 2 as well, so
+   the user sees each affected ID and its original text. Name the memory file
    (the source in the ledger row) and its `MEMORY.md` index line to the user.
-   Say that deleting the file removes the pointer `rekall revert` needs, so
-   the extraction stops being reversible in place.
+   Say that deleting the file removes the pointer `rekall revert` needs for
+   EACH listed ID, so every one of those extractions stops being reversible
+   in place.
 4. Ask the user to confirm that file and that index line, by name. A note
    about how someone wants to be talked to scores like one about hooks:
    class is a candidate, never a permission. No clear yes, no deletion.
