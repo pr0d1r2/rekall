@@ -1,4 +1,5 @@
-use super::{Env, Format, Output, need, parse_format};
+use super::scan::{ScanArgs, fill_tokens, inventory};
+use super::{Env, Format, Output, need, parse_format, resolve};
 use crate::init;
 use std::path::PathBuf;
 /// `init` flags. `--force` is separate from `--auto-approve` on purpose:
@@ -40,12 +41,35 @@ fn apply_init_flag<'a>(
 pub fn init_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let args = parse_init(flags)?;
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let report = init::run(&base, env.home.as_deref(), args.force)
+    let mut report = init::run(&base, env.home.as_deref(), args.force)
         .map_err(|error| error.to_string())?;
+    let (diagnosis, warnings) = diagnose(&base, env.home.as_deref());
+    report.diagnosis = diagnosis;
     Ok(Output {
         text: render_init(&report, args.json)?,
-        warnings: Vec::new(),
+        warnings,
     })
+}
+
+/// Scan what `init` just configured and diagnose it (T46). Report-only: a
+/// scan that cannot run leaves the diagnosis out and says why, never failing
+/// a config that was already written.
+fn diagnose(
+    base: &std::path::Path,
+    home: Option<&str>,
+) -> (Option<init::Diagnosis>, Vec<String>) {
+    let args = ScanArgs::default();
+    let outcome = resolve(base)
+        .and_then(|resolved| inventory(&resolved, &args, base, home));
+    match outcome {
+        Ok(mut outcome) => {
+            let warnings = fill_tokens(&mut outcome);
+            let spec = std::fs::read_to_string(base.join("SPEC.md")).ok();
+            let rows = &outcome.report.rows;
+            (Some(init::diagnose(rows, spec.as_deref())), warnings)
+        }
+        Err(error) => (None, vec![format!("diagnosis skipped: {error}")]),
+    }
 }
 
 fn render_init(report: &init::Report, json: bool) -> Result<String, String> {
@@ -116,6 +140,20 @@ mod tests {
             .map(|out| out.text)
             .unwrap_or_default();
         assert!(scanned.contains("M1"), "scan output was {scanned}");
+    }
+
+    #[test]
+    fn init_diagnoses_the_corpus_it_just_configured() {
+        let dir = PathBuf::from("target").join("cli-init").join("diagnose");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("CLAUDE.md"), "- never commit to `main`\n");
+        let flags = args(&["-C", &dir.to_string_lossy(), "--format", "json"]);
+        let text = init_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("\"u_rate_pct\""), "text was {text}");
     }
 
     #[test]

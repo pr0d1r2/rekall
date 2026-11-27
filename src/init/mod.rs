@@ -125,6 +125,103 @@ pub struct Report {
     pub user: Vec<String>,
     /// Places looked at that held nothing.
     pub absent: Vec<String>,
+    /// What the corpus just detected COSTS. `None` until the caller has
+    /// scanned it: `run` only writes, and measuring is `scan`'s job.
+    pub diagnosis: Option<Diagnosis>,
+}
+
+/// The always-on cost budget a fresh corpus is held to, in tokens.
+///
+/// A DEFAULT, admitted as one: `[budget]` ceilings are not parsed yet, so
+/// this is what `init` can honestly compare against, and the output names it.
+pub const DEFAULT_CEILING: u32 = 2000;
+
+/// A spec past this many lines is one file too many (FORMAT's one-file rule).
+pub const MONOLITH_LINES: usize = 500;
+
+/// Where a monolithic spec should be cut first: its largest section.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Cut {
+    pub file: String,
+    pub lines: usize,
+    pub section: String,
+    pub section_lines: usize,
+}
+
+/// `init` DIAGNOSES (T46): what the corpus costs against its ceiling, how
+/// much of it the classifier could not call, and whether a spec wants cutting.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Diagnosis {
+    pub statements: usize,
+    /// `None` when `itok` was unavailable: unmeasured is NOT zero (V26).
+    pub tokens: Option<u32>,
+    pub ceiling: u32,
+    pub over_ceiling: Option<bool>,
+    pub unknown: usize,
+    /// Whole percent of statements classed `U`.
+    pub u_rate_pct: u32,
+    pub monolith: Option<Cut>,
+}
+
+/// Diagnose from rows `scan` already produced and the project's `SPEC.md`
+/// text, if any. Pure: the token counts are `itok`'s (V8), not recomputed.
+#[must_use]
+pub fn diagnose(rows: &[crate::scan::Row], spec: Option<&str>) -> Diagnosis {
+    let unknown = rows.iter().filter(|row| row.class == "U").count();
+    let tokens = cost_of(rows);
+    Diagnosis {
+        statements: rows.len(),
+        tokens,
+        ceiling: DEFAULT_CEILING,
+        over_ceiling: tokens.map(|cost| cost > DEFAULT_CEILING),
+        unknown,
+        u_rate_pct: percent(unknown, rows.len()),
+        monolith: spec.and_then(monolith),
+    }
+}
+
+/// Summed token cost, or `None` if ANY count is missing or there is nothing
+/// to count: unmeasured is not zero (V26).
+fn cost_of(rows: &[crate::scan::Row]) -> Option<u32> {
+    let sum: Option<u32> = rows.iter().map(|row| row.tokens).sum();
+    sum.filter(|_| !rows.is_empty())
+}
+
+fn percent(part: usize, whole: usize) -> u32 {
+    let scaled = part.saturating_mul(100).checked_div(whole).unwrap_or(0);
+    u32::try_from(scaled).unwrap_or(100)
+}
+
+/// A spec over `MONOLITH_LINES` with no federation (`## F`, section-sign) section, and the
+/// largest `## ` section in it -- the first cut, since that one moves the
+/// most text out of the file every agent loads.
+fn monolith(text: &str) -> Option<Cut> {
+    let lines: Vec<&str> = text.lines().collect();
+    if lines.len() <= MONOLITH_LINES
+        || lines.iter().any(|line| line.starts_with("## \u{a7}F"))
+    {
+        return None;
+    }
+    let (head, size) = sections(&lines).into_iter().max_by_key(|s| s.1)?;
+    Some(Cut {
+        file: "SPEC.md".to_string(),
+        lines: lines.len(),
+        section: head.trim_start_matches("## ").to_string(),
+        section_lines: size,
+    })
+}
+
+/// Each `## ` heading with the number of lines it spans, heading included.
+fn sections<'a>(lines: &[&'a str]) -> Vec<(&'a str, usize)> {
+    let mut out: Vec<(&str, usize)> = Vec::new();
+    for line in lines {
+        match out.last_mut() {
+            _ if line.starts_with("## ") => out.push((line, 1)),
+            Some(last) => last.1 = last.1.saturating_add(1),
+            None => {}
+        }
+    }
+    out
 }
 
 #[derive(Debug)]
@@ -192,6 +289,7 @@ fn report(found: &[Candidate], path: &str) -> Report {
         roots: named(found, |c| c.found && c.scope.is_project()),
         user: named(found, |c| c.found && !c.scope.is_project()),
         absent: named(found, |c| !c.found),
+        diagnosis: None,
     }
 }
 
@@ -215,11 +313,21 @@ const USER_HINT: &str = "\nThose are USER roots. They are NOT written here -- th
 and a home path in it\nwould follow the repo to every checkout. Put them in \
 `~/.config/rekall/rekall.toml`;\nroots UNION across scopes, so both get \
 scanned.\n";
-
 /// Human rendering. The JSON carries the SAME anatomy (V17).
 #[must_use]
 pub fn render_human(report: &Report) -> String {
     let mut out = format!("wrote  {}\n", report.path);
+    out.push_str(&render_roots(report));
+    if !report.user.is_empty() {
+        out.push_str(USER_HINT);
+    }
+    let diagnosis = report.diagnosis.as_ref().map(render_diagnosis);
+    out.push_str(&diagnosis.unwrap_or_default());
+    out
+}
+
+fn render_roots(report: &Report) -> String {
+    let mut out = String::new();
     for root in &report.roots {
         out.push_str(&format!("root   {root}\n"));
     }
@@ -229,10 +337,40 @@ pub fn render_human(report: &Report) -> String {
     for root in &report.absent {
         out.push_str(&format!("absent {root}\n"));
     }
-    if !report.user.is_empty() {
-        out.push_str(USER_HINT);
+    out
+}
+
+fn render_diagnosis(d: &Diagnosis) -> String {
+    let mut out = format!("\ndiagnosis\n{}", render_cost(d));
+    out.push_str(&format!(
+        "U rate {}% ({} of {} statements the classifier could not call)\n",
+        d.u_rate_pct, d.unknown, d.statements
+    ));
+    if let Some(cut) = &d.monolith {
+        out.push_str(&format!(
+            "cut    {} is {} lines, past {MONOLITH_LINES}: cut `{}` ({} lines) first\n",
+            cut.file, cut.lines, cut.section, cut.section_lines
+        ));
     }
     out
+}
+
+fn render_cost(d: &Diagnosis) -> String {
+    let Some(cost) = d.tokens else {
+        return format!(
+            "cost   not measured ({} statements; itok unavailable or corpus empty)\n",
+            d.statements
+        );
+    };
+    let over = if d.over_ceiling == Some(true) {
+        " -- OVER"
+    } else {
+        ""
+    };
+    format!(
+        "cost   {cost} tokens over {} statements, ceiling {} (default){over}\n",
+        d.statements, d.ceiling
+    )
 }
 
 #[cfg(test)]
@@ -444,10 +582,84 @@ mod tests {
             roots: vec!["CLAUDE.md".to_string()],
             user: Vec::new(),
             absent: vec!["AGENTS.md".to_string()],
+            diagnosis: None,
         };
         let text = render_human(&report);
         assert!(text.contains("wrote  rekall.toml"));
         assert!(text.contains("root   CLAUDE.md"));
         assert!(text.contains("absent AGENTS.md"));
+    }
+
+    fn row(class: &str, tokens: Option<u32>) -> crate::scan::Row {
+        crate::scan::Row {
+            id: "abc1234".to_string(),
+            src: "CLAUDE.md:1-1".to_string(),
+            tokens,
+            class: class.to_string(),
+            sharpness: None,
+            label: class.to_string(),
+            signals: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn cost_is_summed_and_compared_to_the_ceiling() {
+        let rows = vec![row("M", Some(1500)), row("U", Some(600))];
+        let d = diagnose(&rows, None);
+        assert_eq!(d.tokens, Some(2100));
+        assert_eq!(d.over_ceiling, Some(true));
+        assert_eq!((d.unknown, d.u_rate_pct), (1, 50));
+    }
+
+    /// Unmeasured is not zero: one missing count leaves the cost unknown.
+    #[test]
+    fn a_missing_count_leaves_cost_unmeasured_and_says_so() {
+        let d = diagnose(&[row("M", Some(5)), row("S", None)], None);
+        assert_eq!((d.tokens, d.over_ceiling), (None, None));
+        assert!(render_diagnosis(&d).contains("not measured"));
+    }
+
+    #[test]
+    fn an_empty_corpus_has_no_rate_and_no_cost() {
+        let d = diagnose(&[], None);
+        assert_eq!((d.tokens, d.u_rate_pct), (None, 0));
+    }
+
+    #[test]
+    fn a_long_spec_names_its_largest_section_as_the_first_cut() {
+        let mut text =
+            String::from("# SPEC\n## \u{a7}G GOAL\nx\n## \u{a7}V INVARIANTS\n");
+        for n in 0..600 {
+            text.push_str(&format!("V{n}: a rule\n"));
+        }
+        text.push_str("## \u{a7}T TASKS\nT1\n");
+        let cut = diagnose(&[], Some(&text)).monolith;
+        assert_eq!(
+            cut.map(|c| (c.section, c.section_lines)),
+            Some(("\u{a7}V INVARIANTS".to_string(), 601))
+        );
+    }
+
+    #[test]
+    fn a_short_or_federated_spec_is_not_a_monolith() {
+        assert!(monolith("# SPEC\n## \u{a7}G\nx\n").is_none());
+        let mut text = String::from("## \u{a7}F FEDERATION\n");
+        text.push_str(&"line\n".repeat(600));
+        assert!(monolith(&text).is_none());
+    }
+
+    #[test]
+    fn the_human_diagnosis_names_cost_rate_and_cut() {
+        let mut d = diagnose(&[row("U", Some(10))], None);
+        d.monolith = Some(Cut {
+            file: "SPEC.md".to_string(),
+            lines: 900,
+            section: "\u{a7}V INVARIANTS".to_string(),
+            section_lines: 700,
+        });
+        let text = render_diagnosis(&d);
+        assert!(text.contains("cost   10 tokens"), "{text}");
+        assert!(text.contains("U rate 100%"), "{text}");
+        assert!(text.contains("cut `\u{a7}V INVARIANTS`"), "{text}");
     }
 }
