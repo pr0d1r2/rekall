@@ -63,12 +63,29 @@ fn diagnose(
         .and_then(|resolved| inventory(&resolved, &args, base, home));
     match outcome {
         Ok(mut outcome) => {
-            let warnings = fill_tokens(&mut outcome);
-            let spec = std::fs::read_to_string(base.join("SPEC.md")).ok();
-            let rows = &outcome.report.rows;
-            (Some(init::diagnose(rows, spec.as_deref())), warnings)
+            let mut warnings = fill_tokens(&mut outcome);
+            let spec = read_spec(base, &mut warnings);
+            let diagnosis =
+                init::diagnose(&outcome.report.rows, spec.as_deref());
+            (Some(diagnosis), warnings)
         }
         Err(error) => (None, vec![format!("diagnosis skipped: {error}")]),
+    }
+}
+
+/// A missing SPEC.md is normal and leaves the spec diagnosis out. Any other
+/// read failure is reported as a warning, and the corpus diagnosis still runs.
+fn read_spec(
+    base: &std::path::Path,
+    warnings: &mut Vec<String>,
+) -> Option<String> {
+    match std::fs::read_to_string(base.join("SPEC.md")) {
+        Ok(text) => Some(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            warnings.push(format!("SPEC.md unreadable: {error}"));
+            None
+        }
     }
 }
 
