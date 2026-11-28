@@ -173,6 +173,55 @@ mod tests {
         assert!(text.contains("\"u_rate_pct\""), "text was {text}");
     }
 
+    /// A fresh project holding one rule, so the diagnosis has a corpus.
+    fn project(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("cli-init").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("CLAUDE.md"), "- never commit to `main`\n");
+        dir
+    }
+
+    fn init_in(dir: &std::path::Path) -> Output {
+        let flags = args(&["-C", &dir.to_string_lossy()]);
+        init_command(&flags, &env()).unwrap_or_else(|error| Output {
+            text: error,
+            warnings: Vec::new(),
+        })
+    }
+
+    /// The project's own SPEC.md is what `init` reads for the cut, so a
+    /// monolith on disk has to reach the report, not just the pure helper.
+    #[test]
+    fn init_names_the_first_cut_of_a_monolithic_spec_on_disk() {
+        let dir = project("monolith");
+        let mut spec = String::from("# SPEC\n## G GOAL\nx\n## V INVARIANTS\n");
+        spec.push_str(&"V1: a rule\n".repeat(600));
+        let _ = std::fs::write(dir.join("SPEC.md"), spec);
+        let text = init_in(&dir).text;
+        assert!(text.contains("cut `V INVARIANTS`"), "text was {text}");
+    }
+
+    /// A SPEC.md that exists but cannot be read is NAMED, and the corpus
+    /// diagnosis still runs. Only a missing one is silent.
+    #[test]
+    fn an_unreadable_spec_is_warned_and_the_diagnosis_still_runs() {
+        let dir = project("bad-spec");
+        let _ = std::fs::create_dir_all(dir.join("SPEC.md"));
+        let out = init_in(&dir);
+        let named = out.warnings.iter().any(|w| w.contains("SPEC.md"));
+        assert!(named, "warnings were {:?}", out.warnings);
+        assert!(out.text.contains("U rate"), "text was {}", out.text);
+    }
+
+    #[test]
+    fn a_missing_spec_is_not_a_warning() {
+        let warnings = init_in(&project("no-spec")).warnings;
+        let named = warnings.iter().any(|w| w.contains("SPEC.md"));
+        assert!(!named, "warnings were {warnings:?}");
+    }
+
     #[test]
     fn init_refusing_to_clobber_exits_two() {
         let dir = PathBuf::from("target").join("cli-init").join("clobber");
