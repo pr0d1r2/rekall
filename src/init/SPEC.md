@@ -37,4 +37,4 @@ sib|src/trigger|the fenced `rekall` BLOCK: its keys, how they combine, and the r
 ## §T TASKS
 
 id|status|task|cites
-T46|.|`init` DIAGNOSES: corpus cost vs ceiling, `U` rate, monolithic spec ∴ names the first cut|§I,`.:V39`
+T46|x|`init` DIAGNOSES: corpus cost vs ceiling, `U` rate, monolithic spec ∴ names the first cut|§I,`.:V39`

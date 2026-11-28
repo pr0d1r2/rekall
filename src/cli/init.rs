@@ -1,4 +1,5 @@
-use super::{Env, Format, Output, need, parse_format};
+use super::scan::{ScanArgs, fill_tokens, inventory};
+use super::{Env, Format, Output, need, parse_format, resolve};
 use crate::init;
 use std::path::PathBuf;
 /// `init` flags. `--force` is separate from `--auto-approve` on purpose:
@@ -40,12 +41,52 @@ fn apply_init_flag<'a>(
 pub fn init_command(flags: &[String], env: &Env) -> Result<Output, String> {
     let args = parse_init(flags)?;
     let base = args.cwd.clone().unwrap_or_else(|| env.cwd.clone());
-    let report = init::run(&base, env.home.as_deref(), args.force)
+    let mut report = init::run(&base, env.home.as_deref(), args.force)
         .map_err(|error| error.to_string())?;
+    let (diagnosis, warnings) = diagnose(&base, env.home.as_deref());
+    report.diagnosis = diagnosis;
     Ok(Output {
         text: render_init(&report, args.json)?,
-        warnings: Vec::new(),
+        warnings,
     })
+}
+
+/// Scan what `init` just configured and diagnose it (T46). Report-only: a
+/// scan that cannot run leaves the diagnosis out and says why, never failing
+/// a config that was already written.
+fn diagnose(
+    base: &std::path::Path,
+    home: Option<&str>,
+) -> (Option<init::Diagnosis>, Vec<String>) {
+    let args = ScanArgs::default();
+    let outcome = resolve(base)
+        .and_then(|resolved| inventory(&resolved, &args, base, home));
+    match outcome {
+        Ok(mut outcome) => {
+            let mut warnings = fill_tokens(&mut outcome);
+            let spec = read_spec(base, &mut warnings);
+            let diagnosis =
+                init::diagnose(&outcome.report.rows, spec.as_deref());
+            (Some(diagnosis), warnings)
+        }
+        Err(error) => (None, vec![format!("diagnosis skipped: {error}")]),
+    }
+}
+
+/// A missing SPEC.md is normal and leaves the spec diagnosis out. Any other
+/// read failure is reported as a warning, and the corpus diagnosis still runs.
+fn read_spec(
+    base: &std::path::Path,
+    warnings: &mut Vec<String>,
+) -> Option<String> {
+    match std::fs::read_to_string(base.join("SPEC.md")) {
+        Ok(text) => Some(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            warnings.push(format!("SPEC.md unreadable: {error}"));
+            None
+        }
+    }
 }
 
 fn render_init(report: &init::Report, json: bool) -> Result<String, String> {
@@ -116,6 +157,69 @@ mod tests {
             .map(|out| out.text)
             .unwrap_or_default();
         assert!(scanned.contains("M1"), "scan output was {scanned}");
+    }
+
+    #[test]
+    fn init_diagnoses_the_corpus_it_just_configured() {
+        let dir = PathBuf::from("target").join("cli-init").join("diagnose");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("CLAUDE.md"), "- never commit to `main`\n");
+        let flags = args(&["-C", &dir.to_string_lossy(), "--format", "json"]);
+        let text = init_command(&flags, &env())
+            .map(|out| out.text)
+            .unwrap_or_default();
+        assert!(text.contains("\"u_rate_pct\""), "text was {text}");
+    }
+
+    /// A fresh project holding one rule, so the diagnosis has a corpus.
+    fn project(name: &str) -> PathBuf {
+        let dir = PathBuf::from("target").join("cli-init").join(name);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ =
+            std::fs::write(dir.join("CLAUDE.md"), "- never commit to `main`\n");
+        dir
+    }
+
+    fn init_in(dir: &std::path::Path) -> Output {
+        let flags = args(&["-C", &dir.to_string_lossy()]);
+        init_command(&flags, &env()).unwrap_or_else(|error| Output {
+            text: error,
+            warnings: Vec::new(),
+        })
+    }
+
+    /// The project's own SPEC.md is what `init` reads for the cut, so a
+    /// monolith on disk has to reach the report, not just the pure helper.
+    #[test]
+    fn init_names_the_first_cut_of_a_monolithic_spec_on_disk() {
+        let dir = project("monolith");
+        let mut spec = String::from("# SPEC\n## G GOAL\nx\n## V INVARIANTS\n");
+        spec.push_str(&"V1: a rule\n".repeat(600));
+        let _ = std::fs::write(dir.join("SPEC.md"), spec);
+        let text = init_in(&dir).text;
+        assert!(text.contains("cut `V INVARIANTS`"), "text was {text}");
+    }
+
+    /// A SPEC.md that exists but cannot be read is NAMED, and the corpus
+    /// diagnosis still runs. Only a missing one is silent.
+    #[test]
+    fn an_unreadable_spec_is_warned_and_the_diagnosis_still_runs() {
+        let dir = project("bad-spec");
+        let _ = std::fs::create_dir_all(dir.join("SPEC.md"));
+        let out = init_in(&dir);
+        let named = out.warnings.iter().any(|w| w.contains("SPEC.md"));
+        assert!(named, "warnings were {:?}", out.warnings);
+        assert!(out.text.contains("U rate"), "text was {}", out.text);
+    }
+
+    #[test]
+    fn a_missing_spec_is_not_a_warning() {
+        let warnings = init_in(&project("no-spec")).warnings;
+        let named = warnings.iter().any(|w| w.contains("SPEC.md"));
+        assert!(!named, "warnings were {warnings:?}");
     }
 
     #[test]
